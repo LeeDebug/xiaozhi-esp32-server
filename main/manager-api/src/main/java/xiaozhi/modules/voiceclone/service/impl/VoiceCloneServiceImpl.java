@@ -342,7 +342,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
                 .uri(URI.create(apiUrl))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer;" + accessToken)
-                .header("Resource-Id", "seed-icl-1.0")
+                .header("Resource-Id", "seed-icl-2.0")
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(reqBody)))
                 .build();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());

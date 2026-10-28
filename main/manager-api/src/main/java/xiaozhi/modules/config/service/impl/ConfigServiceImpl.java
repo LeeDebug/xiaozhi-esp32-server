@@ -477,9 +477,9 @@ public class ConfigServiceImpl implements ConfigService {
                     // 火山引擎声音克隆需要替换resource_id
                     Map<String, Object> map = (Map<String, Object>) model.getConfigJson();
                     if (Constant.VOICE_CLONE_HUOSHAN_DOUBLE_STREAM.equals(map.get("type"))) {
-                        // 如果voice是”S_”开头的，使用seed-icl-1.0
+                        // 如果voice是”S_”开头的，使用seed-icl-2.0
                         if (voice != null && voice.startsWith("S_")) {
-                            map.put("resource_id", "seed-icl-1.0");
+                            map.put("resource_id", "seed-icl-2.0");
                         }
                     }
                 }
