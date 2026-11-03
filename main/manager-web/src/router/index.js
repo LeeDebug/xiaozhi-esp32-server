@@ -172,6 +172,38 @@ const routes = [
       return import('../views/AddressBookManagement.vue')
     }
   },
+  // AI数据分析 - 下发配置
+  {
+    path: '/data-push-config',
+    name: 'DataPushConfig',
+    component: function () {
+      return import('../views/DataPushConfig.vue')
+    }
+  },
+  // AI数据分析 - 数据预览
+  {
+    path: '/data-preview',
+    name: 'DataPreview',
+    component: function () {
+      return import('../views/DataPreview.vue')
+    }
+  },
+  // AI数据分析 - 数据分析
+  {
+    path: '/data-analysis',
+    name: 'DataAnalysis',
+    component: function () {
+      return import('../views/DataAnalysis.vue')
+    }
+  },
+  // AI数据分析 - 数据预测
+  {
+    path: '/data-prediction',
+    name: 'DataPrediction',
+    component: function () {
+      return import('../views/DataPrediction.vue')
+    }
+  },
 ]
 const router = new VueRouter({
   base: process.env.VUE_APP_PUBLIC_PATH || '/',

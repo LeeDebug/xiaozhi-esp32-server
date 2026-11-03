@@ -152,6 +152,42 @@
             </el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
+
+        <!-- AI数据分析下拉菜单（位于导航最右侧） -->
+        <el-dropdown trigger="click" class="equipment-management more-dropdown" :class="{
+          'active-tab':
+            $route.path === '/data-push-config' ||
+            $route.path === '/data-preview' ||
+            $route.path === '/data-analysis' ||
+            $route.path === '/data-prediction'
+        }" @visible-change="handleAiDataAnalysisDropdownVisibleChange">
+          <span class="el-dropdown-link">
+            <img loading="lazy" alt="" src="@/assets/header/ai_data_analysis.svg" :style="{
+              filter:
+                $route.path === '/data-push-config' ||
+                  $route.path === '/data-preview' ||
+                  $route.path === '/data-analysis' ||
+                  $route.path === '/data-prediction'
+                  ? 'brightness(0) invert(1)' : 'None',
+            }" />
+            <span class="nav-text">{{ $t("header.aiDataAnalysis") }}</span>
+            <i class="el-icon-arrow-down" :class="{ 'rotate-down': aiDataAnalysisDropdownVisible }"></i>
+          </span>
+          <el-dropdown-menu slot="dropdown">
+            <el-dropdown-item @click.native="handleRouter('dataPushConfig')">
+              {{ $t("header.dataPushConfig") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('dataPreview')">
+              {{ $t("header.dataPreview") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('dataAnalysis')">
+              {{ $t("header.dataAnalysis") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('dataPrediction')">
+              {{ $t("header.dataPrediction") }}
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </el-dropdown>
       </div>
 
       <!-- 右侧元素 -->
@@ -194,6 +230,7 @@ export default {
       isChangePasswordDialogVisible: false, // 控制修改密码弹窗的显示
       paramDropdownVisible: false,
       voiceCloneDropdownVisible: false,
+      aiDataAnalysisDropdownVisible: false,
       userMenuVisible: false, // 添加用户菜单可见状态
       menuVisibleTimer: null, // 菜单显示定时器，防止够快触发
       // Cascader 配置
@@ -220,6 +257,10 @@ export default {
         replacementWordManagement: "/replacement-word-management",
         serverSideManagement: "/server-side-management",
         featureManagement: "/feature-management",
+        dataPushConfig: "/data-push-config",
+        dataPreview: "/data-preview",
+        dataAnalysis: "/data-analysis",
+        dataPrediction: "/data-prediction",
       }
     };
   },
@@ -364,6 +405,11 @@ export default {
     // 监听音色克隆下拉菜单的可见状态变化
     handleVoiceCloneDropdownVisibleChange(visible) {
       this.voiceCloneDropdownVisible = visible;
+    },
+
+    // 监听 AI数据分析 下拉菜单的可见状态变化
+    handleAiDataAnalysisDropdownVisibleChange(visible) {
+      this.aiDataAnalysisDropdownVisible = visible;
     },
     // 在data中添加一个key用于强制重新渲染组件
     // 处理 Cascader 选择变化
