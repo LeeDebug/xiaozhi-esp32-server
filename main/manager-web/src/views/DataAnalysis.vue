@@ -8,6 +8,11 @@
             <div class="page-header">
               <h2 class="page-title">{{ $t('header.dataAnalysis') }}</h2>
               <span class="page-desc">{{ $t('aiDataAnalysis.dataAnalysis.desc') }}</span>
+              <div class="header-actions">
+                <CustomButton icon="el-icon-refresh" size="medium" :loading="loading" @click="loadStatistics">
+                  {{ $t('aiDataAnalysis.dataPreview.refresh') }}
+                </CustomButton>
+              </div>
             </div>
             <div class="divider"></div>
 
@@ -22,7 +27,7 @@
               </div>
               <div class="stat-card">
                 <div class="stat-label">{{ $t('aiDataAnalysis.dataAnalysis.statAvg') }}</div>
-                <div class="stat-value">{{ stats.avgValue }}</div>
+                <div class="stat-value">{{ formatNum(stats.avgValue) }}</div>
               </div>
               <div class="stat-card stat-danger">
                 <div class="stat-label">{{ $t('aiDataAnalysis.dataAnalysis.statAbnormal') }}</div>
@@ -31,13 +36,17 @@
             </div>
 
             <h3 class="section-title">{{ $t('aiDataAnalysis.dataAnalysis.metricDist') }}</h3>
-            <el-table :data="distribution" size="small" class="ai-table" border>
+            <el-table :data="distribution" size="small" class="ai-table" border v-loading="loading">
               <el-table-column prop="metric" :label="$t('aiDataAnalysis.dataAnalysis.colMetric')" min-width="140" />
               <el-table-column prop="count" :label="$t('aiDataAnalysis.dataAnalysis.colCount')" min-width="100" />
               <el-table-column prop="avg" :label="$t('aiDataAnalysis.dataAnalysis.colAvg')" min-width="100" />
               <el-table-column prop="max" :label="$t('aiDataAnalysis.dataAnalysis.colMax')" min-width="100" />
               <el-table-column prop="min" :label="$t('aiDataAnalysis.dataAnalysis.colMin')" min-width="100" />
             </el-table>
+
+            <div class="empty-hint" v-if="!loading && distribution.length === 0">
+              {{ $t('aiDataAnalysis.dataPreview.emptyHint') }}
+            </div>
           </el-card>
         </div>
       </div>
@@ -47,25 +56,47 @@
 
 <script>
 import HeaderBar from '@/components/HeaderBar.vue'
+import CustomButton from '@/components/CustomButton.vue'
+import dataAnalysis from '@/apis/module/dataAnalysis.js'
 
 export default {
   name: 'DataAnalysis',
-  components: { HeaderBar },
+  components: { HeaderBar, CustomButton },
   data() {
     return {
-      stats: {
-        deviceCount: 4,
-        recordCount: 12860,
-        avgValue: 47.3,
-        abnormal: 152,
-      },
-      distribution: [
-        { metric: '温度', count: 4210, avg: '46.8', max: '89.2', min: '12.1' },
-        { metric: '湿度', count: 3980, avg: '51.2', max: '95.0', min: '20.4' },
-        { metric: '音量', count: 2670, avg: '42.0', max: '78.5', min: '5.0' },
-        { metric: '在线时长', count: 2000, avg: '49.1', max: '99.9', min: '1.2' },
-      ],
+      loading: false,
+      stats: { deviceCount: 0, recordCount: 0, avgValue: null, abnormal: 0 },
+      distribution: [],
     }
+  },
+  created() {
+    this.loadStatistics()
+  },
+  methods: {
+    formatNum(v) {
+      if (v === null || v === undefined || v === '') return '—'
+      const n = typeof v === 'number' ? v : parseFloat(v)
+      return isNaN(n) ? '—' : n.toFixed(1)
+    },
+    loadStatistics() {
+      this.loading = true
+      dataAnalysis.statistics((res) => {
+        this.loading = false
+        const body = res && res.data
+        if (body && body.code === 0 && body.data) {
+          const d = body.data
+          this.stats = {
+            deviceCount: d.deviceCount || 0,
+            recordCount: d.recordCount || 0,
+            avgValue: d.avgValue,
+            abnormal: d.abnormal || 0,
+          }
+          this.distribution = d.distribution || []
+        } else {
+          this.$message.error((body && body.msg) || this.$t('aiDataAnalysis.dataAnalysis.loadError'))
+        }
+      })
+    },
   },
 }
 </script>
@@ -149,6 +180,12 @@ export default {
   color: #8a93b8;
 }
 
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
 .divider {
   height: 1px;
   background: #f3f1f1;
@@ -200,5 +237,12 @@ export default {
 
 .ai-table {
   width: 100%;
+}
+
+.empty-hint {
+  margin: 24px 0;
+  text-align: center;
+  color: #8a93b8;
+  font-size: 13px;
 }
 </style>

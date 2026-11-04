@@ -22,13 +22,16 @@
 
             <el-form :model="form" label-width="110px" class="predict-form">
               <el-form-item :label="$t('aiDataAnalysis.dataPrediction.metric')">
-                <el-select v-model="form.metric" :placeholder="$t('aiDataAnalysis.dataPrediction.selectMetric')" style="width: 280px">
-                  <el-option v-for="m in metrics" :key="m" :label="m" :value="m" />
+                <el-select v-model="form.metric" :placeholder="$t('aiDataAnalysis.dataPrediction.selectMetric')" style="width: 280px" @change="clearResult">
+                  <el-option v-for="m in metricOptions" :key="m.value" :label="m.label" :value="m.value" />
                 </el-select>
               </el-form-item>
               <el-form-item :label="$t('aiDataAnalysis.dataPrediction.horizon')">
                 <el-input-number v-model="form.horizon" :min="1" :max="72" :step="1" />
                 <span class="unit-hint">{{ $t('aiDataAnalysis.dataPrediction.hours') }}</span>
+              </el-form-item>
+              <el-form-item :label="$t('aiDataAnalysis.dataPrediction.useLLM')">
+                <el-switch v-model="form.useLLM" @change="clearResult" />
               </el-form-item>
               <el-form-item>
                 <CustomButton icon="el-icon-magic-stick" type="confirm" :loading="predicting" @click="handlePredict">
@@ -46,6 +49,10 @@
               <el-table-column prop="lower" :label="$t('aiDataAnalysis.dataPrediction.colLower')" min-width="120" />
               <el-table-column prop="upper" :label="$t('aiDataAnalysis.dataPrediction.colUpper')" min-width="120" />
             </el-table>
+
+            <div class="empty-hint" v-if="!predicting && result.length === 0">
+              {{ $t('aiDataAnalysis.dataPrediction.emptyHint') }}
+            </div>
           </el-card>
         </div>
       </div>
@@ -56,6 +63,14 @@
 <script>
 import HeaderBar from '@/components/HeaderBar.vue'
 import CustomButton from '@/components/CustomButton.vue'
+import dataAnalysis from '@/apis/module/dataAnalysis.js'
+
+const FALLBACK_METRICS = [
+  { value: 'temperature', label: '温度' },
+  { value: 'humidity', label: '湿度' },
+  { value: 'volume', label: '音量' },
+  { value: 'onlineDuration', label: '在线时长' },
+]
 
 export default {
   name: 'DataPrediction',
@@ -64,35 +79,55 @@ export default {
     return {
       predicting: false,
       form: {
-        metric: '温度',
+        metric: '',
         horizon: 12,
+        useLLM: false,
       },
-      metrics: ['温度', '湿度', '音量', '在线时长'],
+      metricOptions: FALLBACK_METRICS,
       result: [],
     }
   },
+  created() {
+    this.loadMetrics()
+  },
   methods: {
-    handlePredict() {
-      this.predicting = true
-      // 此处应调用后端预测服务；当前为前端演示，使用本地随机模拟生成预测区间。
-      setTimeout(() => {
-        const base = 40 + Math.random() * 20
-        const now = Date.now()
-        const rows = []
-        for (let i = 1; i <= this.form.horizon; i++) {
-          const value = base + Math.sin(i / 2) * 8 + Math.random() * 4
-          const delta = 3 + Math.random() * 3
-          rows.push({
-            time: new Date(now + i * 3600 * 1000).toLocaleString('zh-CN', { hour12: false }),
-            predicted: value.toFixed(1),
-            lower: (value - delta).toFixed(1),
-            upper: (value + delta).toFixed(1),
-          })
+    loadMetrics() {
+      dataAnalysis.metrics((res) => {
+        const body = res && res.data
+        if (body && body.code === 0 && body.data && body.data.length) {
+          this.metricOptions = body.data.map((m) => ({ value: m.key, label: m.name }))
+          if (!this.form.metric) {
+            this.form.metric = this.metricOptions[0].value
+          }
         }
-        this.result = rows
-        this.predicting = false
-        this.$message.success(this.$t('aiDataAnalysis.dataPrediction.predictSuccess'))
-      }, 700)
+      })
+    },
+    clearResult() {
+      this.result = []
+    },
+    handlePredict() {
+      if (!this.form.metric) {
+        this.$message.warning(this.$t('aiDataAnalysis.dataPrediction.selectMetric'))
+        return
+      }
+      this.predicting = true
+      dataAnalysis.predict(
+        { metric: this.form.metric, horizon: this.form.horizon, useLLM: this.form.useLLM },
+        (res) => {
+          this.predicting = false
+          const body = res && res.data
+          if (body && body.code === 0 && body.data) {
+            this.result = body.data
+            if (this.result.length === 0) {
+              this.$message.info(this.$t('aiDataAnalysis.dataPrediction.noData'))
+            } else {
+              this.$message.success(this.$t('aiDataAnalysis.dataPrediction.predictSuccess'))
+            }
+          } else {
+            this.$message.error((body && body.msg) || this.$t('aiDataAnalysis.dataPrediction.loadError'))
+          }
+        }
+      )
     },
   },
 }
@@ -206,5 +241,12 @@ export default {
 
 .ai-table {
   width: 100%;
+}
+
+.empty-hint {
+  margin: 24px 0;
+  text-align: center;
+  color: #8a93b8;
+  font-size: 13px;
 }
 </style>

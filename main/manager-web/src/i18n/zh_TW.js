@@ -1747,4 +1747,15 @@ export default {
   'aiDataAnalysis.dataPrediction.colPredicted': '預測值',
   'aiDataAnalysis.dataPrediction.colLower': '下限',
   'aiDataAnalysis.dataPrediction.colUpper': '上限',
+
+  'aiDataAnalysis.dataPreview.generateDemo': '產生示範資料',
+  'aiDataAnalysis.dataPreview.demoSuccess': '示範資料已產生',
+  'aiDataAnalysis.dataPreview.demoExists': '已有資料，無需重複產生',
+  'aiDataAnalysis.dataPreview.emptyHint': '尚無資料，請點擊「產生示範資料」初始化，或等待設備上報。',
+  'aiDataAnalysis.dataPreview.loadError': '資料載入失敗',
+  'aiDataAnalysis.dataAnalysis.loadError': '統計載入失敗',
+  'aiDataAnalysis.dataPrediction.useLLM': '使用大模型預測',
+  'aiDataAnalysis.dataPrediction.emptyHint': '尚無歷史資料，無法預測，請先產生或上報資料。',
+  'aiDataAnalysis.dataPrediction.noData': '該指標尚無歷史資料，無法預測',
+  'aiDataAnalysis.dataPrediction.loadError': '預測失敗',
 }

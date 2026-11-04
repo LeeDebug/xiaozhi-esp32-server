@@ -101,6 +101,8 @@ public class ShiroConfig {
         filterMap.put("/voiceClone/play/**", "anon");
         // 设备开机拉取的数据上报配置（公开，无需认证）
         filterMap.put("/data-report-config/current", "anon");
+        // 设备数据上报落库（公开，设备开机通常无 token）
+        filterMap.put("/data-analysis/upload", "anon");
         filterMap.put("/**", "oauth2");
         shiroFilter.setFilterChainDefinitionMap(filterMap);
 

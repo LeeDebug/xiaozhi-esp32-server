@@ -205,9 +205,9 @@
           <li><b>otherConfig</b>：预留扩展字符串。</li>
         </ul>
 
-        <h4>2. 上报数据（建议接口，待后端实现 / 对齐）</h4>
-        <p><code>POST /xiaozhi/data-report/upload</code> —— 当前后端仅实现了「配置下发」，上报落库接口待补充，以下为建议请求体（需与后端对齐路径与字段）。</p>
-        <pre>POST /xiaozhi/data-report/upload
+        <h4>2. 上报数据（已实现）</h4>
+        <p><code>POST /xiaozhi/data-analysis/upload</code> —— 设备按本配置上报数据，后端落库后可在「数据预览 / 数据分析 / 数据预测」中查看。请求体示例：</p>
+        <pre>POST /xiaozhi/data-analysis/upload
 Content-Type: application/json
 
 {

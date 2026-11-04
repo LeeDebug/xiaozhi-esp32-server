@@ -1747,4 +1747,15 @@ export default {
   'aiDataAnalysis.dataPrediction.colPredicted': 'Predicted',
   'aiDataAnalysis.dataPrediction.colLower': 'Lower',
   'aiDataAnalysis.dataPrediction.colUpper': 'Upper',
+
+  'aiDataAnalysis.dataPreview.generateDemo': 'Generate Demo Data',
+  'aiDataAnalysis.dataPreview.demoSuccess': 'Demo data generated',
+  'aiDataAnalysis.dataPreview.demoExists': 'Data already exists, no need to regenerate',
+  'aiDataAnalysis.dataPreview.emptyHint': 'No data yet. Click "Generate Demo Data" to initialize, or wait for device reports.',
+  'aiDataAnalysis.dataPreview.loadError': 'Failed to load data',
+  'aiDataAnalysis.dataAnalysis.loadError': 'Failed to load statistics',
+  'aiDataAnalysis.dataPrediction.useLLM': 'Use LLM for prediction',
+  'aiDataAnalysis.dataPrediction.emptyHint': 'No history data available, cannot predict. Generate or report data first.',
+  'aiDataAnalysis.dataPrediction.noData': 'No history data for this metric, cannot predict',
+  'aiDataAnalysis.dataPrediction.loadError': 'Prediction failed',
 }

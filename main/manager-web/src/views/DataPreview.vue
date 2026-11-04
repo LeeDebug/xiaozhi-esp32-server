@@ -9,6 +9,9 @@
               <h2 class="page-title">{{ $t('header.dataPreview') }}</h2>
               <span class="page-desc">{{ $t('aiDataAnalysis.dataPreview.desc') }}</span>
               <div class="header-actions">
+                <CustomButton icon="el-icon-magic-stick" size="medium" :loading="seeding" @click="handleSeed">
+                  {{ $t('aiDataAnalysis.dataPreview.generateDemo') }}
+                </CustomButton>
                 <CustomButton icon="el-icon-refresh" size="medium" :loading="loading" @click="loadData">
                   {{ $t('aiDataAnalysis.dataPreview.refresh') }}
                 </CustomButton>
@@ -26,7 +29,7 @@
                 @keyup.enter.native="loadData"
               />
               <el-select v-model="metricFilter" :placeholder="$t('aiDataAnalysis.dataPreview.metric')" clearable class="filter-select" @change="loadData">
-                <el-option v-for="m in metrics" :key="m" :label="m" :value="m" />
+                <el-option v-for="m in metricOptions" :key="m.value" :label="m.label" :value="m.value" />
               </el-select>
             </div>
 
@@ -44,14 +47,19 @@
               </el-table-column>
             </el-table>
 
+            <div class="empty-hint" v-if="!loading && pagedData.length === 0">
+              {{ $t('aiDataAnalysis.dataPreview.emptyHint') }}
+            </div>
+
             <div class="pager">
-              <span class="total-hint">{{ $t('aiDataAnalysis.dataPreview.total', { total: filtered.length }) }}</span>
+              <span class="total-hint">{{ $t('aiDataAnalysis.dataPreview.total', { total: total }) }}</span>
               <el-pagination
                 background
                 layout="prev, pager, next"
-                :total="filtered.length"
+                :total="total"
                 :page-size="pageSize"
                 :current-page.sync="currentPage"
+                @current-change="handlePageChange"
               />
             </div>
           </el-card>
@@ -64,25 +72,14 @@
 <script>
 import HeaderBar from '@/components/HeaderBar.vue'
 import CustomButton from '@/components/CustomButton.vue'
+import dataAnalysis from '@/apis/module/dataAnalysis.js'
 
-const METRICS = ['温度', '湿度', '音量', '在线时长']
-const DEVICES = ['客厅音箱-001', '卧室音箱-002', '车间网关-003', '前台音箱-004']
-
-function buildMock(total) {
-  const rows = []
-  const now = Date.now()
-  for (let i = 0; i < total; i++) {
-    const abnormal = Math.random() < 0.12
-    rows.push({
-      deviceId: DEVICES[i % DEVICES.length],
-      time: new Date(now - i * 60000).toLocaleString('zh-CN', { hour12: false }),
-      metric: METRICS[i % METRICS.length],
-      value: abnormal ? (Math.random() * 100).toFixed(1) : (20 + Math.random() * 60).toFixed(1),
-      status: abnormal ? 'abnormal' : 'normal',
-    })
-  }
-  return rows
-}
+const FALLBACK_METRICS = [
+  { value: 'temperature', label: '温度' },
+  { value: 'humidity', label: '湿度' },
+  { value: 'volume', label: '音量' },
+  { value: 'onlineDuration', label: '在线时长' },
+]
 
 export default {
   name: 'DataPreview',
@@ -90,36 +87,67 @@ export default {
   data() {
     return {
       loading: false,
+      seeding: false,
       keyword: '',
       metricFilter: '',
-      metrics: METRICS,
-      allData: buildMock(86),
+      metricOptions: FALLBACK_METRICS,
+      pagedData: [],
       pageSize: 12,
       currentPage: 1,
+      total: 0,
     }
   },
-  computed: {
-    filtered() {
-      const kw = this.keyword.trim().toLowerCase()
-      return this.allData.filter((r) => {
-        const matchKw = !kw || r.deviceId.toLowerCase().includes(kw) || r.metric.toLowerCase().includes(kw)
-        const matchMetric = !this.metricFilter || r.metric === this.metricFilter
-        return matchKw && matchMetric
-      })
-    },
-    pagedData() {
-      const start = (this.currentPage - 1) * this.pageSize
-      return this.filtered.slice(start, start + this.pageSize)
-    },
+  created() {
+    this.loadMetrics()
+    this.loadData()
   },
   methods: {
+    loadMetrics() {
+      dataAnalysis.metrics((res) => {
+        const body = res && res.data
+        if (body && body.code === 0 && body.data && body.data.length) {
+          this.metricOptions = body.data.map((m) => ({ value: m.key, label: m.name }))
+        }
+      })
+    },
     loadData() {
       this.loading = true
-      // 此处应调用后端数据查询接口；当前为前端演示，模拟刷新。
-      setTimeout(() => {
-        this.loading = false
-        this.currentPage = 1
-      }, 400)
+      dataAnalysis.preview(
+        { keyword: this.keyword, metric: this.metricFilter, page: this.currentPage, limit: this.pageSize },
+        (res) => {
+          this.loading = false
+          const body = res && res.data
+          if (body && body.code === 0 && body.data) {
+            this.pagedData = body.data.list || []
+            this.total = body.data.total || 0
+          } else {
+            this.$message.error((body && body.msg) || this.$t('aiDataAnalysis.dataPreview.loadError'))
+          }
+        }
+      )
+    },
+    handlePageChange(p) {
+      this.currentPage = p
+      this.loadData()
+    },
+    handleSeed() {
+      this.seeding = true
+      dataAnalysis.seed((res) => {
+        this.seeding = false
+        const body = res && res.data
+        if (body && body.code === 0) {
+          if (body.data === -1) {
+            this.$message.info(this.$t('aiDataAnalysis.dataPreview.demoExists'))
+          } else {
+            this.$message.success(this.$t('aiDataAnalysis.dataPreview.demoSuccess'))
+          }
+          this.currentPage = 1
+          this.loadMetrics()
+          this.loadData()
+        } else {
+          this.$message.error((body && body.msg) || this.$t('aiDataAnalysis.dataPreview.loadError'))
+        }
+      })
     },
   },
 }
@@ -206,6 +234,8 @@ export default {
 
 .header-actions {
   margin-left: auto;
+  display: flex;
+  gap: 8px;
 }
 
 .divider {
@@ -231,6 +261,13 @@ export default {
 
 .ai-table {
   width: 100%;
+}
+
+.empty-hint {
+  margin: 24px 0;
+  text-align: center;
+  color: #8a93b8;
+  font-size: 13px;
 }
 
 .pager {

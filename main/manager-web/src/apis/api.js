@@ -13,6 +13,7 @@ import knowledgeBase from './module/knowledgeBase.js'
 import correctWord from './module/correctWord.js'
 import addressBook from './module/addressBook.js'
 import dataReport from './module/dataReport.js'
+import dataAnalysis from './module/dataAnalysis.js'
 
 
 
@@ -47,5 +48,6 @@ export default {
     knowledgeBase,
     correctWord,
     addressBook,
-    dataReport
+    dataReport,
+    dataAnalysis
   }
