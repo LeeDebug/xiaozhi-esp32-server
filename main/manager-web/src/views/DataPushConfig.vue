@@ -92,6 +92,11 @@
           <el-switch v-model="form.enabled" :active-value="1" :inactive-value="0" />
         </el-form-item>
         <el-form-item label="上报内容">
+          <div class="rc-toolbar">
+            <el-button type="text" size="small" class="rc-action" @click="selectAll">全选</el-button>
+            <el-button type="text" size="small" class="rc-action" @click="invertSelection">反选</el-button>
+            <span class="rc-count">已选 {{ selectedCount }} / {{ totalOptions }} 项</span>
+          </div>
           <div class="report-content">
             <div class="rc-group" v-for="g in reportGroups" :key="g.label">
               <div class="rc-group-title">{{ g.label }}</div>
@@ -182,6 +187,17 @@ export default {
   created() {
     this.loadList()
   },
+  computed: {
+    allReportOptions() {
+      return this.reportGroups.reduce((acc, g) => acc.concat(g.options), [])
+    },
+    totalOptions() {
+      return this.allReportOptions.length
+    },
+    selectedCount() {
+      return this.form.reportContent ? this.form.reportContent.length : 0
+    },
+  },
   methods: {
     loadList() {
       this.loading = true
@@ -229,6 +245,13 @@ export default {
         isDefault: row.isDefault,
       }
       this.dialogVisible = true
+    },
+    selectAll() {
+      this.form.reportContent = this.allReportOptions.slice()
+    },
+    invertSelection() {
+      const selected = new Set(this.form.reportContent || [])
+      this.form.reportContent = this.allReportOptions.filter((o) => !selected.has(o))
     },
     submit() {
       if (!this.form.configName || !this.form.configName.trim()) {
@@ -436,6 +459,25 @@ export default {
   padding: 12px 14px;
   max-height: 320px;
   overflow: auto;
+}
+
+.rc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.rc-action {
+  padding-left: 0;
+  padding-right: 6px;
+  margin: 0;
+}
+
+.rc-count {
+  font-size: 12px;
+  color: #8a93b8;
+  margin-left: auto;
 }
 
 .rc-group {
