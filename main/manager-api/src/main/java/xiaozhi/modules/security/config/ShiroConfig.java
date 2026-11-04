@@ -99,6 +99,8 @@ public class ShiroConfig {
         filterMap.put("/agent/chat-title/**", "server");
         filterMap.put("/agent/play/**", "anon");
         filterMap.put("/voiceClone/play/**", "anon");
+        // 设备开机拉取的数据上报配置（公开，无需认证）
+        filterMap.put("/data-report-config/current", "anon");
         filterMap.put("/**", "oauth2");
         shiroFilter.setFilterChainDefinitionMap(filterMap);
 
