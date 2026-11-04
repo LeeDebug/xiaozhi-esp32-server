@@ -8,14 +8,17 @@
             <div class="page-header">
               <h2 class="page-title">{{ $t('header.dataPushConfig') }}</h2>
               <span class="page-desc">管理设备开机自动拉取的数据上报配置，设备根据生效配置决定是否上报、上报频率与上报内容。</span>
-              <div class="header-actions">
-                <CustomButton icon="el-icon-view" size="medium" @click="openPreview">
-                  预览设备端配置
-                </CustomButton>
-                <CustomButton icon="el-icon-plus" type="confirm" size="medium" @click="openAdd">
-                  新增配置
-                </CustomButton>
-              </div>
+          <div class="header-actions">
+            <CustomButton icon="el-icon-view" size="medium" @click="openPreview">
+              预览设备端配置
+            </CustomButton>
+            <CustomButton icon="el-icon-document" size="medium" @click="openGuide">
+              接入指南
+            </CustomButton>
+            <CustomButton icon="el-icon-plus" type="confirm" size="medium" @click="openAdd">
+              新增配置
+            </CustomButton>
+          </div>
             </div>
             <div class="divider"></div>
 
@@ -165,6 +168,74 @@
         </CustomButton>
       </div>
     </el-dialog>
+
+    <!-- 设备端接入指南 -->
+    <el-dialog
+      title="设备端接入指南"
+      :visible.sync="guideVisible"
+      width="780px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="true"
+      class="guide-dialog"
+    >
+      <div class="guide-doc">
+        <h4>整体流程</h4>
+        <p>设备开机 → 调用「获取配置」接口拉取当前生效的上报配置 → 按返回结果中的开关 / 间隔 / 字段定时上报数据（建议每次上报后或定时重新拉取一次，以便服务端动态调整）。</p>
+
+        <h4>1. 获取上报配置（已实现）</h4>
+        <p><code>GET /xiaozhi/data-report-config/current</code> —— 公开接口，<b>无需登录</b>（设备开机通常无 token）。</p>
+        <pre>GET /xiaozhi/data-report-config/current</pre>
+        <p>返回示例（Result.data 内）：</p>
+        <pre>{
+  "enabled": 1,
+  "reportContent": ["chickenCount", "silo1Weight", "temperature"],
+  "reportInterval": 5,
+  "reportDeviceInfo": 1,
+  "reportLocation": 0,
+  "otherConfig": "",
+  "isDefault": 1
+}</pre>
+        <p>字段说明：</p>
+        <ul>
+          <li><b>enabled</b>：是否上报（0 否 / 1 是）；为 0 时设备无需上报。</li>
+          <li><b>reportContent</b>：要上报的字段（英文 key 数组），取值见下方清单。</li>
+          <li><b>reportInterval</b>：上报间隔，单位「分钟」。</li>
+          <li><b>reportDeviceInfo</b>：是否附带设备信息（0/1）。</li>
+          <li><b>reportLocation</b>：是否附带地理位置（0/1）。</li>
+          <li><b>otherConfig</b>：预留扩展字符串。</li>
+        </ul>
+
+        <h4>2. 上报数据（建议接口，待后端实现 / 对齐）</h4>
+        <p><code>POST /xiaozhi/data-report/upload</code> —— 当前后端仅实现了「配置下发」，上报落库接口待补充，以下为建议请求体（需与后端对齐路径与字段）。</p>
+        <pre>POST /xiaozhi/data-report/upload
+Content-Type: application/json
+
+{
+  "deviceId": "设备唯一ID",
+  "timestamp": 1699000000000,
+  "data": {
+    "chickenCount": 1200,
+    "silo1Weight": 350.5,
+    "temperature": 25.3
+  },
+  "deviceInfo": { "firmware": "v1.2.3", "model": "xxx" },
+  "location": { "lng": 0.0, "lat": 0.0 }
+}</pre>
+        <p>约定：<code>data</code> 中的 key 必须与第 1 步 <code>reportContent</code> 返回的英文 key 一一对应；<code>deviceInfo</code> / <code>location</code> 仅在对应开关为 1 时携带。</p>
+
+        <h4>3. 关键约定</h4>
+        <ul>
+          <li>上报字段一律使用<b>英文 key</b>（如 chickenCount / silo1Weight / cranePosition / temperature…），存储、传输、对接均用英文，仅前端展示用中文。</li>
+          <li>只有被标记为「生效中」的配置才会被 <code>/current</code> 返回；没有生效配置时返回内置默认值（enabled=0，即默认不上报）。</li>
+          <li>英文 key 清单（与前端「上报内容」一致）：
+            <br>生产：perChickenData, chickenCount, envExtremes, mortalityRate, waterFeedAmount, eggLaying, eggYield, waterUsage, silo1Weight, silo2Weight
+            <br>运行：envVentilation, deviceStatus, fanGroup, windowCurtain, specialFan, cranePosition
+            <br>环境：tempProbe, envTemperature, envHumidity, otherEnvMetrics, light, light1Brightness, light2Brightness, temperature, humidity, ozone, airQuality
+            <br>其他：powerStatistics
+          </li>
+        </ul>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -238,6 +309,7 @@ export default {
       limit: 10,
       reportGroups: REPORT_CONTENT_GROUPS,
       dialogVisible: false,
+      guideVisible: false,
       dialogMode: 'add',
       currentId: '',
       submitting: false,
@@ -398,6 +470,9 @@ export default {
           }
         })
       }).catch(() => {})
+    },
+    openGuide() {
+      this.guideVisible = true
     },
     openPreview() {
       dataReport.current((res) => {
@@ -590,5 +665,61 @@ export default {
 
 .report-config-dialog ::v-deep .el-dialog__body {
   padding: 8px 20px 4px;
+}
+
+.guide-doc {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #2c3354;
+}
+
+.guide-doc h4 {
+  margin: 16px 0 6px;
+  font-size: 14px;
+  color: #1f2a52;
+}
+
+.guide-doc h4:first-child {
+  margin-top: 0;
+}
+
+.guide-doc p {
+  margin: 6px 0;
+}
+
+.guide-doc code {
+  background: #f3f5fb;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  color: #2b6cb0;
+}
+
+.guide-doc pre {
+  background: #1e2433;
+  color: #e6edf3;
+  padding: 12px 14px;
+  border-radius: 8px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  margin: 6px 0 10px;
+}
+
+.guide-doc ul {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+
+.guide-doc li {
+  margin: 3px 0;
+}
+
+.guide-dialog ::v-deep .el-dialog__body {
+  padding: 8px 20px 12px;
+  max-height: 72vh;
+  overflow: auto;
 }
 </style>
