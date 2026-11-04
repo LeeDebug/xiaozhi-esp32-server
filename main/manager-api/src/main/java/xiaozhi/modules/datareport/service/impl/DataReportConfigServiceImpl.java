@@ -127,8 +127,10 @@ public class DataReportConfigServiceImpl extends BaseServiceImpl<DataReportConfi
     }
 
     private void clearDefault() {
+        // 仅清除当前标记为生效(is_default=1)的配置，避免无 WHERE 的全表更新被 BlockAttackInnerInterceptor 拦截
         LambdaUpdateWrapper<DataReportConfigEntity> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.set(DataReportConfigEntity::getIsDefault, 0);
+        wrapper.eq(DataReportConfigEntity::getIsDefault, 1)
+                .set(DataReportConfigEntity::getIsDefault, 0);
         dataReportConfigDao.update(null, wrapper);
     }
 
