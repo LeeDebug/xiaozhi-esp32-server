@@ -478,12 +478,69 @@ export default {
       dataReport.current((res) => {
         const body = res && res.data
         const data = body && body.code === 0 ? body.data : null
+        if (!data) {
+          this.$alert(
+            '暂无生效配置（请先在列表中将某条配置设为「生效」，或接口返回异常）',
+            '设备端获取到的 data-report-config 内容',
+            { customClass: 'pv-message-box', closeOnClickModal: false, closeOnPressEscape: true }
+          )
+          return
+        }
+        const escapeHtml = (s) =>
+          String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+        // 英文 key -> 中文含义 映射
+        const keyLabelMap = {}
+        this.reportGroups.forEach((g) => {
+          g.options.forEach((o) => {
+            keyLabelMap[o.key] = o.label
+          })
+        })
+        const noteMap = {
+          id: '配置记录ID（数据库主键，设备一般无需关心）',
+          configName: '配置名称',
+          enabled: '是否需要上报（0：否 / 1：是）',
+          reportContent: '上报内容字段清单（英文 key，中文含义见下列每一项）',
+          reportInterval: '上报时间间隔（单位：分钟）',
+          reportDeviceInfo: '是否上报设备信息（0：否 / 1：是）',
+          reportLocation: '是否上报地理位置（0：否 / 1：是）',
+          otherConfig: '其他配置（预留扩展，字符串）',
+          isDefault: '是否为当前生效配置（0：否 / 1：是）',
+          createDate: '配置创建时间',
+          updateDate: '配置更新时间',
+        }
+        const order = ['id', 'configName', 'enabled', 'reportContent', 'reportInterval', 'reportDeviceInfo', 'reportLocation', 'otherConfig', 'isDefault', 'createDate', 'updateDate']
+        let html = '<div class="pv-preview">'
+        order.forEach((k) => {
+          if (!(k in data)) return
+          if (k === 'reportContent') {
+            html += '<div class="pv-row"><span class="pv-key">reportContent</span><span class="pv-note">' + noteMap[k] + '</span></div>'
+            html += '<ul class="pv-list">'
+            const arr = Array.isArray(data.reportContent) ? data.reportContent : []
+            if (arr.length === 0) {
+              html += '<li><span class="pv-note">（空：未选择任何上报字段）</span></li>'
+            } else {
+              arr.forEach((key) => {
+                const label = keyLabelMap[key] || key
+                html += '<li><code>' + escapeHtml(key) + '</code> —— ' + escapeHtml(label) + '</li>'
+              })
+            }
+            html += '</ul>'
+          } else {
+            const val = data[k] === null || data[k] === undefined ? '' : data[k]
+            html += '<div class="pv-row"><span class="pv-key">' + k + '</span>' +
+              '<span class="pv-val">' + escapeHtml(val) + '</span>' +
+              '<span class="pv-note">' + noteMap[k] + '</span></div>'
+          }
+        })
+        html += '</div>'
         this.$alert(
-          '<pre style="max-height:60vh;overflow:auto;margin:0;white-space:pre-wrap;word-break:break-all;">' +
-            JSON.stringify(data, null, 2) +
-            '</pre>',
+          html,
           '设备端获取到的 data-report-config 内容',
-          { dangerouslyUseHTMLString: true, closeOnClickModal: false, closeOnPressEscape: true }
+          { dangerouslyUseHTMLString: true, customClass: 'pv-message-box', closeOnClickModal: false, closeOnPressEscape: true }
         )
       })
     },
@@ -722,6 +779,71 @@ export default {
   padding: 8px 20px 12px;
   max-height: 72vh;
   overflow: auto;
+  text-align: left;
+}
+</style>
+
+<style>
+/* 设备端配置预览（作用于 $alert 注入的 HTML，非 scoped） */
+.pv-preview {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #2c3354;
+  text-align: left;
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
+}
+
+.pv-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px dashed #eef0f5;
+}
+
+.pv-key {
+  font-weight: 600;
+  color: #1f2a52;
+  min-width: 132px;
+  flex-shrink: 0;
+}
+
+.pv-val {
+  color: #2b6cb0;
+  font-family: Consolas, Monaco, monospace;
+  word-break: break-all;
+}
+
+.pv-note {
+  color: #8a93b8;
+  font-size: 12px;
+}
+
+.pv-list {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+.pv-list li {
+  margin: 3px 0;
+}
+
+.pv-list code {
+  background: #f3f5fb;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, monospace;
+  color: #2b6cb0;
+}
+
+.pv-message-box.el-message-box {
+  width: 680px;
+  max-width: 92vw;
+}
+
+.pv-message-box .el-message-box__message {
   text-align: left;
 }
 </style>
