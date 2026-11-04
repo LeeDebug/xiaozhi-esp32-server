@@ -173,7 +173,7 @@
     <el-dialog
       title="设备端接入指南"
       :visible.sync="guideVisible"
-      width="780px"
+      width="900px"
       :close-on-click-modal="false"
       :close-on-press-escape="true"
       class="guide-dialog"
@@ -671,6 +671,7 @@ export default {
   font-size: 13px;
   line-height: 1.7;
   color: #2c3354;
+  text-align: left;
 }
 
 .guide-doc h4 {
@@ -721,5 +722,6 @@ export default {
   padding: 8px 20px 12px;
   max-height: 72vh;
   overflow: auto;
+  text-align: left;
 }
 </style>
