@@ -82,15 +82,51 @@
     <el-dialog
       :title="dialogMode === 'add' ? '新增数据上报配置' : '编辑数据上报配置'"
       :visible.sync="dialogVisible"
-      width="760px"
+      width="720px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="true"
+      class="report-config-dialog"
     >
-      <el-form :model="form" label-width="130px">
-        <el-form-item label="配置名称" required>
-          <el-input v-model="form.configName" placeholder="请输入配置名称" maxlength="100" />
-        </el-form-item>
-        <el-form-item label="是否上报">
-          <el-switch v-model="form.enabled" :active-value="1" :inactive-value="0" />
-        </el-form-item>
+      <el-form :model="form" label-width="104px" class="compact-form">
+        <el-row :gutter="12">
+          <el-col :span="14">
+            <el-form-item label="配置名称" required>
+              <el-input v-model="form.configName" placeholder="请输入配置名称" maxlength="100" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="10">
+            <el-form-item label="设为生效">
+              <el-switch v-model="form.isDefault" :active-value="1" :inactive-value="0" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="12">
+          <el-col :span="8">
+            <el-form-item label="是否上报">
+              <el-switch v-model="form.enabled" :active-value="1" :inactive-value="0" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="上报设备信息">
+              <el-switch v-model="form.reportDeviceInfo" :active-value="1" :inactive-value="0" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="上报地理位置">
+              <el-switch v-model="form.reportLocation" :active-value="1" :inactive-value="0" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="12">
+          <el-col :span="10">
+            <el-form-item label="上报间隔(分钟)">
+              <el-input-number v-model="form.reportInterval" :min="1" :max="1440" controls-position="right" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <el-form-item label="上报内容">
           <div class="rc-toolbar">
             <el-button type="text" size="small" class="rc-action" @click="selectAll">全选</el-button>
@@ -112,26 +148,14 @@
             </div>
           </div>
         </el-form-item>
-        <el-form-item label="上报间隔(分钟)">
-          <el-input-number v-model="form.reportInterval" :min="1" :max="1440" />
-        </el-form-item>
-        <el-form-item label="上报设备信息">
-          <el-switch v-model="form.reportDeviceInfo" :active-value="1" :inactive-value="0" />
-        </el-form-item>
-        <el-form-item label="上报地理位置">
-          <el-switch v-model="form.reportLocation" :active-value="1" :inactive-value="0" />
-        </el-form-item>
+
         <el-form-item label="其他配置">
           <el-input
             v-model="form.otherConfig"
             type="textarea"
-            :rows="3"
+            :rows="2"
             placeholder="预留，可填写扩展配置（字符串）"
           />
-        </el-form-item>
-        <el-form-item label="设为生效配置">
-          <el-switch v-model="form.isDefault" :active-value="1" :inactive-value="0" />
-          <span class="form-tip">开启后保存即生效，其它配置将不再生效</span>
         </el-form-item>
       </el-form>
       <div slot="footer">
@@ -384,7 +408,7 @@ export default {
             JSON.stringify(data, null, 2) +
             '</pre>',
           '设备端获取到的 data-report-config 内容',
-          { dangerouslyUseHTMLString: true }
+          { dangerouslyUseHTMLString: true, closeOnClickModal: false, closeOnPressEscape: true }
         )
       })
     },
@@ -501,8 +525,8 @@ export default {
 .report-content {
   border: 1px solid #ebeef5;
   border-radius: 8px;
-  padding: 12px 14px;
-  max-height: 320px;
+  padding: 10px 12px;
+  max-height: 220px;
   overflow: auto;
 }
 
@@ -526,7 +550,7 @@ export default {
 }
 
 .rc-group {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .rc-group:last-child {
@@ -543,12 +567,28 @@ export default {
 .rc-group ::v-deep .el-checkbox-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .form-tip {
   margin-left: 12px;
   font-size: 12px;
   color: #8a93b8;
+}
+
+.compact-form .el-form-item {
+  margin-bottom: 10px;
+}
+
+.compact-form .el-form-item__label {
+  line-height: 32px;
+}
+
+.report-config-dialog ::v-deep .el-dialog__header {
+  padding: 16px 20px 8px;
+}
+
+.report-config-dialog ::v-deep .el-dialog__body {
+  padding: 8px 20px 4px;
 }
 </style>
