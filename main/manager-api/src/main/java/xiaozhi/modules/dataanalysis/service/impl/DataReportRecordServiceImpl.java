@@ -51,12 +51,13 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
 
     private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-    private static final Map<String, String> METRIC_NAMES = Map.of(
-            "temperature", "温度", "humidity", "湿度", "volume", "音量",
-            "onlineDuration", "在线时长", "tempProbe", "温度探头",
-            "envTemperature", "环境温度", "envHumidity", "环境湿度",
-            "chickenCount", "鸡只数量", "silo1Weight", "料塔1重量",
-            "silo2Weight", "料塔2重量", "powerStatistics", "电能统计");
+    private static final Map<String, String> METRIC_NAMES = Map.ofEntries(
+            Map.entry("temperature", "温度"), Map.entry("humidity", "湿度"),
+            Map.entry("volume", "音量"), Map.entry("onlineDuration", "在线时长"),
+            Map.entry("tempProbe", "温度探头"), Map.entry("envTemperature", "环境温度"),
+            Map.entry("envHumidity", "环境湿度"), Map.entry("chickenCount", "鸡只数量"),
+            Map.entry("silo1Weight", "料塔1重量"), Map.entry("silo2Weight", "料塔2重量"),
+            Map.entry("powerStatistics", "电能统计"));
 
     @Autowired
     private DataReportRecordDao dataReportRecordDao;
