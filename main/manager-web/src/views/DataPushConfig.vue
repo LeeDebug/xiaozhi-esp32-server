@@ -103,11 +103,11 @@
               <el-checkbox-group v-model="form.reportContent">
                 <el-checkbox
                   v-for="opt in g.options"
-                  :key="opt"
-                  :label="opt"
+                  :key="opt.key"
+                  :label="opt.key"
                   border
                   size="small"
-                >{{ opt }}</el-checkbox>
+                >{{ opt.label }}</el-checkbox>
               </el-checkbox-group>
             </div>
           </div>
@@ -150,11 +150,56 @@ import CustomButton from '@/components/CustomButton.vue'
 import dataReport from '@/apis/module/dataReport.js'
 
 // 上报内容可选项（分类组织，与设备端约定一致）
+// 约定：value 使用英文 key 进行存储/交互/传输，label 仅用于前端展示
 const REPORT_CONTENT_GROUPS = [
-  { label: '生产数据', options: ['只鸡数据', '鸡只数量', '环境极值', '死亡率', '水料量', '产蛋', '产蛋量', '用水量', '料塔1重量', '料塔2重量'] },
-  { label: '运行数据', options: ['环境通风', '设备状态', '风机组', '小窗幕帘', '特殊风机', '航车位置'] },
-  { label: '环境数据', options: ['温度探头', '环境温度', '环境湿度', '其他环境指标', '灯光', '灯光1亮度', '灯光2亮度', '温度', '湿度', '臭氧', '空气质量'] },
-  { label: '其他数据', options: ['电能统计'] },
+  {
+    label: '生产数据',
+    options: [
+      { key: 'perChickenData', label: '只鸡数据' },
+      { key: 'chickenCount', label: '鸡只数量' },
+      { key: 'envExtremes', label: '环境极值' },
+      { key: 'mortalityRate', label: '死亡率' },
+      { key: 'waterFeedAmount', label: '水料量' },
+      { key: 'eggLaying', label: '产蛋' },
+      { key: 'eggYield', label: '产蛋量' },
+      { key: 'waterUsage', label: '用水量' },
+      { key: 'silo1Weight', label: '料塔1重量' },
+      { key: 'silo2Weight', label: '料塔2重量' },
+    ],
+  },
+  {
+    label: '运行数据',
+    options: [
+      { key: 'envVentilation', label: '环境通风' },
+      { key: 'deviceStatus', label: '设备状态' },
+      { key: 'fanGroup', label: '风机组' },
+      { key: 'windowCurtain', label: '小窗幕帘' },
+      { key: 'specialFan', label: '特殊风机' },
+      { key: 'cranePosition', label: '航车位置' },
+    ],
+  },
+  {
+    label: '环境数据',
+    options: [
+      { key: 'tempProbe', label: '温度探头' },
+      { key: 'envTemperature', label: '环境温度' },
+      { key: 'envHumidity', label: '环境湿度' },
+      { key: 'otherEnvMetrics', label: '其他环境指标' },
+      { key: 'light', label: '灯光' },
+      { key: 'light1Brightness', label: '灯光1亮度' },
+      { key: 'light2Brightness', label: '灯光2亮度' },
+      { key: 'temperature', label: '温度' },
+      { key: 'humidity', label: '湿度' },
+      { key: 'ozone', label: '臭氧' },
+      { key: 'airQuality', label: '空气质量' },
+    ],
+  },
+  {
+    label: '其他数据',
+    options: [
+      { key: 'powerStatistics', label: '电能统计' },
+    ],
+  },
 ]
 
 export default {
@@ -189,7 +234,7 @@ export default {
   },
   computed: {
     allReportOptions() {
-      return this.reportGroups.reduce((acc, g) => acc.concat(g.options), [])
+      return this.reportGroups.reduce((acc, g) => acc.concat(g.options.map((o) => o.key)), [])
     },
     totalOptions() {
       return this.allReportOptions.length
@@ -335,7 +380,7 @@ export default {
         const body = res && res.data
         const data = body && body.code === 0 ? body.data : null
         this.$alert(
-          '<pre style="white-space:pre-wrap;word-break:break-all;">' +
+          '<pre style="max-height:60vh;overflow:auto;margin:0;white-space:pre-wrap;word-break:break-all;">' +
             JSON.stringify(data, null, 2) +
             '</pre>',
           '设备端获取到的 data-report-config 内容',
