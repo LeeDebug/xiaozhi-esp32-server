@@ -1,0 +1,163 @@
+<svg width="100%" viewBox="0 0 680 600" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>xiaozhi-esp32-server 架构图</title>
+  <desc>扁平化微服务架构图：左侧设备端，中央 xiaozhi-server 对话核心，右侧外部模型与服务，底部 manager-api 管理后端，三色连线区分音频流、控制消息与配置拉取。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .box{fill:#FFFFFF;stroke:#C9D2DD;stroke-width:0.5}
+      .bound{fill:#EAF2FB;stroke:#C3D8F2;stroke-width:0.5}
+      .t{font-family:var(--font-sans);font-size:13px;font-weight:400;fill:#2C2C2A}
+      .th{font-family:var(--font-sans);font-size:13px;font-weight:500;fill:#1A1A1A}
+      .ts{font-family:var(--font-sans);font-size:11px;font-weight:400;fill:#5F5E5A}
+      .tt{font-family:var(--font-sans);font-size:14px;font-weight:500;fill:#1A1A1A}
+      .arr{fill:none;stroke-width:1.5}
+      .lead{fill:none;stroke:#9AA5B1;stroke-width:1;stroke-dasharray:4 3}
+      .dot{r:4}
+    </style>
+  </defs>
+
+  <text class="tt" x="40" y="30">xiaozhi-esp32-server 架构图</text>
+
+  <g>
+    <line class="arr" stroke="#185FA5" x1="470" y1="22" x2="496" y2="22" marker-end="url(#arrow)"/>
+    <text class="ts" x="502" y="26">音频 / WebSocket 流</text>
+    <line class="arr" stroke="#534AB7" x1="470" y1="42" x2="496" y2="42" marker-end="url(#arrow)"/>
+    <text class="ts" x="502" y="46">控制 / JSON 消息 · 工具调用</text>
+    <line class="arr" stroke="#0F6E56" x1="470" y1="62" x2="496" y2="62" marker-end="url(#arrow)"/>
+    <text class="ts" x="502" y="66">配置拉取 / API · 数据库</text>
+  </g>
+
+  <rect class="bound" x="168" y="108" width="348" height="348" rx="16"/>
+  <text class="th" x="184" y="130">xiaozhi-server</text>
+  <circle cx="350" cy="125" r="4" fill="#185FA5"/>
+
+  <g>
+    <rect class="box" x="40" y="120" width="116" height="74" rx="8"/>
+    <circle cx="54" cy="136" r="4" fill="#639922"/>
+    <text class="th" x="98" y="140" text-anchor="middle">ESP32 固件</text>
+    <text class="ts" x="98" y="158" text-anchor="middle">唤醒KWS·麦克风·扬声器</text>
+    <text class="ts" x="98" y="173" text-anchor="middle">本地ASR可选</text>
+
+    <rect class="box" x="40" y="214" width="116" height="58" rx="8"/>
+    <circle cx="54" cy="230" r="4" fill="#BA7517"/>
+    <text class="th" x="98" y="234" text-anchor="middle">digital-human</text>
+    <text class="ts" x="98" y="252" text-anchor="middle">数字人·测试 8006</text>
+  </g>
+
+  <g>
+    <rect class="box" x="188" y="140" width="150" height="46" rx="8"/>
+    <text class="th" x="263" y="160" text-anchor="middle">WebSocketServer</text>
+    <text class="ts" x="263" y="176" text-anchor="middle">:8000 对话通道</text>
+
+    <rect class="box" x="350" y="140" width="150" height="46" rx="8"/>
+    <text class="th" x="425" y="160" text-anchor="middle">SimpleHttpServer</text>
+    <text class="ts" x="425" y="176" text-anchor="middle">:8003 OTA·视觉</text>
+
+    <rect class="box" x="214" y="200" width="276" height="44" rx="8"/>
+    <text class="th" x="352" y="218" text-anchor="middle">ConnectionHandler</text>
+    <text class="ts" x="352" y="233" text-anchor="middle">每连接独立实例</text>
+  </g>
+
+  <g>
+    <rect class="box" x="188" y="260" width="54" height="56" rx="8"/>
+    <text class="th" x="215" y="286" text-anchor="middle">VAD</text>
+    <text class="ts" x="215" y="302" text-anchor="middle">Silero</text>
+
+    <rect class="box" x="252" y="260" width="54" height="56" rx="8"/>
+    <text class="th" x="279" y="286" text-anchor="middle">ASR</text>
+    <text class="ts" x="279" y="302" text-anchor="middle">SenseVoice</text>
+
+    <rect class="box" x="316" y="260" width="54" height="56" rx="8"/>
+    <text class="th" x="343" y="286" text-anchor="middle">Intent</text>
+    <text class="ts" x="343" y="302" text-anchor="middle">FnCall</text>
+
+    <rect class="box" x="380" y="260" width="54" height="56" rx="8"/>
+    <text class="th" x="407" y="286" text-anchor="middle">LLM</text>
+    <text class="ts" x="407" y="302" text-anchor="middle">大模型</text>
+
+    <rect class="box" x="444" y="260" width="54" height="56" rx="8"/>
+    <text class="th" x="471" y="286" text-anchor="middle">TTS</text>
+    <text class="ts" x="471" y="302" text-anchor="middle">语音合成</text>
+  </g>
+
+  <g>
+    <rect class="box" x="188" y="330" width="150" height="46" rx="8"/>
+    <text class="th" x="263" y="350" text-anchor="middle">ToolManager</text>
+    <text class="ts" x="263" y="365" text-anchor="middle">5类工具</text>
+
+    <rect class="box" x="356" y="330" width="148" height="46" rx="8"/>
+    <text class="th" x="430" y="350" text-anchor="middle">Memory / Voiceprint</text>
+    <text class="ts" x="430" y="365" text-anchor="middle">记忆·声纹</text>
+
+    <rect class="box" x="256" y="404" width="152" height="38" rx="8"/>
+    <text class="th" x="332" y="427" text-anchor="middle">Auth HMAC-SHA256</text>
+  </g>
+
+  <g>
+    <rect class="box" x="524" y="120" width="116" height="54" rx="8"/>
+    <text class="th" x="582" y="140" text-anchor="middle">ASR 云端</text>
+    <text class="ts" x="582" y="156" text-anchor="middle">FunASR/讯飞/阿里</text>
+
+    <rect class="box" x="524" y="186" width="116" height="54" rx="8"/>
+    <text class="th" x="582" y="206" text-anchor="middle">LLM 云端</text>
+    <text class="ts" x="582" y="222" text-anchor="middle">百炼/DeepSeek/智谱</text>
+
+    <rect class="box" x="524" y="252" width="116" height="54" rx="8"/>
+    <text class="th" x="582" y="272" text-anchor="middle">TTS 云端</text>
+    <text class="ts" x="582" y="288" text-anchor="middle">Edge/火山/Fish</text>
+
+    <rect class="box" x="524" y="318" width="116" height="48" rx="8"/>
+    <text class="th" x="582" y="340" text-anchor="middle">VLLM 视觉</text>
+    <text class="ts" x="582" y="356" text-anchor="middle">看图说话</text>
+
+    <rect class="box" x="524" y="378" width="116" height="54" rx="8"/>
+    <text class="th" x="582" y="398" text-anchor="middle">工具生态</text>
+    <text class="ts" x="582" y="414" text-anchor="middle">MCP/RAGFlow/Mem0</text>
+  </g>
+
+  <g>
+    <rect class="box" x="168" y="520" width="152" height="52" rx="8"/>
+    <text class="th" x="244" y="540" text-anchor="middle">manager-api</text>
+    <text class="ts" x="244" y="556" text-anchor="middle">Java :8002</text>
+
+    <rect class="box" x="332" y="520" width="92" height="52" rx="8"/>
+    <text class="th" x="378" y="546" text-anchor="middle">MySQL 8</text>
+
+    <rect class="box" x="436" y="520" width="84" height="52" rx="8"/>
+    <text class="th" x="478" y="546" text-anchor="middle">Redis 5</text>
+
+    <rect class="box" x="524" y="520" width="116" height="52" rx="8"/>
+    <text class="th" x="582" y="540" text-anchor="middle">manager-web</text>
+    <text class="ts" x="582" y="556" text-anchor="middle">智控台 Vue</text>
+  </g>
+
+  <g>
+    <path class="arr" stroke="#185FA5" d="M156 150 L188 160" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M156 242 C180 200 180 175 188 162" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M263 186 L263 200" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M352 244 C320 256 250 256 215 260" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M242 288 L252 288" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M306 288 L316 288" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M370 288 L380 288" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M434 288 L444 288" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M471 316 C300 360 180 280 156 165" marker-end="url(#arrow)"/>
+
+    <path class="arr" stroke="#534AB7" d="M407 316 C360 330 300 326 263 330" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#534AB7" d="M471 280 C500 260 510 230 524 213" marker-end="url(#arrow)"/>
+
+    <path class="arr" stroke="#185FA5" d="M188 282 C320 230 420 180 524 150" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#185FA5" d="M498 288 L524 279" marker-end="url(#arrow)"/>
+
+    <path class="arr" stroke="#0F6E56" d="M470 165 C520 230 524 300 524 320" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#0F6E56" d="M336 360 C420 380 480 395 524 400" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#0F6E56" d="M352 456 C340 490 290 500 244 520" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#0F6E56" d="M320 546 L332 546" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#0F6E56" d="M424 546 L436 546" marker-end="url(#arrow)"/>
+    <path class="arr" stroke="#0F6E56" d="M524 546 L396 546" marker-end="url(#arrow)"/>
+
+    <path class="lead" d="M350 140 C280 100 200 100 156 150"/>
+    <text class="ts" x="220" y="106">OTA 固件</text>
+  </g>
+</svg>
