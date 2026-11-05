@@ -22,7 +22,17 @@ async def sendAudioMessage(conn: "ConnectionHandler", sentenceType, audios, text
         return
 
     if conn.tts.tts_audio_first_sentence:
-        conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
+        # 端到端首句延迟：从用户消息进入 chat() 到首段音频真正发出。
+        # 配合 connection.py 的「LLM 耗时统计」与 tts/base.py 的「合成耗时」即可拆解总延迟。
+        started_at = getattr(conn, "chat_round_started_at", None)
+        if started_at is not None:
+            conn.logger.bind(tag=TAG).info(
+                f"发送第一段语音: {text} | 首句端到端延迟: "
+                f"{(time.perf_counter() - started_at) * 1000:.0f}ms"
+                f"（用户消息入队 -> 首段音频发出）"
+            )
+        else:
+            conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
         conn.tts.tts_audio_first_sentence = False
 
     if sentenceType == SentenceType.FIRST:

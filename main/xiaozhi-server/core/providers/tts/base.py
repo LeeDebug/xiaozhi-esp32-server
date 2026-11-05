@@ -1,6 +1,7 @@
 import os
 import re
 import math
+import time
 import uuid
 import queue
 import asyncio
@@ -132,6 +133,7 @@ class TTSProviderBase(ABC):
         max_repeat_time = 5
         if self.delete_audio_file:
             # 需要删除文件的直接转为音频数据
+            tts_start_at = time.perf_counter()
             while max_repeat_time > 0:
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
@@ -156,7 +158,8 @@ class TTSProviderBase(ABC):
                     max_repeat_time -= 1
             if max_repeat_time > 0:
                 logger.bind(tag=TAG).info(
-                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次"
+                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次，"
+                    f"合成耗时{(time.perf_counter() - tts_start_at) * 1000:.0f}ms"
                 )
             else:
                 logger.bind(tag=TAG).error(
@@ -201,6 +204,7 @@ class TTSProviderBase(ABC):
         max_repeat_time = 5
         if self.delete_audio_file:
             # 需要删除文件的直接转为音频数据
+            tts_start_at = time.perf_counter()
             while max_repeat_time > 0:
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
@@ -223,7 +227,8 @@ class TTSProviderBase(ABC):
                     max_repeat_time -= 1
             if max_repeat_time > 0:
                 logger.bind(tag=TAG).info(
-                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次"
+                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次，"
+                    f"合成耗时{(time.perf_counter() - tts_start_at) * 1000:.0f}ms"
                 )
             else:
                 logger.bind(tag=TAG).error(

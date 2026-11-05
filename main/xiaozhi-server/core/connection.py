@@ -75,6 +75,16 @@ DIRECT_ANSWER_TOOL = {
     },
 }
 
+# 递归汇总轮（工具结果已写入对话、只需 LLM 把结果组织成自然语言）是否跳过下发工具定义。
+# 背景：每轮 LLM 请求都会重发「7099 字系统提示 + 全部工具 schema」，这些 schema 在汇总轮
+# 完全用不上，却会显著增加 prefill token 数、抬高首包延迟(TTFT)。
+# 说明：跳过 tools 后本轮走纯文本流式接口 response()，模型无法再次调用工具，
+#      即「一次工具调用 -> 汇总回答」的场景无损，但连续多步工具链会在此中断。
+#      项目里 depth>=MAX_DEPTH 的强制回答路径原本就是「不带 tools + 历史含 tool 消息」，
+#      说明该组合在本项目与所用 LLM 上是合法可用的。
+# 回退：把本常量改为 False，或在配置中设置 skip_tools_on_recursive_round: false。
+SKIP_TOOLS_ON_RECURSIVE_ROUND = True
+
 
 class ConnectionHandler:
     def __init__(
@@ -1063,6 +1073,8 @@ class ConnectionHandler:
         if depth == 0:
             current_sentence_id = str(uuid.uuid4().hex)
             self.sentence_id = current_sentence_id  # 更新共享属性
+            # 一轮对话的端到端计时起点（用于统计「用户消息 -> 首段音频」）
+            self.chat_round_started_at = time.perf_counter()
             self.dialogue.put(Message(role="user", content=query))
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
@@ -1094,8 +1106,22 @@ class ConnectionHandler:
 
         # Define intent functions
         functions = None
+
+        # 递归汇总轮优化：工具结果已写入对话，本轮只需把结果组织成自然语言回复。
+        # 重发全部工具 schema 只会增加 prefill 开销（抬高首包延迟），故按开关跳过下发。
+        # 跳过时 functions=None，会走纯文本流式 response()；可用模块常量或配置一键回退。
+        skip_tools_this_round = (
+            depth > 0
+            and SKIP_TOOLS_ON_RECURSIVE_ROUND
+            and self.config.get("skip_tools_on_recursive_round", True)
+            and not force_final_answer
+        )
+        if skip_tools_this_round:
+            self.logger.bind(tag=TAG).info(
+                f"递归汇总轮 depth={depth}：跳过工具定义下发，走纯文本流式以减少 LLM prefill"
+            )
         # 达到最大深度时，禁用工具调用，强制 LLM 直接回答
-        if (
+        elif (
                 self.intent_type == "function_call"
                 and hasattr(self, "func_handler")
                 and not force_final_answer
@@ -1107,6 +1133,12 @@ class ConnectionHandler:
                 functions.append(DIRECT_ANSWER_TOOL)
 
         response_message = []
+        # ---- 耗时埋点：本轮 LLM 请求 ----
+        llm_start_at = time.perf_counter()
+        llm_first_chunk_at = None
+        llm_output_chars = 0
+        tools_count = len(functions) if functions else 0
+        # ---- 耗时埋点 ----
 
         try:
             # 使用带记忆的对话
@@ -1143,7 +1175,9 @@ class ConnectionHandler:
                     ),
                 )
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
+            self.logger.bind(tag=TAG).error(
+                f"LLM 处理出错 {query}: {e}，耗时 {(time.perf_counter() - llm_start_at) * 1000:.0f}ms"
+            )
             return None
 
         # 处理流式响应
@@ -1156,6 +1190,9 @@ class ConnectionHandler:
             for response in llm_responses:
                 if self.client_abort:
                     break
+                # 首包到达时间（近似 TTFT：含 prefill + 网络往返）
+                if llm_first_chunk_at is None:
+                    llm_first_chunk_at = time.perf_counter()
                 if self.intent_type == "function_call" and functions is not None:
                     content, tools_call = response
                     if "content" in response:
@@ -1208,6 +1245,7 @@ class ConnectionHandler:
                     emotion_flag = False
 
                 if content is not None and len(content) > 0:
+                    llm_output_chars += len(content)
                     if not tool_call_flag:
                         response_message.append(content)
                         self.tts.tts_text_queue.put(
@@ -1219,7 +1257,9 @@ class ConnectionHandler:
                             )
                         )
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"LLM stream processing error: {e}")
+            self.logger.bind(tag=TAG).error(
+                f"LLM stream processing error: {e}，耗时 {(time.perf_counter() - llm_start_at) * 1000:.0f}ms"
+            )
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
                     sentence_id=current_sentence_id,
@@ -1237,6 +1277,18 @@ class ConnectionHandler:
                     )
                 )
             return
+        llm_end_at = time.perf_counter()
+        ttft_ms = (
+            (llm_first_chunk_at - llm_start_at) * 1000
+            if llm_first_chunk_at is not None
+            else 0.0
+        )
+        self.logger.bind(tag=TAG).info(
+            f"LLM 耗时统计: depth={depth}, 下发工具数={tools_count}, "
+            f"首包={ttft_ms:.0f}ms, 流式总耗时={(llm_end_at - llm_start_at) * 1000:.0f}ms, "
+            f"输出字符数={llm_output_chars}"
+        )
+
         # 处理function call
         if tool_call_flag:
             bHasError = False
