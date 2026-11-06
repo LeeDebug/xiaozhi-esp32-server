@@ -68,6 +68,18 @@ public class AgentChatHistoryEntity {
     private String audioId;
 
     /**
+     * 本轮问答ID（复用 xiaozhi-server 的 sentence_id），仅末条回复记录携带
+     */
+    @TableField(value = "round_id")
+    private String roundId;
+
+    /**
+     * 本轮耗时指标JSON（毫秒），仅末条回复记录携带；历史数据为 NULL
+     */
+    @TableField(value = "metrics_json")
+    private String metricsJson;
+
+    /**
      * 创建时间
      */
     @TableField(value = "created_at")

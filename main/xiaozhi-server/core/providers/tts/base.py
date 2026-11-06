@@ -157,10 +157,15 @@ class TTSProviderBase(ABC):
                     )
                     max_repeat_time -= 1
             if max_repeat_time > 0:
+                tts_cost_ms = (time.perf_counter() - tts_start_at) * 1000
                 logger.bind(tag=TAG).info(
                     f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次，"
-                    f"合成耗时{(time.perf_counter() - tts_start_at) * 1000:.0f}ms"
+                    f"合成耗时{tts_cost_ms:.0f}ms"
                 )
+                # 只记录本轮首段合成耗时，作为 TTS 首包指标
+                metrics = getattr(getattr(self, "conn", None), "chat_round_metrics", None)
+                if metrics and not metrics.get("ttsFirstMs"):
+                    metrics["ttsFirstMs"] = int(tts_cost_ms)
             else:
                 logger.bind(tag=TAG).error(
                     f"语音生成失败: {original_text}，请检查网络或服务是否正常"
@@ -226,10 +231,15 @@ class TTSProviderBase(ABC):
                     )
                     max_repeat_time -= 1
             if max_repeat_time > 0:
+                tts_cost_ms = (time.perf_counter() - tts_start_at) * 1000
                 logger.bind(tag=TAG).info(
                     f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次，"
-                    f"合成耗时{(time.perf_counter() - tts_start_at) * 1000:.0f}ms"
+                    f"合成耗时{tts_cost_ms:.0f}ms"
                 )
+                # 只记录本轮首段合成耗时，作为 TTS 首包指标
+                metrics = getattr(getattr(self, "conn", None), "chat_round_metrics", None)
+                if metrics and not metrics.get("ttsFirstMs"):
+                    metrics["ttsFirstMs"] = int(tts_cost_ms)
             else:
                 logger.bind(tag=TAG).error(
                     f"语音生成失败: {original_text}，请检查网络或服务是否正常"
@@ -441,19 +451,25 @@ class TTSProviderBase(ABC):
 
                 # 收到下一个文本开始或会话结束时进行上报
                 if sentence_type is not SentenceType.MIDDLE:
+                    # 只有 LAST 对应的那条记录是本轮「最后一句」，
+                    # 耗时面板随它一起上报，前端就能挂在最后一句下面。
+                    is_last_sentence = sentence_type == SentenceType.LAST
                     if self.report_on_last:
                         # 累积模式：适用于全程只有一个语音流的TTS（如seed-tts-2.0）
                         # FIRST时只记录文本，音频持续累积，仅在LAST时统一上报
                         if text:
                             enqueue_text = text
-                        if sentence_type == SentenceType.LAST:
-                            enqueue_tts_report(self.conn, enqueue_text, enqueue_audio)
+                        if is_last_sentence:
+                            enqueue_tts_report(self.conn, enqueue_text, enqueue_audio, is_last=True)
                             enqueue_audio = []
                             enqueue_text = None
                     else:
                         # 非累积模式：每个句子分别上报
                         if enqueue_text is not None:
-                            enqueue_tts_report(self.conn, enqueue_text, enqueue_audio)
+                            enqueue_tts_report(
+                                self.conn, enqueue_text, enqueue_audio,
+                                is_last=is_last_sentence,
+                            )
                         enqueue_audio = []
                         enqueue_text = text
 

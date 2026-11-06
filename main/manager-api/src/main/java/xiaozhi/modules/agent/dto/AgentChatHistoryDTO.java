@@ -1,6 +1,7 @@
 package xiaozhi.modules.agent.dto;
 
 import java.util.Date;
+import java.util.Map;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -25,4 +26,10 @@ public class AgentChatHistoryDTO {
 
     @Schema(description = "MAC地址")
     private String macAddress;
+
+    @Schema(description = "本轮问答ID，仅每轮最后一句回复携带")
+    private String roundId;
+
+    @Schema(description = "本轮耗时指标，单位毫秒，仅每轮最后一句回复携带")
+    private Map<String, Object> metrics;
 }

@@ -155,9 +155,11 @@ class ASRProviderBase(ABC):
                 enhanced_text = self._build_enhanced_text(raw_text, speaker_name)
                 content_for_length_check = raw_text
 
-            # 性能监控
+            # 性能监控（含并行的声纹识别，作为 ASR 阶段总耗时）
             total_time = time.monotonic() - total_start_time
             logger.bind(tag=TAG).debug(f"总处理耗时: {total_time:.3f}s")
+            # ASR 在 chat() 之前完成，先暂存；下一轮 chat() 初始化埋点时取走
+            conn.pending_asr_ms = int(total_time * 1000)
 
             # 检查文本长度
             text_len, _ = remove_punctuation_and_length(content_for_length_check)

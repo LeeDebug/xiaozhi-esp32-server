@@ -85,7 +85,16 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         List<AgentChatHistoryEntity> historyList = list(wrapper);
 
         // 转换为DTO
-        return ConvertUtils.sourceToTarget(historyList, AgentChatHistoryDTO.class);
+        List<AgentChatHistoryDTO> result = ConvertUtils.sourceToTarget(historyList, AgentChatHistoryDTO.class);
+        // metrics_json 是 TEXT，字段名与 DTO 的 metrics 不同，无法由 ConvertUtils 自动映射，
+        // 这里单独反序列化成对象供前端直接渲染；历史记录该列为 NULL，跳过即可。
+        for (int i = 0; i < result.size(); i++) {
+            String metricsJson = historyList.get(i).getMetricsJson();
+            if (metricsJson != null && !metricsJson.isBlank()) {
+                result.get(i).setMetrics(JsonUtils.parseMap(metricsJson));
+            }
+        }
+        return result;
     }
 
     @Override

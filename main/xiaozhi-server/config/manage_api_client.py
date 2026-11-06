@@ -293,24 +293,33 @@ async def generate_and_save_chat_title(instance, session_id: str) -> Optional[Di
 
 @api_guard("TTS上报失败")
 async def report(
-    instance, mac_address: str, session_id: str, chat_type: int, content: str, audio, report_time
+    instance, mac_address: str, session_id: str, chat_type: int, content: str, audio,
+    report_time, extra=None
 ) -> Optional[Dict]:
-    """异步聊天记录上报"""
+    """异步聊天记录上报
+
+    extra 为本轮耗时快照（roundId / metrics），仅每轮最后一句携带；
+    旧版本 manager-api 会忽略这两个未知字段，升级不同步也不会报错。
+    """
     if not content:
         return None
+    payload = {
+        "macAddress": mac_address,
+        "sessionId": session_id,
+        "chatType": chat_type,
+        "content": content,
+        "reportTime": report_time,
+        "audioBase64": (
+            base64.b64encode(audio).decode("utf-8") if audio else None
+        ),
+    }
+    if extra:
+        payload["roundId"] = extra.get("roundId")
+        payload["metrics"] = extra.get("metrics")
     return await instance._execute_async_request(
         "POST",
         f"/agent/chat-history/report",
-        json={
-            "macAddress": mac_address,
-            "sessionId": session_id,
-            "chatType": chat_type,
-            "content": content,
-            "reportTime": report_time,
-            "audioBase64": (
-                base64.b64encode(audio).decode("utf-8") if audio else None
-            ),
-        },
+        json=payload,
     )
 
 

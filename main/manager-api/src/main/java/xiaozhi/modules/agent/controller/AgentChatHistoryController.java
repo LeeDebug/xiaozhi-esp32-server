@@ -229,6 +229,17 @@ public class AgentChatHistoryController {
 
                         String line = "[" + role + "]-[" + messageTimeStr + "]" + direction + ":" + content + "\n";
                         out.write(line.getBytes(StandardCharsets.UTF_8));
+
+                        // 末条回复附带的本轮耗时快照，导出文本与弹窗信息保持一致
+                        if (message.getMetrics() != null) {
+                            StringBuilder metricsLine = new StringBuilder("[metrics]");
+                            for (Map.Entry<String, Object> entry : message.getMetrics().entrySet()) {
+                                metricsLine.append(' ').append(entry.getKey())
+                                        .append('=').append(entry.getValue());
+                            }
+                            out.write((metricsLine.append('\n').toString())
+                                    .getBytes(StandardCharsets.UTF_8));
+                        }
                     }
 
                     // 会话之间添加空行分隔

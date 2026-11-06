@@ -30,7 +30,7 @@
             </div>
             <div class="chat-content">
                 <div v-if="currentSessionId" class="messages">
-                    <div v-for="(message, index) in messagesWithTime" :key="message.id">
+                    <div v-for="(message, index) in messagesWithTime" :key="message.id || ('msg-' + index)">
                         <div v-if="message.type === 'time'" class="time-divider">
                             {{ message.content }}
                         </div>
@@ -67,6 +67,29 @@
                                     @click="playAudio(message)" class="audio-icon"></i>
                             </div>
                         </div>
+                        <div v-if="message._showMetrics" class="metrics-panel">
+                            <div class="metrics-summary" @click="toggleMetrics(index)">
+                                <i :class="isMetricsExpanded(index) ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+                                <span>{{ $t('chatHistory.metricsTitle') }}</span>
+                                <strong>{{ formatDuration(message.metrics.e2eTotalMs) }}</strong>
+                                <span v-if="Number(message.metrics.e2eFirstAudioMs) > 0" class="metrics-sub">
+                                    {{ $t('chatHistory.metricsFirstAudio') }} {{ formatDuration(message.metrics.e2eFirstAudioMs) }}
+                                </span>
+                            </div>
+                            <div v-if="isMetricsExpanded(index)" class="metrics-detail">
+                                <div v-for="row in getMetricsRows(message.metrics)" :key="row.key" class="metrics-row">
+                                    <span class="metrics-label">{{ $t(row.labelKey) }}</span>
+                                    <span class="metrics-bar-wrap">
+                                        <span class="metrics-bar" :style="{ width: getMetricsBarWidth(row.value, message.metrics) + '%' }"></span>
+                                    </span>
+                                    <span class="metrics-value">{{ formatDuration(row.value) }}</span>
+                                </div>
+                                <div v-if="Number(message.metrics.llmRounds) > 1" class="metrics-note">
+                                    {{ $t('chatHistory.metricsLlmRounds') }} {{ message.metrics.llmRounds }}
+                                </div>
+                                <div class="metrics-note">{{ $t('chatHistory.metricsNote') }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div v-else class="no-session-selected">
@@ -90,6 +113,16 @@ import { debounce } from '@/utils'
 import Api from '@/apis/api';
 import CustomDialog from '@/components/CustomDialog.vue';
 import MacAddressMask from '@/components/MacAddressMask.vue';
+
+// 耗时面板的分段指标顺序与 i18n key，单位统一为毫秒
+const METRIC_DEFS = [
+    { key: 'asrMs', labelKey: 'chatHistory.metricAsr' },
+    { key: 'llmTtftMs', labelKey: 'chatHistory.metricLlmTtft' },
+    { key: 'llmTotalMs', labelKey: 'chatHistory.metricLlmTotal' },
+    { key: 'ttsFirstMs', labelKey: 'chatHistory.metricTtsFirst' },
+    { key: 'e2eFirstAudioMs', labelKey: 'chatHistory.metricE2eFirstAudio' },
+    { key: 'e2eTotalMs', labelKey: 'chatHistory.metricE2eTotal' }
+];
 
 export default {
     name: 'ChatHistoryDialog',
@@ -122,7 +155,8 @@ export default {
             isFirstLoad: true,
             playingAudioId: null,
             audioElement: null,
-            expandedToolResults: {} // 跟踪工具结果的展开状态
+            expandedToolResults: {}, // 跟踪工具结果的展开状态
+            expandedMetrics: {} // 跟踪耗时面板的展开状态（key 为 messagesWithTime 的 index）
         };
     },
     components: {
@@ -148,35 +182,53 @@ export default {
         }
     },
     computed: {
+        // 一轮回答可能被 TTS 拆成多条记录，后端只在最后一条上附带 metrics。
+        // 若同一 roundId 意外出现多条（工具结果独立播报等），只保留最后一条显示面板；
+        // 历史记录与异常轮次没有 metrics，天然不显示，无需回填。
+        messagesWithMetricsFlag() {
+            const source = this.messages || [];
+            const lastIndexByRound = {};
+            source.forEach((message, index) => {
+                if (!message.metrics) return;
+                const key = message.roundId || ('__no_round__' + index);
+                lastIndexByRound[key] = index;
+            });
+            const visible = new Set(Object.values(lastIndexByRound));
+            return source.map((message, index) => ({
+                ...message,
+                _showMetrics: visible.has(index)
+            }));
+        },
         messagesWithTime() {
-            if (!this.messages || this.messages.length === 0) return [];
+            const list = this.messagesWithMetricsFlag;
+            if (!list || list.length === 0) return [];
 
             const result = [];
             const TIME_INTERVAL = 60 * 1000; // 1分钟的时间间隔（毫秒）
 
             // 添加第一条消息的时间标记
-            if (this.messages[0]) {
+            if (list[0]) {
                 result.push({
                     type: 'time',
-                    content: this.formatTime(this.messages[this.messages.length - 1].createdAt),
+                    content: this.formatTime(list[list.length - 1].createdAt),
                     id: `time-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
                 });
             }
 
             // 处理消息列表
-            for (let i = 0; i < this.messages.length; i++) {
-                const currentMessage = this.messages[i];
+            for (let i = 0; i < list.length; i++) {
+                const currentMessage = list[i];
                 result.push(currentMessage);
 
                 // 检查是否需要添加时间标记
-                if (i < this.messages.length - 1) {
+                if (i < list.length - 1) {
                     const currentTime = new Date(currentMessage.createdAt).getTime();
-                    const nextTime = new Date(this.messages[i + 1].createdAt).getTime();
+                    const nextTime = new Date(list[i + 1].createdAt).getTime();
 
                     if (nextTime - currentTime > TIME_INTERVAL) {
                         result.push({
                             type: 'time',
-                            content: this.formatTime(this.messages[i + 1].createdAt),
+                            content: this.formatTime(list[i + 1].createdAt),
                             id: `time-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
                         });
                     }
@@ -247,6 +299,7 @@ export default {
             this.hasMore = true;
             this.isFirstLoad = true;
             this.expandedToolResults = {};
+            this.expandedMetrics = {};
         },
         loadSessions() {
             if (this.loading || (!this.isFirstLoad && !this.hasMore)) {
@@ -326,6 +379,29 @@ export default {
                 const day = date.getDate().toString().padStart(2, '0');
                 return `${year}-${month}-${day} ${hours}:${minutes}`;
             }
+        },
+        formatDuration(ms) {
+            const value = Number(ms || 0);
+            if (value >= 1000) return `${(value / 1000).toFixed(2)}s`;
+            return `${Math.round(value)}ms`;
+        },
+        getMetricsRows(metrics) {
+            if (!metrics) return [];
+            return METRIC_DEFS
+                .filter(def => Number(metrics[def.key]) > 0)
+                .map(def => ({ key: def.key, labelKey: def.labelKey, value: Number(metrics[def.key]) }));
+        },
+        getMetricsBarWidth(value, metrics) {
+            const rows = this.getMetricsRows(metrics);
+            // 条形以本轮总耗时为基准，分段指标之间允许时间重叠
+            const base = Math.max(1, Number(metrics.e2eTotalMs) || 0, ...rows.map(row => row.value));
+            return Math.max(2, Math.min(100, Math.round(value / base * 100)));
+        },
+        toggleMetrics(index) {
+            this.$set(this.expandedMetrics, index, !this.expandedMetrics[index]);
+        },
+        isMetricsExpanded(index) {
+            return !!this.expandedMetrics[index];
         },
         getAudioIconClass(message) {
             if (this.playingAudioId === message.audioId) {
@@ -512,6 +588,83 @@ export default {
     cursor: pointer;
     margin: 0 5px;
     color: #1890ff;
+}
+
+.metrics-panel {
+    margin: -12px 10px 20px 60px;
+    max-width: 60%;
+    border: 1px solid #dceaf8;
+    border-radius: 8px;
+    background-color: #f7fbff;
+    font-size: 12px;
+    color: #5f6b7a;
+}
+
+.metrics-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.metrics-summary i {
+    color: #1890ff;
+}
+
+.metrics-summary strong {
+    color: #1890ff;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.metrics-sub {
+    color: #98a4b3;
+}
+
+.metrics-detail {
+    padding: 8px 10px 10px;
+    border-top: 1px solid #e6eff9;
+}
+
+.metrics-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+}
+
+.metrics-label {
+    width: 120px;
+    flex-shrink: 0;
+}
+
+.metrics-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background-color: #e6eff9;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.metrics-bar {
+    display: block;
+    height: 100%;
+    background-color: #1890ff;
+    border-radius: 3px;
+}
+
+.metrics-value {
+    width: 56px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.metrics-note {
+    margin-top: 6px;
+    color: #98a4b3;
+    line-height: 1.5;
 }
 
 .user-message .message-content {

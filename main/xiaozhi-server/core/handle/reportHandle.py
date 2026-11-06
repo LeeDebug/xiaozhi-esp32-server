@@ -22,7 +22,7 @@ from config.manage_api_client import report as manage_report
 TAG = __name__
 
 
-async def report(conn: "ConnectionHandler", chat_type, text, audio_data, report_time):
+async def report(conn: "ConnectionHandler", chat_type, text, audio_data, report_time, extra=None):
     """执行聊天记录上报操作
 
     Args:
@@ -31,6 +31,7 @@ async def report(conn: "ConnectionHandler", chat_type, text, audio_data, report_
         text: 合成文本
         audio_data: 音频数据（chat_type=1时为PCM格式，chat_type=2时为Opus格式）
         report_time: 上报时间
+        extra: 本轮耗时快照（dict: roundId / metrics），仅末条 TTS 记录携带
     """
     try:
         if audio_data:
@@ -51,6 +52,7 @@ async def report(conn: "ConnectionHandler", chat_type, text, audio_data, report_
             content=text,
             audio=wav_data,
             report_time=report_time,
+            extra=extra,
         )
     except Exception as e:
         conn.logger.bind(tag=TAG).error(f"聊天记录上报失败: {e}")
@@ -157,27 +159,59 @@ def opus_to_wav(conn: "ConnectionHandler", opus_data):
                 conn.logger.bind(tag=TAG).debug(f"释放decoder资源时出错: {e}")
 
 
-def enqueue_tts_report(conn: "ConnectionHandler", text, opus_data):
+def build_round_metrics(conn: "ConnectionHandler"):
+    """生成一轮问答的耗时快照，仅在每轮最后一句 TTS 上报时调用。
+
+    startedAt 是 time.perf_counter() 的单调时钟值，只用于进程内求差，
+    必须在这里剔除，绝不能把单调时钟值写进上报 JSON 或数据库。
+    埋点缺失（如历史会话、异常轮次）时返回 None，前端会隐藏面板。
+    """
+    raw = getattr(conn, "chat_round_metrics", None)
+    if not raw or not raw.get("roundId"):
+        return None
+    started_at = raw.get("startedAt")
+    # roundId 单独作为上报字段，不再重复塞进 metrics
+    metrics = {
+        key: value for key, value in raw.items()
+        if key not in ("startedAt", "roundId")
+    }
+    if started_at is not None:
+        metrics["e2eTotalMs"] = int((time.perf_counter() - started_at) * 1000)
+    return {"roundId": raw["roundId"], "metrics": metrics}
+
+
+def enqueue_tts_report(conn: "ConnectionHandler", text, opus_data, is_last=False):
     """将TTS数据加入上报队列
 
     Args:
         conn: 连接对象
         text: 合成文本
         opus_data: opus音频数据
+        is_last: 是否为本轮最后一句；为 True 时附带本轮耗时快照
     """
     if not conn.read_config_from_api or conn.need_bind or not conn.report_tts_enable:
         return
     if conn.chat_history_conf == 0:
         return
     try:
+        # 耗时只在最后一句携带，避免同一轮的 metrics 被重复写入多条记录
+        extra = build_round_metrics(conn) if is_last else None
+        if is_last:
+            # 自检日志：耗时面板不显示时，这一行可直接区分「Python 没生成快照」
+            # 与「生成了但 Java 没收到」。hasSnapshot=False 说明 chat_round_metrics
+            # 未初始化，或 tts/base.py / 本文件仍是旧版（旧版不传 is_last）。
+            conn.logger.bind(tag=TAG).info(
+                f"本轮耗时快照自检: hasSnapshot={extra is not None}, "
+                f"roundId={extra.get('roundId') if extra else None}"
+            )
         # 使用连接对象的队列，传入文本和二进制数据而非文件路径
         if conn.chat_history_conf == 2:
-            conn.report_queue.put((2, text, opus_data, int(time.time() * 1000)))
+            conn.report_queue.put((2, text, opus_data, int(time.time() * 1000), extra))
             conn.logger.bind(tag=TAG).debug(
                 f"TTS数据已加入上报队列: {conn.device_id}, 音频大小: {len(opus_data)} "
             )
         else:
-            conn.report_queue.put((2, text, None, int(time.time() * 1000)))
+            conn.report_queue.put((2, text, None, int(time.time() * 1000), extra))
             conn.logger.bind(tag=TAG).debug(
                 f"TTS数据已加入上报队列: {conn.device_id}, 不上报音频"
             )
@@ -213,13 +247,13 @@ def enqueue_tool_report(conn: "ConnectionHandler", tool_name: str, tool_input: d
                     }
                 ]
             )
-            conn.report_queue.put((3, tool_text, None, timestamp))
+            conn.report_queue.put((3, tool_text, None, timestamp, None))
 
         # 构建工具结果内容
         if tool_result:
             result_display = f'{{"result":"{str(tool_result)}"}}'
             result_content = json.dumps([{"type": "tool_result", "text": result_display}], ensure_ascii=False)
-            conn.report_queue.put((3, result_content, None, timestamp + 1))
+            conn.report_queue.put((3, result_content, None, timestamp + 1, None))
     except Exception as e:
         conn.logger.bind(tag=TAG).error(f"加入工具上报队列失败: {e}")
 
@@ -239,12 +273,12 @@ def enqueue_asr_report(conn: "ConnectionHandler", text, opus_data):
     try:
         # 使用连接对象的队列，传入文本和二进制数据而非文件路径
         if conn.chat_history_conf == 2:
-            conn.report_queue.put((1, text, opus_data, int(time.time() * 1000)))
+            conn.report_queue.put((1, text, opus_data, int(time.time() * 1000), None))
             conn.logger.bind(tag=TAG).debug(
                 f"ASR数据已加入上报队列: {conn.device_id}, 音频大小: {len(opus_data)} "
             )
         else:
-            conn.report_queue.put((1, text, None, int(time.time() * 1000)))
+            conn.report_queue.put((1, text, None, int(time.time() * 1000), None))
             conn.logger.bind(tag=TAG).debug(
                 f"ASR数据已加入上报队列: {conn.device_id}, 不上报音频"
             )

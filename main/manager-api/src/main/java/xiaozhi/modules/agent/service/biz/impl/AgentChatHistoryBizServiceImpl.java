@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.constant.Constant;
 import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
+import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.modules.agent.dto.AgentChatHistoryReportDTO;
 import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
 import xiaozhi.modules.agent.entity.AgentEntity;
@@ -54,7 +55,9 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
         Byte chatType = report.getChatType();
         Long reportTimeMillis = null != report.getReportTime() ? report.getReportTime()
                 : System.currentTimeMillis();
-        log.info("小智设备聊天上报请求: macAddress={}, type={} reportTime={}", macAddress, chatType, reportTimeMillis);
+        log.info("小智设备聊天上报请求: macAddress={}, type={} reportTime={}, roundId={}, hasMetrics={}",
+                macAddress, chatType, reportTimeMillis, report.getRoundId(),
+                report.getMetrics() != null && !report.getMetrics().isEmpty());
 
         // 根据设备MAC地址查询对应的默认智能体，判断是否需要上报
         AgentEntity agentEntity = agentService.getDefaultAgentByMacAddress(macAddress);
@@ -110,6 +113,12 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
      */
     private void saveChatText(AgentChatHistoryReportDTO report, String agentId, String macAddress, String audioId,
             Long reportTime) {
+        // 耗时快照只在带 roundId 的末条回复上报中存在；二者必须成对，
+        // 否则前端无法把面板归到正确的一轮，故缺 roundId 时整组丢弃。
+        String roundId = report.getRoundId();
+        String metricsJson = (roundId == null || report.getMetrics() == null || report.getMetrics().isEmpty())
+                ? null : JsonUtils.toJsonString(report.getMetrics());
+
         // 构建聊天记录实体
         AgentChatHistoryEntity entity = AgentChatHistoryEntity.builder()
                 .macAddress(macAddress)
@@ -118,6 +127,8 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
                 .chatType(report.getChatType())
                 .content(report.getContent())
                 .audioId(audioId)
+                .roundId(roundId)
+                .metricsJson(metricsJson)
                 .createdAt(new Date(reportTime))
                 // NOTE(haotian): 2025/5/26 updateAt可以不设置，重点是createAt，而且这样可以看到上报延迟
                 .build();

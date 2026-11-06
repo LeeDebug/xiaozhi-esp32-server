@@ -140,6 +140,14 @@ class ConnectionHandler:
         self.report_asr_enable = self.read_config_from_api
         self.report_tts_enable = self.read_config_from_api
 
+        # 本轮问答的结构化耗时埋点：聊天记录弹窗的信息面板数据来源。
+        # startedAt 为 time.perf_counter() 的单调时钟值，仅用于进程内求差，
+        # 绝不能写入上报 JSON；上报前由 build_round_metrics() 剔除。
+        self.chat_round_started_at = None
+        self.chat_round_metrics = {}
+        # ASR 发生在 chat() 之前，耗时先暂存，由下一轮 chat() 取走
+        self.pending_asr_ms = None
+
         # 依赖的组件
         self.vad = None
         self.asr = None
@@ -1075,6 +1083,20 @@ class ConnectionHandler:
             self.sentence_id = current_sentence_id  # 更新共享属性
             # 一轮对话的端到端计时起点（用于统计「用户消息 -> 首段音频」）
             self.chat_round_started_at = time.perf_counter()
+            # 结构化耗时埋点：roundId 直接复用本轮 sentence_id，
+            # 让「用户消息 + 工具调用 + 多段回复」在聊天记录里可归为同一轮。
+            self.chat_round_metrics = {
+                "roundId": current_sentence_id,
+                "startedAt": self.chat_round_started_at,
+                "asrMs": int(self.pending_asr_ms or 0),
+                "llmTtftMs": 0,
+                "llmTotalMs": 0,
+                "llmRounds": 0,
+                "llmOutputChars": 0,
+                "ttsFirstMs": 0,
+                "e2eFirstAudioMs": 0,
+            }
+            self.pending_asr_ms = None
             self.dialogue.put(Message(role="user", content=query))
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
@@ -1288,6 +1310,20 @@ class ConnectionHandler:
             f"首包={ttft_ms:.0f}ms, 流式总耗时={(llm_end_at - llm_start_at) * 1000:.0f}ms, "
             f"输出字符数={llm_output_chars}"
         )
+
+        # 写入结构化埋点。递归汇总轮（depth>0）也计入同一 roundId，
+        # 因此 llmTotalMs / llmTtftMs 是本轮多次 LLM 调用的累加值，
+        # llmRounds 记录递归次数，避免把多轮误读成一次请求变慢。
+        metrics = getattr(self, "chat_round_metrics", None)
+        if metrics:
+            metrics["llmRounds"] = int(metrics.get("llmRounds", 0)) + 1
+            metrics["llmTtftMs"] = int(metrics.get("llmTtftMs", 0)) + int(ttft_ms)
+            metrics["llmTotalMs"] = int(metrics.get("llmTotalMs", 0)) + int(
+                (llm_end_at - llm_start_at) * 1000
+            )
+            metrics["llmOutputChars"] = int(
+                metrics.get("llmOutputChars", 0)
+            ) + llm_output_chars
 
         # 处理function call
         if tool_call_flag:
@@ -1577,11 +1613,15 @@ class ConnectionHandler:
 
         self.logger.bind(tag=TAG).info("聊天记录上报线程已退出")
 
-    def _process_report(self, type, text, audio_data, report_time):
-        """处理上报任务"""
+    def _process_report(self, type, text, audio_data, report_time, extra=None):
+        """处理上报任务
+
+        extra 为本轮耗时快照，仅每轮最后一句 TTS 记录携带；
+        保留默认值以兼容队列中可能残留的旧 4 元组。
+        """
         try:
             # 执行异步上报（在事件循环中运行）
-            asyncio.run(report(self, type, text, audio_data, report_time))
+            asyncio.run(report(self, type, text, audio_data, report_time, extra))
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"上报处理异常: {e}")
         finally:
