@@ -22,7 +22,7 @@
 
             <el-form :model="form" label-width="110px" class="predict-form">
               <el-form-item :label="$t('aiDataAnalysis.dataPrediction.metric')">
-                <el-select v-model="form.metric" :placeholder="$t('aiDataAnalysis.dataPrediction.selectMetric')" style="width: 280px" @change="clearResult">
+                <el-select v-model="form.metric" :placeholder="$t('aiDataAnalysis.dataPrediction.selectMetric')" filterable style="width: 360px" @change="clearResult">
                   <el-option v-for="m in metricOptions" :key="m.value" :label="m.label" :value="m.value" />
                 </el-select>
               </el-form-item>
@@ -64,13 +64,13 @@
 import HeaderBar from '@/components/HeaderBar.vue'
 import CustomButton from '@/components/CustomButton.vue'
 import dataAnalysis from '@/apis/module/dataAnalysis.js'
+import { REPORT_METRICS } from '@/constants/reportMetrics.js'
 
-const FALLBACK_METRICS = [
-  { value: 'temperature', label: '温度' },
-  { value: 'humidity', label: '湿度' },
-  { value: 'volume', label: '音量' },
-  { value: 'onlineDuration', label: '在线时长' },
-]
+// 后端字段目录接口不可用时的兜底：直接使用 Excel 全量字段目录
+const FALLBACK_METRICS = REPORT_METRICS.map((m) => ({
+  value: m.key,
+  label: `#${m.seq} ${m.label}`,
+}))
 
 export default {
   name: 'DataPrediction',
@@ -95,7 +95,10 @@ export default {
       dataAnalysis.metrics((res) => {
         const body = res && res.data
         if (body && body.code === 0 && body.data && body.data.length) {
-          this.metricOptions = body.data.map((m) => ({ value: m.key, label: m.name }))
+          this.metricOptions = body.data.map((m) => ({
+            value: m.key,
+            label: m.seq ? `#${m.seq} ${m.name}` : m.name,
+          }))
           if (!this.form.metric) {
             this.form.metric = this.metricOptions[0].value
           }

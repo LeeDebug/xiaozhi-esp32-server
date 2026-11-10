@@ -8,17 +8,17 @@
             <div class="page-header">
               <h2 class="page-title">{{ $t('header.dataPushConfig') }}</h2>
               <span class="page-desc">管理设备开机自动拉取的数据上报配置，设备根据生效配置决定是否上报、上报频率与上报内容。</span>
-          <div class="header-actions">
-            <CustomButton icon="el-icon-view" size="medium" @click="openPreview">
-              预览设备端配置
-            </CustomButton>
-            <CustomButton icon="el-icon-document" size="medium" @click="openGuide">
-              接入指南
-            </CustomButton>
-            <CustomButton icon="el-icon-plus" type="confirm" size="medium" @click="openAdd">
-              新增配置
-            </CustomButton>
-          </div>
+              <div class="header-actions">
+                <CustomButton icon="el-icon-view" size="medium" @click="openPreview">
+                  预览设备端配置
+                </CustomButton>
+                <CustomButton icon="el-icon-document" size="medium" @click="openGuide">
+                  接入指南
+                </CustomButton>
+                <CustomButton icon="el-icon-plus" type="confirm" size="medium" @click="openAdd">
+                  新增配置
+                </CustomButton>
+              </div>
             </div>
             <div class="divider"></div>
 
@@ -32,6 +32,11 @@
                 </template>
               </el-table-column>
               <el-table-column prop="reportInterval" label="上报间隔(分钟)" min-width="120" align="center" />
+              <el-table-column label="上报字段数" min-width="110" align="center">
+                <template slot-scope="scope">
+                  {{ scope.row.reportContent ? scope.row.reportContent.length : 0 }} / {{ totalOptions }}
+                </template>
+              </el-table-column>
               <el-table-column label="上报设备信息" min-width="110" align="center">
                 <template slot-scope="scope">
                   {{ scope.row.reportDeviceInfo === 1 ? '是' : '否' }}
@@ -85,7 +90,7 @@
     <el-dialog
       :title="dialogMode === 'add' ? '新增数据上报配置' : '编辑数据上报配置'"
       :visible.sync="dialogVisible"
-      width="720px"
+      width="860px"
       :close-on-click-modal="false"
       :close-on-press-escape="true"
       class="report-config-dialog"
@@ -134,21 +139,39 @@
           <div class="rc-toolbar">
             <el-button type="text" size="small" class="rc-action" @click="selectAll">全选</el-button>
             <el-button type="text" size="small" class="rc-action" @click="invertSelection">反选</el-button>
+            <el-input
+              v-model="metricKeyword"
+              size="mini"
+              clearable
+              placeholder="搜索序号 / 名称 / 英文key / 取值范围"
+              class="rc-search"
+            />
+            <el-checkbox v-model="showRange" size="mini" class="rc-range-toggle">取值范围</el-checkbox>
             <span class="rc-count">已选 {{ selectedCount }} / {{ totalOptions }} 项</span>
           </div>
           <div class="report-content">
-            <div class="rc-group" v-for="g in reportGroups" :key="g.label">
-              <div class="rc-group-title">{{ g.label }}</div>
+            <div class="rc-group" v-for="g in filteredGroups" :key="g.label">
+              <div class="rc-group-title">{{ g.label }}（{{ g.options.length }} 项）</div>
               <el-checkbox-group v-model="form.reportContent">
                 <el-checkbox
                   v-for="opt in g.options"
                   :key="opt.key"
                   :label="opt.key"
-                  border
                   size="small"
-                >{{ opt.label }}</el-checkbox>
+                  border
+                  :title="tipText(opt)"
+                  class="rc-checkbox"
+                >
+                  <span class="rc-item-label">{{ opt.seq }}. {{ opt.label }}</span>
+                  <span v-if="showRange" class="rc-item-range">{{ opt.range || '—' }}</span>
+                </el-checkbox>
               </el-checkbox-group>
             </div>
+            <div v-if="filteredGroups.length === 0" class="rc-empty">未找到匹配的字段</div>
+          </div>
+          <div class="rc-hint">
+            字段来源：《AI语音管家与生产监控终端通讯控制逻辑表》「管家」工作表，按序号排列，新建配置默认全选；
+            存储与接口下发仅使用 <code>mb-mcp_</code> 前缀的英文 key，中文仅用于界面展示。
           </div>
         </el-form-item>
 
@@ -173,7 +196,7 @@
     <el-dialog
       title="设备端接入指南"
       :visible.sync="guideVisible"
-      width="900px"
+      width="1100px"
       :close-on-click-modal="false"
       :close-on-press-escape="true"
       class="guide-dialog"
@@ -184,11 +207,14 @@
 
         <h4>1. 获取上报配置（已实现）</h4>
         <p><code>GET /xiaozhi/data-report-config/current</code> —— 公开接口，<b>无需登录</b>（设备开机通常无 token）。</p>
-        <pre>GET /xiaozhi/data-report-config/current</pre>
-        <p>返回示例（Result.data 内）：</p>
         <pre>{
   "enabled": 1,
-  "reportContent": ["chickenCount", "silo1Weight", "temperature"],
+  "reportContent": [
+    "mb-mcp_version",
+    "mb-mcp_commAddress",
+    "mb-mcp_silo1CurrentWeight",
+    "mb-mcp_silo1RealTimeFeedAmount"
+  ],
   "reportInterval": 5,
   "reportDeviceInfo": 1,
   "reportLocation": 0,
@@ -198,7 +224,7 @@
         <p>字段说明：</p>
         <ul>
           <li><b>enabled</b>：是否上报（0 否 / 1 是）；为 0 时设备无需上报。</li>
-          <li><b>reportContent</b>：要上报的字段（英文 key 数组），取值见下方清单。</li>
+          <li><b>reportContent</b>：要上报的字段（<code>mb-mcp_</code> 前缀英文 key 数组），取值见下方「全量字段目录」，接口中不会出现中文。</li>
           <li><b>reportInterval</b>：上报间隔，单位「分钟」。</li>
           <li><b>reportDeviceInfo</b>：是否附带设备信息（0/1）。</li>
           <li><b>reportLocation</b>：是否附带地理位置（0/1）。</li>
@@ -206,7 +232,7 @@
         </ul>
 
         <h4>2. 上报数据（已实现）</h4>
-        <p><code>POST /xiaozhi/data-analysis/upload</code> —— 设备按本配置上报数据，后端落库后可在「数据预览 / 数据分析 / 数据预测」中查看。请求体示例：</p>
+        <p><code>POST /xiaozhi/data-analysis/upload</code> —— 公开接口，后端落库后可在「数据预览 / 数据分析 / 数据预测」中查看。请求体示例：</p>
         <pre>POST /xiaozhi/data-analysis/upload
 Content-Type: application/json
 
@@ -214,26 +240,44 @@ Content-Type: application/json
   "deviceId": "设备唯一ID",
   "timestamp": 1699000000000,
   "data": {
-    "chickenCount": 1200,
-    "silo1Weight": 350.5,
-    "temperature": 25.3
+    "mb-mcp_version": 100,
+    "mb-mcp_commAddress": 1,
+    "mb-mcp_silo1CurrentWeight": 350.5,
+    "mb-mcp_silo1RealTimeFeedAmount": 12.3
   },
   "deviceInfo": { "firmware": "v1.2.3", "model": "xxx" },
   "location": { "lng": 0.0, "lat": 0.0 }
 }</pre>
-        <p>约定：<code>data</code> 中的 key 必须与第 1 步 <code>reportContent</code> 返回的英文 key 一一对应；<code>deviceInfo</code> / <code>location</code> 仅在对应开关为 1 时携带。</p>
+        <p>约定：<code>data</code> 中的 key 必须与第 1 步 <code>reportContent</code> 返回的英文 key 一一对应；<code>deviceInfo</code> / <code>location</code> 仅在对应开关为 1 时携带；数值字段按目录中的「取值范围」上送。</p>
 
         <h4>3. 关键约定</h4>
         <ul>
-          <li>上报字段一律使用<b>英文 key</b>（如 chickenCount / silo1Weight / cranePosition / temperature…），存储、传输、对接均用英文，仅前端展示用中文。</li>
+          <li>上报字段一律使用 <code>mb-mcp_</code> 前缀的<b>英文 key</b>（如 mb-mcp_temperature 形式），存储、传输、对接均用英文，仅前端展示使用中文名称与取值范围。</li>
           <li>只有被标记为「生效中」的配置才会被 <code>/current</code> 返回；没有生效配置时返回内置默认值（enabled=0，即默认不上报）。</li>
-          <li>英文 key 清单（与前端「上报内容」一致）：
-            <br>生产：perChickenData, chickenCount, envExtremes, mortalityRate, waterFeedAmount, eggLaying, eggYield, waterUsage, silo1Weight, silo2Weight
-            <br>运行：envVentilation, deviceStatus, fanGroup, windowCurtain, specialFan, cranePosition
-            <br>环境：tempProbe, envTemperature, envHumidity, otherEnvMetrics, light, light1Brightness, light2Brightness, temperature, humidity, ozone, airQuality
-            <br>其他：powerStatistics
-          </li>
+          <li>字段中文名、取值范围等元数据可通过 <code>GET /xiaozhi/data-analysis/metrics</code> 获取（需登录，返回 key / name / seq / group / rw / defaultValue / hexAddress / valueRange）。</li>
         </ul>
+
+        <h4>4. 全量字段目录（按 Excel 序号顺序，共 {{ totalOptions }} 项）</h4>
+        <div class="catalog-toolbar">
+          <el-input
+            v-model="guideKeyword"
+            size="mini"
+            clearable
+            placeholder="搜索序号 / 名称 / 英文key / 分组 / 取值范围"
+            class="catalog-search"
+          />
+          <span class="catalog-count">共 {{ filteredCatalog.length }} 项</span>
+        </div>
+        <el-table :data="filteredCatalog" size="mini" border height="340" class="catalog-table">
+          <el-table-column prop="seq" label="序号" width="64" align="center" />
+          <el-table-column prop="key" label="metric_key" min-width="250" show-overflow-tooltip />
+          <el-table-column prop="label" label="名称" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="group" label="分组" min-width="130" show-overflow-tooltip />
+          <el-table-column prop="rw" label="读写" width="72" align="center" />
+          <el-table-column prop="defaultValue" label="默认值" width="86" align="center" />
+          <el-table-column prop="hex" label="HEX" width="72" align="center" />
+          <el-table-column prop="range" label="取值范围" min-width="320" show-overflow-tooltip />
+        </el-table>
       </div>
     </el-dialog>
   </div>
@@ -243,59 +287,19 @@ Content-Type: application/json
 import HeaderBar from '@/components/HeaderBar.vue'
 import CustomButton from '@/components/CustomButton.vue'
 import dataReport from '@/apis/module/dataReport.js'
+import {
+  REPORT_METRICS,
+  REPORT_METRIC_GROUPS,
+  ALL_METRIC_KEYS,
+  getMetric,
+} from '@/constants/reportMetrics.js'
 
-// 上报内容可选项（分类组织，与设备端约定一致）
-// 约定：value 使用英文 key 进行存储/交互/传输，label 仅用于前端展示
-const REPORT_CONTENT_GROUPS = [
-  {
-    label: '生产数据',
-    options: [
-      { key: 'perChickenData', label: '只鸡数据' },
-      { key: 'chickenCount', label: '鸡只数量' },
-      { key: 'envExtremes', label: '环境极值' },
-      { key: 'mortalityRate', label: '死亡率' },
-      { key: 'waterFeedAmount', label: '水料量' },
-      { key: 'eggLaying', label: '产蛋' },
-      { key: 'eggYield', label: '产蛋量' },
-      { key: 'waterUsage', label: '用水量' },
-      { key: 'silo1Weight', label: '料塔1重量' },
-      { key: 'silo2Weight', label: '料塔2重量' },
-    ],
-  },
-  {
-    label: '运行数据',
-    options: [
-      { key: 'envVentilation', label: '环境通风' },
-      { key: 'deviceStatus', label: '设备状态' },
-      { key: 'fanGroup', label: '风机组' },
-      { key: 'windowCurtain', label: '小窗幕帘' },
-      { key: 'specialFan', label: '特殊风机' },
-      { key: 'cranePosition', label: '航车位置' },
-    ],
-  },
-  {
-    label: '环境数据',
-    options: [
-      { key: 'tempProbe', label: '温度探头' },
-      { key: 'envTemperature', label: '环境温度' },
-      { key: 'envHumidity', label: '环境湿度' },
-      { key: 'otherEnvMetrics', label: '其他环境指标' },
-      { key: 'light', label: '灯光' },
-      { key: 'light1Brightness', label: '灯光1亮度' },
-      { key: 'light2Brightness', label: '灯光2亮度' },
-      { key: 'temperature', label: '温度' },
-      { key: 'humidity', label: '湿度' },
-      { key: 'ozone', label: '臭氧' },
-      { key: 'airQuality', label: '空气质量' },
-    ],
-  },
-  {
-    label: '其他数据',
-    options: [
-      { key: 'powerStatistics', label: '电能统计' },
-    ],
-  },
-]
+const escapeHtml = (s) =>
+  String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 
 export default {
   name: 'DataPushConfig',
@@ -307,7 +311,11 @@ export default {
       total: 0,
       page: 1,
       limit: 10,
-      reportGroups: REPORT_CONTENT_GROUPS,
+      reportGroups: REPORT_METRIC_GROUPS,
+      catalog: REPORT_METRICS,
+      metricKeyword: '',
+      guideKeyword: '',
+      showRange: false,
       dialogVisible: false,
       guideVisible: false,
       dialogMode: 'add',
@@ -330,16 +338,54 @@ export default {
   },
   computed: {
     allReportOptions() {
-      return this.reportGroups.reduce((acc, g) => acc.concat(g.options.map((o) => o.key)), [])
+      return ALL_METRIC_KEYS
     },
     totalOptions() {
-      return this.allReportOptions.length
+      return ALL_METRIC_KEYS.length
     },
     selectedCount() {
       return this.form.reportContent ? this.form.reportContent.length : 0
     },
+    filteredGroups() {
+      const kw = this.metricKeyword.trim().toLowerCase()
+      if (!kw) return this.reportGroups
+      return this.reportGroups
+        .map((g) => ({
+          label: g.label,
+          options: g.options.filter((o) =>
+            String(o.seq) === kw ||
+            o.label.toLowerCase().includes(kw) ||
+            o.key.toLowerCase().includes(kw) ||
+            (o.range && o.range.toLowerCase().includes(kw)) ||
+            g.label.toLowerCase().includes(kw)
+          ),
+        }))
+        .filter((g) => g.options.length > 0)
+    },
+    visibleOptions() {
+      return this.filteredGroups.reduce((acc, g) => acc.concat(g.options.map((o) => o.key)), [])
+    },
+    filteredCatalog() {
+      const kw = this.guideKeyword.trim().toLowerCase()
+      if (!kw) return this.catalog
+      return this.catalog.filter((m) =>
+        String(m.seq) === kw ||
+        m.label.toLowerCase().includes(kw) ||
+        m.key.toLowerCase().includes(kw) ||
+        (m.group && m.group.toLowerCase().includes(kw)) ||
+        (m.range && m.range.toLowerCase().includes(kw))
+      )
+    },
   },
   methods: {
+    tipText(opt) {
+      return [
+        `#${opt.seq} ${opt.label}`,
+        `metric_key: ${opt.key}`,
+        `读写: ${opt.rw || '—'}　默认值: ${opt.defaultValue || '—'}　HEX: ${opt.hex || '—'}`,
+        `取值范围: ${opt.range || '—'}`,
+      ].join('\n')
+    },
     loadList() {
       this.loading = true
       dataReport.page({ page: this.page, limit: this.limit }, (res) => {
@@ -363,7 +409,8 @@ export default {
       this.form = {
         configName: '',
         enabled: 0,
-        reportContent: [],
+        // 按 Excel 序号顺序默认纳入全部字段，用户可按需取消
+        reportContent: ALL_METRIC_KEYS.slice(),
         reportInterval: 5,
         reportDeviceInfo: 1,
         reportLocation: 0,
@@ -388,11 +435,18 @@ export default {
       this.dialogVisible = true
     },
     selectAll() {
-      this.form.reportContent = this.allReportOptions.slice()
+      if (this.metricKeyword.trim()) {
+        const merged = new Set((this.form.reportContent || []).concat(this.visibleOptions))
+        this.form.reportContent = Array.from(merged)
+      } else {
+        this.form.reportContent = ALL_METRIC_KEYS.slice()
+      }
     },
     invertSelection() {
+      const pool = this.metricKeyword.trim() ? this.visibleOptions : this.allReportOptions
       const selected = new Set(this.form.reportContent || [])
-      this.form.reportContent = this.allReportOptions.filter((o) => !selected.has(o))
+      const outside = (this.form.reportContent || []).filter((k) => !pool.includes(k))
+      this.form.reportContent = pool.filter((k) => !selected.has(k)).concat(outside)
     },
     submit() {
       if (!this.form.configName || !this.form.configName.trim()) {
@@ -442,6 +496,8 @@ export default {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning',
+        closeOnClickModal: false,
+        closeOnPressEscape: true,
       }).then(() => {
         dataReport.setDefault(row.id, (res) => {
           const body = res && res.data
@@ -459,6 +515,8 @@ export default {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning',
+        closeOnClickModal: false,
+        closeOnPressEscape: true,
       }).then(() => {
         dataReport.remove(row.id, (res) => {
           const body = res && res.data
@@ -486,24 +544,11 @@ export default {
           )
           return
         }
-        const escapeHtml = (s) =>
-          String(s)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-        // 英文 key -> 中文含义 映射
-        const keyLabelMap = {}
-        this.reportGroups.forEach((g) => {
-          g.options.forEach((o) => {
-            keyLabelMap[o.key] = o.label
-          })
-        })
         const noteMap = {
           id: '配置记录ID（数据库主键，设备一般无需关心）',
           configName: '配置名称',
           enabled: '是否需要上报（0：否 / 1：是）',
-          reportContent: '上报内容字段清单（英文 key，中文含义见下列每一项）',
+          reportContent: '上报内容字段清单（mb-mcp_ 前缀英文 key，中文含义与取值范围见下列每一项）',
           reportInterval: '上报时间间隔（单位：分钟）',
           reportDeviceInfo: '是否上报设备信息（0：否 / 1：是）',
           reportLocation: '是否上报地理位置（0：否 / 1：是）',
@@ -517,15 +562,25 @@ export default {
         order.forEach((k) => {
           if (!(k in data)) return
           if (k === 'reportContent') {
-            html += '<div class="pv-row"><span class="pv-key">reportContent</span><span class="pv-note">' + noteMap[k] + '</span></div>'
-            html += '<ul class="pv-list">'
             const arr = Array.isArray(data.reportContent) ? data.reportContent : []
+            html += '<div class="pv-row"><span class="pv-key">reportContent</span>' +
+              '<span class="pv-note">' + noteMap[k] + '</span></div>'
+            html += '<div class="pv-summary">本次下发 ' + arr.length + ' 个字段（字段目录共 ' + ALL_METRIC_KEYS.length + ' 项）</div>'
+            html += '<ul class="pv-list">'
             if (arr.length === 0) {
               html += '<li><span class="pv-note">（空：未选择任何上报字段）</span></li>'
             } else {
               arr.forEach((key) => {
-                const label = keyLabelMap[key] || key
-                html += '<li><code>' + escapeHtml(key) + '</code> —— ' + escapeHtml(label) + '</li>'
+                const meta = getMetric(key)
+                if (meta) {
+                  html += '<li><code>' + escapeHtml(key) + '</code> —— ' + escapeHtml(meta.label) +
+                    ' <span class="pv-meta">#' + meta.seq + ' · ' + escapeHtml(meta.group) +
+                    ' · ' + escapeHtml(meta.rw || '—') + ' · ' + escapeHtml(meta.hex || '—') + '</span>' +
+                    '<div class="pv-range">取值范围：' + escapeHtml(meta.range || '—') + '</div></li>'
+                } else {
+                  html += '<li><code>' + escapeHtml(key) + '</code> —— ' +
+                    '<span class="pv-unknown">未在字段目录中找到（历史或自定义字段）</span></li>'
+                }
               })
             }
             html += '</ul>'
@@ -665,20 +720,30 @@ export default {
 .rc-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .rc-action {
   padding-left: 0;
-  padding-right: 6px;
+  padding-right: 4px;
   margin: 0;
+}
+
+.rc-search {
+  width: 230px;
+  margin-left: 6px;
+}
+
+.rc-range-toggle {
+  margin-left: 4px;
 }
 
 .rc-count {
   font-size: 12px;
   color: #8a93b8;
   margin-left: auto;
+  white-space: nowrap;
 }
 
 .rc-group {
@@ -693,7 +758,7 @@ export default {
   font-size: 13px;
   font-weight: 600;
   color: #2c3354;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .rc-group ::v-deep .el-checkbox-group {
@@ -702,10 +767,54 @@ export default {
   gap: 6px;
 }
 
-.form-tip {
-  margin-left: 12px;
+.rc-group ::v-deep .rc-checkbox.el-checkbox {
+  height: auto;
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+
+.rc-group ::v-deep .rc-checkbox .el-checkbox__label {
+  white-space: normal;
+  line-height: 1.4;
+  padding-left: 6px;
+}
+
+.rc-item-label {
+  font-size: 12px;
+}
+
+.rc-item-range {
+  display: block;
+  font-size: 11px;
+  color: #8a93b8;
+  line-height: 1.35;
+  max-width: 260px;
+  margin-top: 2px;
+}
+
+.rc-empty {
+  text-align: center;
+  color: #8a93b8;
+  font-size: 12px;
+  padding: 18px 0;
+}
+
+.rc-hint {
   font-size: 12px;
   color: #8a93b8;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+.rc-hint code {
+  background: #f3f5fb;
+  padding: 0 4px;
+  border-radius: 3px;
+  color: #2b6cb0;
 }
 
 .compact-form .el-form-item {
@@ -775,9 +884,30 @@ export default {
   margin: 3px 0;
 }
 
+.catalog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+
+.catalog-search {
+  width: 320px;
+}
+
+.catalog-count {
+  font-size: 12px;
+  color: #8a93b8;
+}
+
+.catalog-table {
+  width: 100%;
+  font-size: 12px;
+}
+
 .guide-dialog ::v-deep .el-dialog__body {
   padding: 8px 20px 12px;
-  max-height: 72vh;
+  max-height: 76vh;
   overflow: auto;
   text-align: left;
 }
@@ -790,7 +920,7 @@ export default {
   line-height: 1.7;
   color: #2c3354;
   text-align: left;
-  max-height: 60vh;
+  max-height: 66vh;
   overflow: auto;
   margin: 0;
 }
@@ -821,13 +951,19 @@ export default {
   font-size: 12px;
 }
 
+.pv-summary {
+  font-size: 12px;
+  color: #2b6cb0;
+  padding: 4px 0 2px;
+}
+
 .pv-list {
   margin: 4px 0 8px;
   padding-left: 20px;
 }
 
 .pv-list li {
-  margin: 3px 0;
+  margin: 5px 0;
 }
 
 .pv-list code {
@@ -838,12 +974,37 @@ export default {
   color: #2b6cb0;
 }
 
+.pv-meta {
+  color: #8a93b8;
+  font-size: 12px;
+}
+
+.pv-range {
+  font-size: 12px;
+  color: #6b7280;
+  padding-left: 6px;
+}
+
+.pv-unknown {
+  color: #e6a23c;
+  font-size: 12px;
+}
+
 .pv-message-box.el-message-box {
-  width: 680px;
+  width: 760px;
   max-width: 92vw;
 }
 
 .pv-message-box .el-message-box__message {
   text-align: left;
+}
+
+/* 接入指南弹窗在小屏幕上不溢出 */
+.guide-dialog.el-dialog {
+  max-width: 94vw;
+}
+
+.report-config-dialog.el-dialog {
+  max-width: 94vw;
 }
 </style>

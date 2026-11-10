@@ -19,6 +19,9 @@ public class DataReportRecordVO {
     @Schema(description = "指标名称")
     private String metric;
 
+    @Schema(description = "取值范围说明")
+    private String valueRange;
+
     @Schema(description = "数值")
     private BigDecimal value;
 

@@ -176,8 +176,15 @@ public class DataReportConfigServiceImpl extends BaseServiceImpl<DataReportConfi
             return Collections.emptyList();
         }
         try {
-            return OBJECT_MAPPER.readValue(json, new TypeReference<List<String>>() {
+            List<String> list = OBJECT_MAPPER.readValue(json, new TypeReference<List<String>>() {
             });
+            if (list == null) {
+                return Collections.emptyList();
+            }
+            // 接口下发内容只允许纯 ASCII 英文 key（历史中文配置会被过滤，避免设备端拿到中文）
+            return list.stream()
+                    .filter(k -> k != null && k.matches("^[A-Za-z0-9_-]+$"))
+                    .collect(Collectors.toList());
         } catch (Exception e) {
             return Collections.emptyList();
         }

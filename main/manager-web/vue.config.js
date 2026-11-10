@@ -45,6 +45,7 @@ module.exports = defineConfig({
     proxy: {
       '/xiaozhi': {
         target: 'http://127.0.0.1:8002',
+        // target: 'http://120.53.1.196:8002',
         changeOrigin: true
       }
     },

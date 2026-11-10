@@ -38,6 +38,7 @@
             <h3 class="section-title">{{ $t('aiDataAnalysis.dataAnalysis.metricDist') }}</h3>
             <el-table :data="distribution" size="small" class="ai-table" border v-loading="loading">
               <el-table-column prop="metric" :label="$t('aiDataAnalysis.dataAnalysis.colMetric')" min-width="140" />
+              <el-table-column prop="valueRange" label="取值范围" min-width="240" show-overflow-tooltip />
               <el-table-column prop="count" :label="$t('aiDataAnalysis.dataAnalysis.colCount')" min-width="100" />
               <el-table-column prop="avg" :label="$t('aiDataAnalysis.dataAnalysis.colAvg')" min-width="100" />
               <el-table-column prop="max" :label="$t('aiDataAnalysis.dataAnalysis.colMax')" min-width="100" />
@@ -58,6 +59,13 @@
 import HeaderBar from '@/components/HeaderBar.vue'
 import CustomButton from '@/components/CustomButton.vue'
 import dataAnalysis from '@/apis/module/dataAnalysis.js'
+import { REPORT_METRICS } from '@/constants/reportMetrics.js'
+
+// 按中文名称索引字段目录，用于展示「取值范围」
+const RANGE_BY_NAME = REPORT_METRICS.reduce((map, m) => {
+  map[m.label] = m.range
+  return map
+}, {})
 
 export default {
   name: 'DataAnalysis',
@@ -91,7 +99,9 @@ export default {
             avgValue: d.avgValue,
             abnormal: d.abnormal || 0,
           }
-          this.distribution = d.distribution || []
+          this.distribution = (d.distribution || []).map((row) =>
+            Object.assign({}, row, { valueRange: RANGE_BY_NAME[row.metric] || '' })
+          )
         } else {
           this.$message.error((body && body.msg) || this.$t('aiDataAnalysis.dataAnalysis.loadError'))
         }

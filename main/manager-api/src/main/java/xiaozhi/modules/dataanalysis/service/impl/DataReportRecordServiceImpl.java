@@ -6,6 +6,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -31,9 +33,11 @@ import cn.hutool.json.JSONUtil;
 import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.page.PageData;
 import xiaozhi.common.service.impl.BaseServiceImpl;
+import xiaozhi.modules.dataanalysis.dao.DataReportMetricDao;
 import xiaozhi.modules.dataanalysis.dao.DataReportRecordDao;
 import xiaozhi.modules.dataanalysis.dto.DataPredictionDTO;
 import xiaozhi.modules.dataanalysis.dto.DataReportUploadDTO;
+import xiaozhi.modules.dataanalysis.entity.DataReportMetricEntity;
 import xiaozhi.modules.dataanalysis.entity.DataReportRecordEntity;
 import xiaozhi.modules.dataanalysis.service.DataReportRecordService;
 import xiaozhi.modules.dataanalysis.vo.DataAnalysisStatisticsVO;
@@ -51,16 +55,14 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
 
     private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-    private static final Map<String, String> METRIC_NAMES = Map.ofEntries(
-            Map.entry("temperature", "温度"), Map.entry("humidity", "湿度"),
-            Map.entry("volume", "音量"), Map.entry("onlineDuration", "在线时长"),
-            Map.entry("tempProbe", "温度探头"), Map.entry("envTemperature", "环境温度"),
-            Map.entry("envHumidity", "环境湿度"), Map.entry("chickenCount", "鸡只数量"),
-            Map.entry("silo1Weight", "料塔1重量"), Map.entry("silo2Weight", "料塔2重量"),
-            Map.entry("powerStatistics", "电能统计"));
+    /** 字段目录（data_report_metric 表）在进程内缓存，避免每次上报都查库 */
+    private volatile Map<String, DataReportMetricEntity> metricCatalogCache;
 
     @Autowired
     private DataReportRecordDao dataReportRecordDao;
+
+    @Autowired
+    private DataReportMetricDao dataReportMetricDao;
 
     @Autowired
     private ModelConfigService modelConfigService;
@@ -90,10 +92,12 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
             if (num == null) {
                 continue;
             }
+            DataReportMetricEntity meta = metricCatalog().get(key);
             DataReportRecordEntity e = new DataReportRecordEntity();
             e.setDeviceId(dto.getDeviceId());
             e.setMetricKey(key);
-            e.setMetricName(METRIC_NAMES.getOrDefault(key, key));
+            e.setMetricName(meta != null ? meta.getMetricName() : key);
+            e.setValueRange(meta != null ? meta.getValueRange() : null);
             e.setValue(num);
             e.setStatus(1);
             e.setReportTime(reportTime);
@@ -154,15 +158,56 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
 
     @Override
     public List<MetricMetaVO> metrics() {
-        List<Map<String, Object>> list = dataReportRecordDao.selectMetricList();
-        List<MetricMetaVO> result = new ArrayList<>();
-        for (Map<String, Object> m : list) {
+        // 以字段目录为准（按 Excel 序号顺序返回全部字段，含取值范围），
+        // 再补充目录中不存在、但历史记录里实际出现过的 key，保证旧数据仍可筛选。
+        Map<String, MetricMetaVO> result = new LinkedHashMap<>();
+        List<DataReportMetricEntity> catalog = dataReportMetricDao.selectList(
+                new LambdaQueryWrapper<DataReportMetricEntity>()
+                        .orderByAsc(DataReportMetricEntity::getSeq));
+        for (DataReportMetricEntity e : catalog) {
             MetricMetaVO meta = new MetricMetaVO();
-            meta.setKey((String) m.get("metricKey"));
-            meta.setName((String) m.get("metricName"));
-            result.add(meta);
+            meta.setKey(e.getMetricKey());
+            meta.setName(e.getMetricName());
+            meta.setSeq(e.getSeq());
+            meta.setGroup(e.getGroupName());
+            meta.setRw(e.getRw());
+            meta.setDefaultValue(e.getDefaultValue());
+            meta.setHexAddress(e.getHexAddress());
+            meta.setValueRange(e.getValueRange());
+            result.put(e.getMetricKey(), meta);
         }
-        return result;
+        for (Map<String, Object> m : dataReportRecordDao.selectMetricList()) {
+            String key = (String) m.get("metricKey");
+            if (StringUtils.isBlank(key) || result.containsKey(key)) {
+                continue;
+            }
+            MetricMetaVO meta = new MetricMetaVO();
+            meta.setKey(key);
+            Object name = m.get("metricName");
+            meta.setName(name != null ? name.toString() : key);
+            result.put(key, meta);
+        }
+        return new ArrayList<>(result.values());
+    }
+
+    /** 加载并缓存字段目录；目录表未就绪时返回空 Map，保证上报接口不受影响 */
+    private Map<String, DataReportMetricEntity> metricCatalog() {
+        if (metricCatalogCache == null) {
+            synchronized (this) {
+                if (metricCatalogCache == null) {
+                    Map<String, DataReportMetricEntity> map = new HashMap<>();
+                    try {
+                        for (DataReportMetricEntity e : dataReportMetricDao.selectList(null)) {
+                            map.put(e.getMetricKey(), e);
+                        }
+                    } catch (Exception ex) {
+                        log.warn("加载设备上报字段目录失败，指标名称将回退为原始key: {}", ex.getMessage());
+                    }
+                    metricCatalogCache = map;
+                }
+            }
+        }
+        return metricCatalogCache;
     }
 
     @Override
@@ -193,11 +238,12 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         }
         String[] devices = {"livingroom-speaker-001", "bedroom-speaker-002",
                 "workshop-gateway-003", "frontdesk-speaker-004"};
+        // 演示数据使用字段目录中的真实 mb-mcp_ 指标
         Object[][] metricDefs = {
-                {"temperature", "温度", 18.0, 30.0},
-                {"humidity", "湿度", 40.0, 75.0},
-                {"volume", "音量", 20.0, 65.0},
-                {"onlineDuration", "在线时长", 1.0, 24.0}};
+                {"mb-mcp_waterTemperature", "水温", 10.0, 30.0},
+                {"mb-mcp_chickenCount", "鸡只数量", 10000.0, 30000.0},
+                {"mb-mcp_silo1CurrentWeight", "1#当前重量", 500.0, 5000.0},
+                {"mb-mcp_currentBrightness1", "当前亮度1", 0.0, 100.0}};
         int points = 72;
         long now = System.currentTimeMillis();
         long step = 3600L * 1000L;
@@ -219,6 +265,8 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
                     e.setDeviceId(dev);
                     e.setMetricKey(key);
                     e.setMetricName(name);
+                    DataReportMetricEntity meta = metricCatalog().get(key);
+                    e.setValueRange(meta != null ? meta.getValueRange() : null);
                     e.setValue(BigDecimal.valueOf(Math.round(v * 10) / 10.0));
                     e.setStatus(1);
                     e.setReportTime(new Date(now - i * step));
@@ -239,6 +287,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         vo.setDeviceId(e.getDeviceId());
         vo.setMetricKey(e.getMetricKey());
         vo.setMetric(e.getMetricName());
+        vo.setValueRange(e.getValueRange());
         vo.setValue(e.getValue());
         vo.setStatus(e.getStatus() != null && e.getStatus() == 1 ? "normal" : "abnormal");
         vo.setTime(e.getReportTime() != null ? SDF.format(e.getReportTime()) : "");

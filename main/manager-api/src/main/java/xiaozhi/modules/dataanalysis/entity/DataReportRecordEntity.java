@@ -27,6 +27,9 @@ public class DataReportRecordEntity {
     @Schema(description = "指标展示名称")
     private String metricName;
 
+    @Schema(description = "取值范围说明（来自字段目录）")
+    private String valueRange;
+
     @Schema(description = "数值")
     private BigDecimal value;
 

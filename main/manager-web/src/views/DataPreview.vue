@@ -28,7 +28,7 @@
                 @clear="loadData"
                 @keyup.enter.native="loadData"
               />
-              <el-select v-model="metricFilter" :placeholder="$t('aiDataAnalysis.dataPreview.metric')" clearable class="filter-select" @change="loadData">
+              <el-select v-model="metricFilter" :placeholder="$t('aiDataAnalysis.dataPreview.metric')" clearable filterable class="filter-select" @change="loadData">
                 <el-option v-for="m in metricOptions" :key="m.value" :label="m.label" :value="m.value" />
               </el-select>
             </div>
@@ -37,6 +37,8 @@
               <el-table-column prop="deviceId" :label="$t('aiDataAnalysis.dataPreview.deviceId')" min-width="160" />
               <el-table-column prop="time" :label="$t('aiDataAnalysis.dataPreview.time')" min-width="170" />
               <el-table-column prop="metric" :label="$t('aiDataAnalysis.dataPreview.metric')" min-width="120" />
+              <el-table-column prop="metricKey" label="metric_key" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="valueRange" label="取值范围" min-width="240" show-overflow-tooltip />
               <el-table-column prop="value" :label="$t('aiDataAnalysis.dataPreview.value')" min-width="100" />
               <el-table-column prop="status" :label="$t('aiDataAnalysis.dataPreview.status')" min-width="100">
                 <template slot-scope="scope">
@@ -73,13 +75,13 @@
 import HeaderBar from '@/components/HeaderBar.vue'
 import CustomButton from '@/components/CustomButton.vue'
 import dataAnalysis from '@/apis/module/dataAnalysis.js'
+import { REPORT_METRICS, getMetric } from '@/constants/reportMetrics.js'
 
-const FALLBACK_METRICS = [
-  { value: 'temperature', label: '温度' },
-  { value: 'humidity', label: '湿度' },
-  { value: 'volume', label: '音量' },
-  { value: 'onlineDuration', label: '在线时长' },
-]
+// 后端字段目录接口不可用时的兜底：直接使用 Excel 全量字段目录
+const FALLBACK_METRICS = REPORT_METRICS.map((m) => ({
+  value: m.key,
+  label: `#${m.seq} ${m.label}`,
+}))
 
 export default {
   name: 'DataPreview',
@@ -106,7 +108,11 @@ export default {
       dataAnalysis.metrics((res) => {
         const body = res && res.data
         if (body && body.code === 0 && body.data && body.data.length) {
-          this.metricOptions = body.data.map((m) => ({ value: m.key, label: m.name }))
+          this.metricOptions = body.data.map((m) => ({
+            value: m.key,
+            label: m.seq ? `#${m.seq} ${m.name}` : m.name,
+            valueRange: m.valueRange,
+          }))
         }
       })
     },
@@ -118,7 +124,12 @@ export default {
           this.loading = false
           const body = res && res.data
           if (body && body.code === 0 && body.data) {
-            this.pagedData = body.data.list || []
+            this.pagedData = (body.data.list || []).map((row) => {
+              const meta = getMetric(row.metricKey)
+              return Object.assign({}, row, {
+                valueRange: row.valueRange || (meta ? meta.range : ''),
+              })
+            })
             this.total = body.data.total || 0
           } else {
             this.$message.error((body && body.msg) || this.$t('aiDataAnalysis.dataPreview.loadError'))
