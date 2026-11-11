@@ -16,6 +16,9 @@ public class MetricMetaVO {
     @Schema(description = "Excel序号")
     private Integer seq;
 
+    @Schema(description = "寄存器位号(0-15，仅位字段有值)")
+    private Integer bit;
+
     @Schema(description = "字段分组")
     private String group;
 

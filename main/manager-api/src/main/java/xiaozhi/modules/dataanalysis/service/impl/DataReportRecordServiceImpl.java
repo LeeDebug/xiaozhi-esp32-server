@@ -163,12 +163,15 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         Map<String, MetricMetaVO> result = new LinkedHashMap<>();
         List<DataReportMetricEntity> catalog = dataReportMetricDao.selectList(
                 new LambdaQueryWrapper<DataReportMetricEntity>()
-                        .orderByAsc(DataReportMetricEntity::getSeq));
+                        .orderByAsc(DataReportMetricEntity::getSeq)
+                        // bit_index 为 NULL 的整体状态字排在位字段之前，位字段按 0~9 排列
+                        .orderByAsc(DataReportMetricEntity::getBitIndex));
         for (DataReportMetricEntity e : catalog) {
             MetricMetaVO meta = new MetricMetaVO();
             meta.setKey(e.getMetricKey());
             meta.setName(e.getMetricName());
             meta.setSeq(e.getSeq());
+            meta.setBit(e.getBitIndex());
             meta.setGroup(e.getGroupName());
             meta.setRw(e.getRw());
             meta.setDefaultValue(e.getDefaultValue());

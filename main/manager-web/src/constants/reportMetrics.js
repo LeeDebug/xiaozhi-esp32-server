@@ -3,6 +3,7 @@
  * 数据来源：《AI语音管家与生产监控终端通讯控制逻辑表》→「管家」工作表，按序号顺序。
  * 约定：key 为存储 / 交互 / 传输的唯一标识（纯英文，统一 mb-mcp_ 前缀）；
  *       label 仅用于前端中文展示；range 为 Excel「取值范围」列的说明。
+ * 说明：序号 167「模块状态」为 0xA6 的 16 位状态字，其位 0~9 已拆为独立字段（带 bit 属性）。
  */
 export const METRIC_PREFIX = "mb-mcp_"
 
@@ -148,7 +149,17 @@ export const REPORT_METRICS = [
   { seq: 164, key: "mb-mcp_eggCount12", label: "鸡蛋计数12", group: "鸡蛋计数", rw: "R", defaultValue: "", hex: "0xA3", range: "16位无符号数" },
   { seq: 165, key: "mb-mcp_eggCount13", label: "鸡蛋计数13", group: "鸡蛋计数", rw: "R", defaultValue: "", hex: "0xA4", range: "16位无符号数" },
   { seq: 166, key: "mb-mcp_eggCount14", label: "鸡蛋计数14", group: "鸡蛋计数", rw: "R", defaultValue: "", hex: "0xA5", range: "16位无符号数" },
-  { seq: 167, key: "mb-mcp_moduleStatus", label: "模块状态", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "二进制：'0000001111111000 合同默认配置的状态 0000001111111011 无鸡蛋计数器的状态" },
+  { seq: 167, key: "mb-mcp_moduleStatus", label: "模块状态", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "二进制：'0000001111111000 合同默认配置的状态；0000001111111011 无鸡蛋计数器的状态；位0~9 依次为：水线冲洗、水线检测、鸡蛋计数、脱轨检测、料线系统、电压电能检测、水阀控制、称重系统、物联网（与小牧博士物联网是否有通信）、灯光调光系统（各自 0停用 1启用，已拆为独立字段）；位10~15 未定义" },
+  { seq: 167, key: "mb-mcp_moduleWaterLineFlush", label: "模块状态·位0 水线冲洗", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位0；0 停用   1启用  合同选配", bit: 0 },
+  { seq: 167, key: "mb-mcp_moduleWaterLineDetection", label: "模块状态·位1 水线检测", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位1；0 停用   1启用  合同选配", bit: 1 },
+  { seq: 167, key: "mb-mcp_moduleEggCounting", label: "模块状态·位2 鸡蛋计数", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位2；0 停用   1启用  合同选配", bit: 2 },
+  { seq: 167, key: "mb-mcp_moduleDerailmentDetection", label: "模块状态·位3 脱轨检测", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位3；0 停用   1启用  合同默认标配", bit: 3 },
+  { seq: 167, key: "mb-mcp_moduleFeedLineSystem", label: "模块状态·位4 料线系统", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位4；0 停用  1启用  合同默认标配", bit: 4 },
+  { seq: 167, key: "mb-mcp_moduleVoltageEnergy", label: "模块状态·位5 电压电能检测", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位5；0 停用   1启用  合同默认标配", bit: 5 },
+  { seq: 167, key: "mb-mcp_moduleWaterValveControl", label: "模块状态·位6 水阀控制", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位6；0 停用   1启用  合同默认标配", bit: 6 },
+  { seq: 167, key: "mb-mcp_moduleWeighingSystem", label: "模块状态·位7 称重系统", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位7；0 停用   1启用  合同默认标配", bit: 7 },
+  { seq: 167, key: "mb-mcp_moduleIotCommunication", label: "模块状态·位8 物联网（与小牧博士物联网是否有通信）", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位8；0 停用   1启用  合同默认标配", bit: 8 },
+  { seq: 167, key: "mb-mcp_moduleLightDimming", label: "模块状态·位9 灯光调光系统", group: "设备停启用状态", rw: "R", defaultValue: "", hex: "0xA6", range: "0xA6 位9；0 停用   1启用  合同默认标配", bit: 9 },
 ]
 
 export const REPORT_METRIC_GROUPS = (() => {
@@ -173,4 +184,10 @@ export const ALL_METRIC_KEYS = REPORT_METRICS.map((m) => m.key)
 
 export function getMetric(key) {
   return METRIC_MAP[key] || null
+}
+
+/** 序号展示：位字段显示成 167[位0]，普通字段显示 167 */
+export function metricSeqText(m) {
+  if (!m) return ''
+  return m.bit === undefined || m.bit === null ? String(m.seq) : `${m.seq}[位${m.bit}]`
 }

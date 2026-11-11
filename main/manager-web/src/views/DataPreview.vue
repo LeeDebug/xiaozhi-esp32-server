@@ -75,12 +75,12 @@
 import HeaderBar from '@/components/HeaderBar.vue'
 import CustomButton from '@/components/CustomButton.vue'
 import dataAnalysis from '@/apis/module/dataAnalysis.js'
-import { REPORT_METRICS, getMetric } from '@/constants/reportMetrics.js'
+import { REPORT_METRICS, getMetric, metricSeqText } from '@/constants/reportMetrics.js'
 
 // 后端字段目录接口不可用时的兜底：直接使用 Excel 全量字段目录
 const FALLBACK_METRICS = REPORT_METRICS.map((m) => ({
   value: m.key,
-  label: `#${m.seq} ${m.label}`,
+  label: `#${metricSeqText(m)} ${m.label}`,
 }))
 
 export default {
@@ -110,7 +110,7 @@ export default {
         if (body && body.code === 0 && body.data && body.data.length) {
           this.metricOptions = body.data.map((m) => ({
             value: m.key,
-            label: m.seq ? `#${m.seq} ${m.name}` : m.name,
+            label: m.seq ? `#${metricSeqText({ seq: m.seq, bit: m.bit })} ${m.name}` : m.name,
             valueRange: m.valueRange,
           }))
         }

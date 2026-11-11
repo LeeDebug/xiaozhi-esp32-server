@@ -23,6 +23,9 @@ public class DataReportMetricEntity {
     @Schema(description = "Excel序号")
     private Integer seq;
 
+    @Schema(description = "寄存器位号(0-15，仅位字段有值)")
+    private Integer bitIndex;
+
     @Schema(description = "指标中文名称")
     private String metricName;
 

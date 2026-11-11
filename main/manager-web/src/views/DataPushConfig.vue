@@ -162,7 +162,7 @@
                   :title="tipText(opt)"
                   class="rc-checkbox"
                 >
-                  <span class="rc-item-label">{{ opt.seq }}. {{ opt.label }}</span>
+                  <span class="rc-item-label">{{ metricSeqText(opt) }}. {{ opt.label }}</span>
                   <span v-if="showRange" class="rc-item-range">{{ opt.range || '—' }}</span>
                 </el-checkbox>
               </el-checkbox-group>
@@ -172,6 +172,7 @@
           <div class="rc-hint">
             字段来源：《AI语音管家与生产监控终端通讯控制逻辑表》「管家」工作表，按序号排列，新建配置默认全选；
             存储与接口下发仅使用 <code>mb-mcp_</code> 前缀的英文 key，中文仅用于界面展示。
+            序号 167 的 11 项共用寄存器 <code>0xA6</code>，一条 485 指令即可读取，详见「接入指南」第 3 节。
           </div>
         </el-form-item>
 
@@ -250,14 +251,37 @@ Content-Type: application/json
 }</pre>
         <p>约定：<code>data</code> 中的 key 必须与第 1 步 <code>reportContent</code> 返回的英文 key 一一对应；<code>deviceInfo</code> / <code>location</code> 仅在对应开关为 1 时携带；数值字段按目录中的「取值范围」上送。</p>
 
-        <h4>3. 关键约定</h4>
+        <h4>3. 位字段与 RS485 读取（重要）</h4>
+        <p>目录中带「位」的 10 个 key（<code>mb-mcp_moduleWaterLineFlush</code> … <code>mb-mcp_moduleLightDimming</code>）
+        与 <code>mb-mcp_moduleStatus</code> <b>共用同一个寄存器</b>：序号 167，DEC 地址 166，HEX <code>0xA6</code>，位域 [0:15]，只读 R。
+        这 10 项是状态字的位 0~9，位 10~15 未定义，<b>不是 10 个独立寄存器地址</b>。</p>
+        <p>因此采集时<b>只需一条 485 读指令</b>读取 0xA6，拿到 1 个 16 位整数后按位取 0/1 即可，
+        <b>不要按这 10 个 key 分别发 10 条指令</b>。Excel 给出的典型值：<code>0000001111111000</code>（合同默认配置）、
+        <code>0000001111111011</code>（无鸡蛋计数器）。</p>
+        <pre>status = read_485(0xA6)                     // 唯一一次 RS485 读，返回 16 位整数
+bit(n) = (status / 2^n) % 2                  // 取第 n 位，值为 0 或 1
+
+mb-mcp_moduleStatus             = status     // 原始 16 位状态字（策略A）
+mb-mcp_moduleWaterLineFlush     = bit(0)     // 位0 水线冲洗
+mb-mcp_moduleWaterLineDetection = bit(1)     // 位1 水线检测
+mb-mcp_moduleEggCounting        = bit(2)     // 位2 鸡蛋计数
+...
+mb-mcp_moduleLightDimming       = bit(9)     // 位9 灯光调光系统</pre>
+        <p><b>上报策略二选一，避免冗余：</b></p>
+        <ul>
+          <li><b>A（推荐，省流量）</b>：<code>reportContent</code> 只保留 <code>mb-mcp_moduleStatus</code>，上送原始 16 位整数，由服务端 / 前端按位解析。</li>
+          <li><b>B（便于直接看状态）</b>：按配置选中的位字段，把解出的 0/1 分别上送；此时不要再把 <code>mb-mcp_moduleStatus</code> 一起上送。</li>
+          <li>注意：本页「新增配置」默认全选全部字段，会同时包含整体状态字与 10 个位（一次采集产生 11 个 key，其中 10 个冗余）。上线前建议在「上报内容」里按 A 或 B 取舍。</li>
+        </ul>
+
+        <h4>4. 关键约定</h4>
         <ul>
           <li>上报字段一律使用 <code>mb-mcp_</code> 前缀的<b>英文 key</b>（如 mb-mcp_temperature 形式），存储、传输、对接均用英文，仅前端展示使用中文名称与取值范围。</li>
           <li>只有被标记为「生效中」的配置才会被 <code>/current</code> 返回；没有生效配置时返回内置默认值（enabled=0，即默认不上报）。</li>
-          <li>字段中文名、取值范围等元数据可通过 <code>GET /xiaozhi/data-analysis/metrics</code> 获取（需登录，返回 key / name / seq / group / rw / defaultValue / hexAddress / valueRange）。</li>
+          <li>字段中文名、取值范围等元数据可通过 <code>GET /xiaozhi/data-analysis/metrics</code> 获取（需登录，返回 key / name / seq / bit / group / rw / defaultValue / hexAddress / valueRange）。<code>hexAddress</code> 相同即表示共用一次 485 读取。</li>
         </ul>
 
-        <h4>4. 全量字段目录（按 Excel 序号顺序，共 {{ totalOptions }} 项）</h4>
+        <h4>5. 全量字段目录（按 Excel 序号顺序，共 {{ totalOptions }} 项）</h4>
         <div class="catalog-toolbar">
           <el-input
             v-model="guideKeyword"
@@ -269,7 +293,9 @@ Content-Type: application/json
           <span class="catalog-count">共 {{ filteredCatalog.length }} 项</span>
         </div>
         <el-table :data="filteredCatalog" size="mini" border height="340" class="catalog-table">
-          <el-table-column prop="seq" label="序号" width="64" align="center" />
+          <el-table-column label="序号/位" width="94" align="center">
+            <template slot-scope="s">{{ metricSeqText(s.row) }}</template>
+          </el-table-column>
           <el-table-column prop="key" label="metric_key" min-width="250" show-overflow-tooltip />
           <el-table-column prop="label" label="名称" min-width="150" show-overflow-tooltip />
           <el-table-column prop="group" label="分组" min-width="130" show-overflow-tooltip />
@@ -292,6 +318,7 @@ import {
   REPORT_METRIC_GROUPS,
   ALL_METRIC_KEYS,
   getMetric,
+  metricSeqText as formatSeqText,
 } from '@/constants/reportMetrics.js'
 
 const escapeHtml = (s) =>
@@ -378,13 +405,22 @@ export default {
     },
   },
   methods: {
+    metricSeqText(m) {
+      return formatSeqText(m)
+    },
     tipText(opt) {
-      return [
-        `#${opt.seq} ${opt.label}`,
+      const lines = [
+        `#${formatSeqText(opt)} ${opt.label}`,
         `metric_key: ${opt.key}`,
         `读写: ${opt.rw || '—'}　默认值: ${opt.defaultValue || '—'}　HEX: ${opt.hex || '—'}`,
         `取值范围: ${opt.range || '—'}`,
-      ].join('\n')
+      ]
+      if (opt.key === 'mb-mcp_moduleStatus') {
+        lines.push('16 位状态字：一次 485 读取 0xA6，位0~9 已拆为独立字段（见接入指南第3节）')
+      } else if (opt.bit !== undefined && opt.bit !== null) {
+        lines.push(`共用寄存器 0xA6（序号167），与整体状态字一次 485 读取，按位${opt.bit}解析`)
+      }
+      return lines.join('\n')
     },
     loadList() {
       this.loading = true
@@ -574,8 +610,10 @@ export default {
                 const meta = getMetric(key)
                 if (meta) {
                   html += '<li><code>' + escapeHtml(key) + '</code> —— ' + escapeHtml(meta.label) +
-                    ' <span class="pv-meta">#' + meta.seq + ' · ' + escapeHtml(meta.group) +
-                    ' · ' + escapeHtml(meta.rw || '—') + ' · ' + escapeHtml(meta.hex || '—') + '</span>' +
+                    ' <span class="pv-meta">#' + escapeHtml(formatSeqText(meta)) + ' · ' + escapeHtml(meta.group) +
+                    ' · ' + escapeHtml(meta.rw || '—') + ' · ' + escapeHtml(meta.hex || '—') +
+                    (meta.bit !== undefined && meta.bit !== null ? ' · 共用 0xA6，一次 485 读取' : '') +
+                    (meta.key === 'mb-mcp_moduleStatus' ? ' · 位0~9 可拆分' : '') + '</span>' +
                     '<div class="pv-range">取值范围：' + escapeHtml(meta.range || '—') + '</div></li>'
                 } else {
                   html += '<li><code>' + escapeHtml(key) + '</code> —— ' +
