@@ -515,7 +515,7 @@ export default {
 }
 
 .session-item.active {
-    background-color: #e6f7ff;
+    background-color: var(--sys-surface);
 }
 
 .avatar {
@@ -587,15 +587,15 @@ export default {
     font-size: 20px;
     cursor: pointer;
     margin: 0 5px;
-    color: #1890ff;
+    color: var(--sys-primary-text);
 }
 
 .metrics-panel {
     margin: -12px 10px 20px 60px;
     max-width: 60%;
-    border: 1px solid #dceaf8;
+    border: 1px solid var(--sys-primary-bg-soft);
     border-radius: 8px;
-    background-color: #f7fbff;
+    background-color: var(--sys-primary-bg-soft);
     font-size: 12px;
     color: #5f6b7a;
 }
@@ -610,11 +610,11 @@ export default {
 }
 
 .metrics-summary i {
-    color: #1890ff;
+    color: var(--sys-primary-text);
 }
 
 .metrics-summary strong {
-    color: #1890ff;
+    color: var(--sys-primary-text);
     font-size: 13px;
     font-weight: 500;
 }
@@ -625,7 +625,7 @@ export default {
 
 .metrics-detail {
     padding: 8px 10px 10px;
-    border-top: 1px solid #e6eff9;
+    border-top: 1px solid var(--sys-surface);
 }
 
 .metrics-row {
@@ -643,7 +643,7 @@ export default {
 .metrics-bar-wrap {
     flex: 1;
     height: 6px;
-    background-color: #e6eff9;
+    background-color: var(--sys-surface);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -651,7 +651,7 @@ export default {
 .metrics-bar {
     display: block;
     height: 100%;
-    background-color: #1890ff;
+    background-color: var(--sys-primary);
     border-radius: 3px;
 }
 
@@ -668,7 +668,7 @@ export default {
 }
 
 .user-message .message-content {
-    background-color: #1890ff;
+    background-color: var(--sys-primary);
     color: white;
     flex-direction: row-reverse;
 }
@@ -687,7 +687,7 @@ export default {
 }
 
 .tool-call-text {
-    color: #1890ff;
+    color: var(--sys-primary-text);
     font-family: 'Courier New', monospace;
     font-weight: 500;
     font-size: 12px;
@@ -696,7 +696,7 @@ export default {
 }
 
 .user-message .tool-call-text {
-    color: #e6f7ff;
+    color: var(--sys-surface);
 }
 
 .tool-message .message-content {
@@ -719,12 +719,12 @@ export default {
     right: 0;
     top: 0;
     cursor: pointer;
-    color: #1890ff;
+    color: var(--sys-primary-text);
     font-size: 12px;
 }
 
 .tool-toggle-btn:hover {
-    color: #40a9ff;
+    color: var(--sys-primary);
 }
 
 .loading,

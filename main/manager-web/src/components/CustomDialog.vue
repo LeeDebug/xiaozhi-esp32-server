@@ -158,7 +158,7 @@ export default {
 /* .v-modal 样式由 global.scss 全局定义 */
 ::v-deep .el-dialog__header {
   padding: 16px 20px 12px;
-  background: linear-gradient(135deg, #e2eeff, #edeafe);
+  background: linear-gradient(135deg, var(--sys-surface), var(--sys-surface));
   text-align: left;
 }
 
@@ -229,12 +229,12 @@ export default {
   }
 
   .el-button--primary {
-    background: linear-gradient(to right, #4a7cfd, #8154fc);
+    background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to));
     border: none;
 
     &:hover,
     &:focus {
-      background: linear-gradient(to right, #4a7cfd, #8154fc);
+      background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to));
       opacity: 0.85;
     }
   }

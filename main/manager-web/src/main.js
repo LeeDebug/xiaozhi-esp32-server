@@ -1,5 +1,8 @@
-import 'element-ui/lib/theme-chalk/index.css';
+// 引入「主色变量化」的 Element UI 主题（由 scripts/generate-element-theme.js 生成）
+// 不要改回 element-ui/lib/theme-chalk/index.css：官方包把 #409EFF 写死了，无法换色
+import './styles/element-ui.theme.css';
 import 'normalize.css/normalize.css'; // A modern alternative to CSS resets
+import './styles/theme.scss'; // 主题令牌静态兜底值（JS 未执行时也不会闪蓝）
 import Vue from 'vue';
 import ElementUI from 'element-ui';
 import App from './App.vue';
@@ -10,6 +13,16 @@ import locale from 'element-ui/lib/locale'
 import './styles/global.scss';
 import { register as registerServiceWorker } from './registerServiceWorker';
 import featureManager from './utils/featureManager';
+import { initTheme, getActivePrimary } from './utils/theme';
+
+// 在任何组件渲染之前注入主题，避免首帧闪回默认蓝色
+initTheme();
+
+// 模板 / 脚本中需要「真实色值」时取 $themePrimary
+// （el-switch 的 active-color、SVG fill、canvas 等场景不能直接用 CSS 变量）
+Object.defineProperty(Vue.prototype, '$themePrimary', {
+  get: () => getActivePrimary()
+});
 
 // 创建事件总线，用于组件间通信
 Vue.prototype.$eventBus = new Vue();

@@ -137,7 +137,7 @@ export default {
   position: relative;
   flex-direction: column;
   background-size: cover;
-  background: #eff4ff;
+  background: var(--sys-surface);
   -webkit-background-size: cover;
   -o-background-size: cover;
   overflow: hidden;
@@ -217,7 +217,7 @@ export default {
 
   ::v-deep .el-divider {
     margin: 16px 0 !important;
-    background: #ecf2fb !important;
+    background: var(--sys-primary-bg-soft) !important;
   }
 }
 
@@ -242,7 +242,7 @@ export default {
   padding: 16px;
   border-radius: 10px;
   background: rgba(239, 243, 252, 0.4);
-  border: 1px solid #ecf2fb;
+  border: 1px solid var(--sys-primary-bg-soft);
 }
 
 .server-info {
@@ -267,6 +267,6 @@ export default {
 }
 .copy-button {
   font-size: 14px;
-  color: #5778ff;
+  color: var(--sys-primary-text);
 }
 </style>

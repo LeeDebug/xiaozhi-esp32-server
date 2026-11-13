@@ -61,7 +61,7 @@
                             v-model="kb.status"
                             :active-value="1"
                             :inactive-value="0"
-                            active-color="#5778ff"
+                            :active-color="$themePrimary"
                             inactive-color="#DCDFE6"
                             @click.native.stop
                             @change="handleStatusChange(kb)"
@@ -658,7 +658,8 @@ export default {
     },
 
     getIconColor(index) {
-      const colors = ['#2f5bff', '#34c759', '#6a5cff', '#ff9500', '#f43f7a', '#00c9db'];
+      // 第一个分类色跟随系统主色，其余保持多彩分类色板
+      const colors = [this.$themePrimary, '#34c759', '#6a5cff', '#ff9500', '#f43f7a', '#00c9db'];
       return colors[index % colors.length];
     },
 
@@ -699,7 +700,7 @@ export default {
   display: flex;
   position: relative;
   flex-direction: column;
-  background: #eff4ff;
+  background: var(--sys-surface);
   background-size: cover;
   -webkit-background-size: cover;
   -o-background-size: cover;
@@ -763,7 +764,7 @@ export default {
   background: #fff;
   border-radius: 10px;
   padding: 14px 20px;
-  border: 1px solid #f0f3f9;
+  border: 1px solid var(--sys-primary-bg-soft);
 }
 
 .kb-section-header {
@@ -805,19 +806,19 @@ export default {
   flex-shrink: 0;
   border-radius: 50%;
   background: #fff;
-  border: 1px solid #e7ecf5;
+  border: 1px solid var(--sys-primary-bg-soft);
   box-shadow: 0 4px 16px rgba(31, 42, 68, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  color: #2f5bff;
+  color: var(--sys-primary-text);
   font-size: 18px;
 
   &:hover {
-    border-color: #2f5bff;
-    box-shadow: 0 4px 20px rgba(47, 91, 255, 0.15);
+    border-color: var(--sys-primary-deep);
+    box-shadow: 0 4px 20px rgba(var(--sys-primary-rgb), 0.15);
   }
 }
 
@@ -833,15 +834,15 @@ export default {
   flex-direction: column;
   flex: 0 0 300px;
   position: relative;
-  box-shadow: 0 0 10px rgba(47, 91, 255, 0.15);
+  box-shadow: 0 0 10px rgba(var(--sys-primary-rgb), 0.15);
 
   &:hover {
-    box-shadow: 0 0 10px rgba(47, 91, 255, 0.15);
-    border: 1px solid #6b80eb;
+    box-shadow: 0 0 10px rgba(var(--sys-primary-rgb), 0.15);
+    border: 1px solid var(--sys-primary);
   }
 
   &.active {
-    border: 1px solid #6b80eb;
+    border: 1px solid var(--sys-primary);
   }
 
   &.error {
@@ -905,7 +906,7 @@ export default {
   padding: 0;
 
   &:hover {
-    color: #2f5bff;
+    color: var(--sys-primary-text);
   }
 
   &.delete:hover {
@@ -924,12 +925,12 @@ export default {
   flex-shrink: 0;
 
   &.blue {
-    background: linear-gradient(135deg, #e8ecff, #d4daff);
-    color: #2f5bff;
+    background: linear-gradient(135deg, var(--sys-primary-bg-soft), var(--sys-primary-bg-soft));
+    color: var(--sys-primary-text);
   }
   &.purple {
-    background: linear-gradient(135deg, #ede8ff, #dcd4ff);
-    color: #6a5cff;
+    background: linear-gradient(135deg, var(--sys-primary-bg-soft), var(--sys-primary-bg-soft));
+    color: var(--sys-primary-light);
   }
   &.green {
     background: linear-gradient(135deg, #e2f9ed, #c8f0d8);
@@ -1069,10 +1070,10 @@ export default {
     border-radius: 2px;
   }
   .clice-index {
-    color: #467afe;
+    color: var(--sys-primary);
     display: inline-block;
     padding: 4px 6px;
-    background: #e6f0fe;
+    background: var(--sys-surface);
     border-radius: 4px;
   }
 }
@@ -1141,7 +1142,7 @@ export default {
     flex: 1;
 
     .el-icon-document {
-      color: #409eff;
+      color: var(--sys-primary-text);
       margin-right: 8px;
       font-size: 16px;
     }
@@ -1209,7 +1210,7 @@ export default {
 
       .chunk-similarity {
         // font-size: 12px;
-        color: #409eff;
+        color: var(--sys-primary-text);
         white-space: nowrap;
 
         .similarity-label {
@@ -1235,7 +1236,7 @@ export default {
           }
           ::v-deep(.el-progress-bar__inner) {
             border-radius: 3px;
-            background: #4a7cfd;
+            background: var(--sys-primary);
           }
         }
       }
@@ -1257,10 +1258,10 @@ export default {
         }
 
         .chunk-index {
-          color: #467afe;
+          color: var(--sys-primary);
           display: inline-block;
           padding: 4px 6px;
-          background: #e6f0fe;
+          background: var(--sys-surface);
           border-radius: 4px;
         }
       }

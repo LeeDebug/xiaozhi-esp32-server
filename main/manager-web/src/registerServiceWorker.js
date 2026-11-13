@@ -36,7 +36,7 @@ export const register = () => {
                       position: fixed;
                       bottom: 20px;
                       right: 20px;
-                      background: #409EFF;
+                      background: var(--sys-primary);
                       color: white;
                       padding: 12px 20px;
                       border-radius: 4px;
@@ -46,7 +46,7 @@ export const register = () => {
                     updateNotification.innerHTML = `
                       <div style="display: flex; align-items: center;">
                         <span style="margin-right: 10px;">发现新版本，点击刷新应用</span>
-                        <button style="background: white; color: #409EFF; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">刷新</button>
+                        <button style="background: white; color: var(--sys-primary-text); border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">刷新</button>
                       </div>
                     `;
                     document.body.appendChild(updateNotification);
@@ -61,7 +61,7 @@ export const register = () => {
                     setTimeout(() => {
                       // 预热CDN缓存
                       const cdnUrls = [
-                        'https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css',
+                        // Element UI 主题改由本地变量化版本提供，不再预热官方蓝色 theme-chalk
                         'https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css',
                         'https://unpkg.com/vue@2.6.14/dist/vue.min.js',
                         'https://unpkg.com/vue-router@3.6.5/dist/vue-router.min.js',

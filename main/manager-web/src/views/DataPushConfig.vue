@@ -651,7 +651,7 @@ export default {
   display: flex;
   position: relative;
   flex-direction: column;
-  background: #eff4ff;
+  background: var(--sys-surface);
   overflow: hidden;
 }
 
@@ -748,7 +748,7 @@ export default {
 }
 
 .report-content {
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--sys-primary-bg-soft);
   border-radius: 8px;
   padding: 10px 12px;
   max-height: 220px;
@@ -849,10 +849,10 @@ export default {
 }
 
 .rc-hint code {
-  background: #f3f5fb;
+  background: var(--sys-primary-bg-soft);
   padding: 0 4px;
   border-radius: 3px;
-  color: #2b6cb0;
+  color: var(--sys-primary-deep);
 }
 
 .compact-form .el-form-item {
@@ -881,7 +881,7 @@ export default {
 .guide-doc h4 {
   margin: 16px 0 6px;
   font-size: 14px;
-  color: #1f2a52;
+  color: var(--sys-primary-deep);
 }
 
 .guide-doc h4:first-child {
@@ -893,17 +893,17 @@ export default {
 }
 
 .guide-doc code {
-  background: #f3f5fb;
+  background: var(--sys-primary-bg-soft);
   padding: 1px 6px;
   border-radius: 4px;
   font-family: Consolas, Monaco, monospace;
   font-size: 12px;
-  color: #2b6cb0;
+  color: var(--sys-primary-deep);
 }
 
 .guide-doc pre {
   background: #1e2433;
-  color: #e6edf3;
+  color: var(--sys-primary-bg-soft);
   padding: 12px 14px;
   border-radius: 8px;
   overflow: auto;
@@ -968,18 +968,18 @@ export default {
   align-items: baseline;
   gap: 10px;
   padding: 5px 0;
-  border-bottom: 1px dashed #eef0f5;
+  border-bottom: 1px dashed var(--sys-primary-bg-soft);
 }
 
 .pv-key {
   font-weight: 600;
-  color: #1f2a52;
+  color: var(--sys-primary-deep);
   min-width: 132px;
   flex-shrink: 0;
 }
 
 .pv-val {
-  color: #2b6cb0;
+  color: var(--sys-primary-deep);
   font-family: Consolas, Monaco, monospace;
   word-break: break-all;
 }
@@ -991,7 +991,7 @@ export default {
 
 .pv-summary {
   font-size: 12px;
-  color: #2b6cb0;
+  color: var(--sys-primary-deep);
   padding: 4px 0 2px;
 }
 
@@ -1005,11 +1005,11 @@ export default {
 }
 
 .pv-list code {
-  background: #f3f5fb;
+  background: var(--sys-primary-bg-soft);
   padding: 0 5px;
   border-radius: 4px;
   font-family: Consolas, Monaco, monospace;
-  color: #2b6cb0;
+  color: var(--sys-primary-deep);
 }
 
 .pv-meta {

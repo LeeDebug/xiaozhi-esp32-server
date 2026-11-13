@@ -123,7 +123,7 @@ export default {
 }
 
 .input-46 {
-  background: #f6f8fb;
+  background: var(--sys-primary-bg-soft);
   border-radius: 15px;
 }
 </style>

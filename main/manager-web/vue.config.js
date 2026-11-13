@@ -21,8 +21,9 @@ dotenv.config();
 
 // 定义CDN资源列表，确保Service Worker也能访问
 const cdnResources = {
+  // Element UI 样式改由本地 src/styles/element-ui.theme.css 提供（主色已变量化）。
+  // 不能再从 CDN 引官方 theme-chalk：那是写死 #409EFF 的蓝色版本，会与主题冲突。
   css: [
-    'https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css',
     'https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css'
   ],
   js: [

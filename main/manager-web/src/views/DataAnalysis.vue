@@ -121,7 +121,7 @@ export default {
   display: flex;
   position: relative;
   flex-direction: column;
-  background: #eff4ff;
+  background: var(--sys-surface);
   overflow: hidden;
 }
 
@@ -210,8 +210,8 @@ export default {
 }
 
 .stat-card {
-  background: linear-gradient(135deg, #eef3ff, #f7f9ff);
-  border: 1px solid #e3ebff;
+  background: linear-gradient(135deg, var(--sys-primary-bg-soft), var(--sys-primary-bg-soft));
+  border: 1px solid var(--sys-primary-bg-soft);
   border-radius: 12px;
   padding: 18px 20px;
 }

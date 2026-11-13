@@ -367,7 +367,7 @@ export default {
   position: relative;
   flex-direction: column;
   background-size: cover;
-  background: #eff4ff;
+  background: var(--sys-surface);
   -webkit-background-size: cover;
   -o-background-size: cover;
   overflow: hidden;
@@ -396,7 +396,7 @@ export default {
 .header-icon {
   width: 40px;
   height: 40px;
-  background: #5778ff;
+  background: var(--sys-primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -490,7 +490,7 @@ export default {
 }
 
 .feature-card-item:hover {
-  border-color: #869bf0;
+  border-color: var(--sys-primary-lighter);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
@@ -498,8 +498,8 @@ export default {
 .feature-card-item.feature-enabled {
   border: 2px solid transparent;
   background: linear-gradient(white, white) padding-box,
-              linear-gradient(to right, #4a7cfd, #8154fc) border-box;
-  box-shadow: 0 4px 10px rgba(95, 112, 243, 0.2);
+              linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to)) border-box;
+  box-shadow: 0 4px 10px rgba(var(--sys-primary-rgb), 0.2);
   transform: translateY(-2px);
 }
 .feature-content {
@@ -525,12 +525,12 @@ export default {
 }
 
 .feature-checkbox ::v-deep .el-checkbox__input.is-checked .el-checkbox__inner {
-  background-color: #5778ff;
-  border-color: #5778ff;
+  background-color: var(--sys-primary);
+  border-color: var(--sys-primary);
 }
 
 .feature-checkbox ::v-deep .el-checkbox__input.is-checked + .el-checkbox__label {
-  color: #5778ff;
+  color: var(--sys-primary-text);
 }
 
 .feature-name {
@@ -606,8 +606,8 @@ export default {
 .module-count {
   margin-left: 13px;
   font-size: 12px;
-  background: #ebebfe;
-  color: #5778ff;
+  background: var(--sys-primary-bg-soft);
+  color: var(--sys-primary-text);
   padding: 2px 10px;
   border-radius: 10px;
 }

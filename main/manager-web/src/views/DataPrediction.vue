@@ -146,7 +146,7 @@ export default {
   display: flex;
   position: relative;
   flex-direction: column;
-  background: #eff4ff;
+  background: var(--sys-surface);
   overflow: hidden;
 }
 

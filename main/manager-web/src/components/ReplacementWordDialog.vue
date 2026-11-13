@@ -277,7 +277,7 @@ export default {
     .format-tip {
       text-align: left;
       font-size: 12px;
-      color: #5778ff;
+      color: var(--sys-primary-text);
     }
 
     .upload-section {
@@ -292,8 +292,8 @@ export default {
     }
 
     .upload-file-btn {
-      background: #3b82f6;
-      border-color: #3b82f6;
+      background: var(--sys-primary);
+      border-color: var(--sys-primary);
       border-radius: 6px;
       font-size: 13px;
       padding: 8px 16px;
@@ -311,8 +311,8 @@ export default {
       }
 
       &:hover {
-        background: #2563eb;
-        border-color: #2563eb;
+        background: var(--sys-primary);
+        border-color: var(--sys-primary);
         transform: translateY(-1px);
       }
     }

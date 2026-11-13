@@ -11,6 +11,8 @@
   <title>
     <%= process.env.VUE_APP_TITLE %>
   </title>
+  <!-- 系统色配置：静态文件，部署后直接改 dist/theme.js 即可换色，无需重新打包 -->
+  <script src="<%= BASE_URL %>theme.js"></script>
   <% if (htmlWebpackPlugin.options.cdn && htmlWebpackPlugin.options.cdn.css) { %>
     <% for (var i in htmlWebpackPlugin.options.cdn.css) { %>
       <link rel="stylesheet" href="<%= htmlWebpackPlugin.options.cdn.css[i] %>">

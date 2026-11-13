@@ -24,7 +24,7 @@ export default {
 <style lang="scss" scoped>
 .custom-button--default {
   width: fit-content;
-  background: #4998ff;
+  background: var(--sys-primary);
   color: #ffffff;
   border: none;
   border-radius: 4px;
@@ -39,17 +39,17 @@ export default {
   }
 
   &:hover {
-    background: #62a4fc;
+    background: var(--sys-primary-lighter);
     color: #ffffff;
     border-color: transparent;
-    box-shadow: 0 2px 8px rgba(74, 124, 253, 0.2);
+    box-shadow: 0 2px 8px rgba(var(--sys-primary-rgb), 0.2);
     transform: translateY(-2px);
   }
 
   &.is-disabled,
   &.is-disabled:hover {
-    background: linear-gradient(to right, #f0f3fe, #f5f6fe);
-    color: rgba(74, 124, 253, 0.5);
+    background: linear-gradient(to right, var(--sys-scrollbar-track), var(--sys-primary-bg-soft));
+    color: rgba(var(--sys-primary-rgb), 0.5);
     border-color: transparent;
     box-shadow: none;
     transform: none;
@@ -59,7 +59,7 @@ export default {
 
 .custom-button--confirm {
   width: fit-content;
-  background: linear-gradient(to right, #4a7cfd, #8154fc);
+  background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to));
   color: white;
   border: none;
   border-radius: 4px;
@@ -76,13 +76,13 @@ export default {
   &:hover {
     color: white;
     border-color: transparent;
-    box-shadow: 0 2px 8px rgba(74, 124, 253, 0.3);
+    box-shadow: 0 2px 8px rgba(var(--sys-primary-rgb), 0.3);
     transform: translateY(-2px);
   }
 
   &.is-disabled,
   &.is-disabled:hover {
-    background: linear-gradient(to right, #a0b4fd, #b8a4fd);
+    background: linear-gradient(to right, var(--sys-primary-border), var(--sys-gradient-to));
     color: rgba(255, 255, 255, 0.6);
     border-color: transparent;
     box-shadow: none;

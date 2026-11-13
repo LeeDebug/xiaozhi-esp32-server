@@ -106,7 +106,7 @@
                 font-weight: 400;
                 font-size: 14px;
                 text-align: left;
-                color: #5778ff;
+                color: var(--sys-primary-text);
                 display: flex;
                 justify-content: space-between;
                 margin-top: 20px;
@@ -136,11 +136,11 @@
           </div>
           <div style="font-size: 14px; color: #979db1">
             {{ $t("login.agreeTo") }}
-            <div style="display: inline-block; color: #5778ff; cursor: pointer" @click="openPage('/user-agreement.html')">
+            <div style="display: inline-block; color: var(--sys-primary-text); cursor: pointer" @click="openPage('/user-agreement.html')">
               {{ $t("login.userAgreement") }}
             </div>
             {{ $t("login.and") }}
-            <div style="display: inline-block; color: #5778ff; cursor: pointer" @click="openPage('/privacy-policy.html')">
+            <div style="display: inline-block; color: var(--sys-primary-text); cursor: pointer" @click="openPage('/privacy-policy.html')">
               {{ $t("login.privacyPolicy") }}
             </div>
           </div>
@@ -399,9 +399,9 @@ export default {
    图片正常加载时优先显示图片；图片缺失或加载失败时，
    浏览器会跳过该层并绘制下面的渐变（与 auth.scss 中的兜底色一致）。 */
 .welcome {
-  background-color: #6baaff;
+  background-color: var(--sys-primary-lighter);
   background-image: url("../assets/login-bg-img.png"),
-    linear-gradient(145deg, #f5f8fd, #6baaff, #9ebbfc, #f5f8fd);
+    linear-gradient(145deg, var(--sys-surface), var(--sys-primary-lighter), var(--sys-gradient-to), var(--sys-surface));
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
@@ -438,18 +438,18 @@ export default {
 }
 
 :deep(.el-button--primary) {
-  background-color: #5778ff;
-  border-color: #5778ff;
+  background-color: var(--sys-primary);
+  border-color: var(--sys-primary);
 
   &:hover,
   &:focus {
-    background-color: #4a6ae8;
-    border-color: #4a6ae8;
+    background-color: var(--sys-primary);
+    border-color: var(--sys-primary);
   }
 
   &:active {
-    background-color: #3d5cd6;
-    border-color: #3d5cd6;
+    background-color: var(--sys-primary);
+    border-color: var(--sys-primary);
   }
 }
 </style>

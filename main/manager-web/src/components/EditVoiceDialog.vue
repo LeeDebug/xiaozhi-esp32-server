@@ -139,7 +139,7 @@ export default {
   .dialog-footer {
     padding: 16px 20px 0;
     text-align: right;
-    border-top: 1px solid #EBEEF5;
+    border-top: 1px solid var(--sys-primary-bg-soft);
 
     .el-button {
       min-width: 80px;

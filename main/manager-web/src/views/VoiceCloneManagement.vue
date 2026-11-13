@@ -373,7 +373,7 @@ export default {
   position: relative;
   flex-direction: column;
   background-size: cover;
-  background: #eff4ff;
+  background: var(--sys-surface);
   -webkit-background-size: cover;
   -o-background-size: cover;
   overflow: hidden;
@@ -459,7 +459,7 @@ export default {
 }
 
 .status-waiting {
-  background-color: #f5f7fa;
+  background-color: var(--sys-primary-bg-soft);
   color: #909399;
   border: 1px solid #e4e7ed;
 }
@@ -495,12 +495,12 @@ export default {
   gap: 14px;
   padding: 16px 16px 8px;
   background: #fff;
-  box-shadow: 0 0 10px 0 #e8ecf5;
+  box-shadow: 0 0 10px 0 var(--sys-primary-bg-soft);
   border-radius: 8px;
   transition: box-shadow 0.2s, border-color 0.2s;
 
   &:hover {
-    border-color: #c0caff;
+    border-color: var(--sys-primary-border);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   }
 }
@@ -524,7 +524,7 @@ export default {
     width: 3px;
     height: 50%;
     max-height: 80px;
-    background: linear-gradient(to top, #a5b4fc 0%, #c4b5fd 100%);
+    background: linear-gradient(to top, var(--sys-primary-border) 0%, var(--sys-primary-border) 100%);
     border-radius: 2px;
     transform-origin: center;
     animation: voice-wave 1.2s ease-in-out infinite paused;
@@ -624,7 +624,7 @@ export default {
   flex-wrap: wrap;
   gap: 4px 8px;
   padding-top: 10px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 1px solid var(--sys-primary-bg-soft);
 
   ::v-deep .el-button {
     display: flex;

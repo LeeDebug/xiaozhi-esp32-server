@@ -1,4 +1,5 @@
 import { goToPage } from "@/utils";
+import { applyThemeFromConfig } from "@/utils/theme";
 import Vue from 'vue';
 import Vuex from 'vuex';
 import Api from '../apis/api';
@@ -44,6 +45,9 @@ export default new Vuex.Store({
     setPubConfig(state, config) {
       state.pubConfig = config
       localStorage.setItem('pubConfig', JSON.stringify(config))
+      // 后台 /user/pub-config 若下发 themeColor，则覆盖 public/theme.js 的静态配置。
+      // 后端暂未返回该字段，因此默认不产生任何行为；预留通道方便日后在智控台配置系统色。
+      applyThemeFromConfig(config)
     },
     clearAuth(state) {
       state.token = ''

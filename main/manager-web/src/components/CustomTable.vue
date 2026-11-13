@@ -228,11 +228,11 @@ export default {
   min-height: 0;
   .table-container {
     width: 100%;
-    box-shadow: 0 2px 12px rgba(74, 124, 253, 0.12);
+    box-shadow: 0 2px 12px rgba(var(--sys-primary-rgb), 0.12);
     border-radius: 6px;
     .custom-table {
       width: 100%;
-      border: 1px solid #eef3fd;
+      border: 1px solid var(--sys-primary-bg-soft);
       border-bottom: none;
       border-radius: 6px;
       .el-table__body-wrapper {
@@ -241,18 +241,18 @@ export default {
           width: 6px;
         }
         &::-webkit-scrollbar-thumb {
-          background: #a1c9fd;
+          background: var(--sys-scrollbar-thumb);
           border-radius: 3px;
         }
         &::-webkit-scrollbar-track {
-          background: #f0f3fe;
+          background: var(--sys-scrollbar-track);
           border-radius: 3px;
         }
       }
       .el-table__header {
         th {
           color: #342f45;
-          background: #edf2fc !important;
+          background: var(--sys-primary-bg-soft) !important;
         }
       }
     }
@@ -265,18 +265,18 @@ export default {
       width: 6px;
     }
     &::-webkit-scrollbar-thumb {
-      background: #a1c9fd;
+      background: var(--sys-scrollbar-thumb);
       border-radius: 3px;
     }
     &::-webkit-scrollbar-track {
-      background: #f0f3fe;
+      background: var(--sys-scrollbar-track);
       border-radius: 3px;
     }
   }
   .el-table__header {
     th {
       color: #342f45;
-      background: #edf2fc !important;
+      background: var(--sys-primary-bg-soft) !important;
     }
   }
 }
@@ -298,11 +298,11 @@ export default {
 }
 
 :deep(.el-loading-spinner .path) {
-  stroke: #6b8cff;
+  stroke: var(--sys-primary-light);
 }
 
 :deep(.el-loading-text) {
-  color: #6b8cff !important;
+  color: var(--sys-primary-text) !important;
   font-size: 14px;
   margin-top: 8px;
 }

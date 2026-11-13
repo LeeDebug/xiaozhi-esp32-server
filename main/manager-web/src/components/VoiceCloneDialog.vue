@@ -276,7 +276,9 @@ export default {
             ctx.clearRect(0, 0, width, height);
 
             // 绘制背景
-            ctx.fillStyle = '#e0f2ff';
+            // canvas 必须拿到真实色值，从主题令牌读取（CSS 变量在 fillStyle 中不生效）
+            ctx.fillStyle = getComputedStyle(document.documentElement)
+              .getPropertyValue('--sys-primary-bg').trim() || '#fdf0e6';
             ctx.fillRect(0, 0, width, height);
 
             if (this.waveformData.length === 0) {
@@ -545,7 +547,7 @@ export default {
 
     &.active {
         .step-number {
-            background: #6b8cff;
+            background: var(--sys-primary-light);
             color: white;
         }
 
@@ -642,9 +644,9 @@ export default {
 .edit-tips {
     margin-bottom: 20px;
     padding: 12px;
-    background: #f0f9ff;
+    background: var(--sys-primary-bg-soft);
     border-radius: 4px;
-    border-left: 3px solid #1890ff;
+    border-left: 3px solid var(--sys-primary);
 
     p {
         margin: 4px 0;
@@ -677,8 +679,8 @@ export default {
     position: absolute;
     top: 0;
     bottom: 0;
-    background: rgba(107, 140, 255, 0.3);
-    border: 1px solid #6b8cff;
+    background: rgba(var(--sys-primary-rgb), 0.3);
+    border: 1px solid var(--sys-primary-light);
     pointer-events: none;
 }
 

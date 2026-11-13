@@ -47,6 +47,7 @@ nav {
 <script>
 import CacheViewer from '@/components/CacheViewer.vue';
 import { logCacheStatus } from '@/utils/cacheViewer';
+import { getActivePrimary } from '@/utils/theme';
 
 export default {
   name: 'App',
@@ -84,7 +85,7 @@ export default {
       // 在控制台输出提示信息
       console.info(
         '%c[' + this.$t('system.name') + '] ' + this.$t('cache.cdnEnabled'),
-        'color: #409EFF; font-weight: bold;'
+        'color: ' + getActivePrimary() + '; font-weight: bold;'
       );
       console.info(
         '按下 Alt+C 组合键或在控制台运行 checkCDNCacheStatus() 可以查看CDN缓存状态'

@@ -365,7 +365,7 @@ export default {
   position: relative;
   flex-direction: column;
   background-size: cover;
-  background: #eff4ff;
+  background: var(--sys-surface);
   -webkit-background-size: cover;
   -o-background-size: cover;
   overflow: hidden;
@@ -405,7 +405,7 @@ export default {
 }
 
 .btn-search {
-  background: linear-gradient(135deg, #6b8cff, #a966ff);
+  background: linear-gradient(135deg, var(--sys-primary-light), var(--sys-gradient-to));
   border: none;
   color: white;
 }

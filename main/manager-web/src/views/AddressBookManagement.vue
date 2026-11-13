@@ -24,8 +24,8 @@
         <el-collapse accordion class="agent-collapse" v-model="expandedAgentId">
           <el-collapse-item v-for="agent in filteredAgents" :key="agent.id" :name="agent.id">
             <template slot="title">
-              <svg class="agent-triangle" width="8" height="12" viewBox="0 0 10 14" fill="#c8cafb">
-                <path d="M2 2L8 7L2 12L2 2Z" stroke="#c8cafb" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <svg class="agent-triangle" width="8" height="12" viewBox="0 0 10 14" style="fill: var(--sys-primary-lighter)">
+                <path d="M2 2L8 7L2 12L2 2Z" style="stroke: var(--sys-primary-lighter)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
               </svg>
               <span class="agent-name">{{ agent.agentName }} ({{ agent.deviceCount || 0 }})</span>
             </template>
@@ -626,7 +626,7 @@ export default {
   display: flex;
   flex-direction: column;
   background-size: cover;
-  background: #eff4ff;
+  background: var(--sys-surface);
   -webkit-background-size: cover;
   -o-background-size: cover;
   overflow: hidden;
@@ -669,15 +669,15 @@ export default {
       background: none;
 
       &:hover {
-        background: #ebf1fe;
+        background: var(--sys-surface);
       }
 
       &.active {
         .device-name {
-          color: #7297fd !important;
+          color: var(--sys-primary-lighter) !important;
         }
-        border-color: #b3c0fc;
-        background: #ebf1fe;
+        border-color: var(--sys-primary-border);
+        background: var(--sys-surface);
       }
 
       .device-avatar {
@@ -769,7 +769,7 @@ export default {
   align-items: stretch;
   gap: 20px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--sys-primary-bg-soft);
 }
 
 .device-left {
@@ -815,7 +815,7 @@ export default {
       font-size: 24px;
       font-weight: 600;
       color: #3d4566;
-      border: 1px solid #6b8cff;
+      border: 1px solid var(--sys-primary-light);
       border-radius: 4px;
       padding: 2px 8px;
       outline: none;
@@ -824,11 +824,11 @@ export default {
 
     i {
       cursor: pointer;
-      color: #6b8cff;
+      color: var(--sys-primary-text);
       font-size: 18px;
 
       &:hover {
-        color: #a966ff;
+        color: var(--sys-gradient-to);
       }
     }
   }
@@ -894,11 +894,11 @@ export default {
     padding: 12px 15px;
     border-radius: 8px;
     min-width: 140px;
-    border: 1px solid #eaedf4;
+    border: 1px solid var(--sys-primary-bg-soft);
 
     i {
       font-size: 28px;
-      color: #6b8cff;
+      color: var(--sys-primary-text);
       flex-shrink: 0;
     }
 
@@ -931,7 +931,7 @@ export default {
           color: #909399;
           cursor: pointer;
           &:hover {
-            color: #6b8cff;
+            color: var(--sys-primary-text);
           }
         }
       }
@@ -940,7 +940,7 @@ export default {
         font-size: 14px;
         color: #3d4566;
         font-weight: 500;
-        border: 1px solid #6b8cff;
+        border: 1px solid var(--sys-primary-light);
         border-radius: 4px;
         padding: 2px 6px;
         outline: none;
@@ -1000,10 +1000,10 @@ export default {
 
 .permission-item {
   padding: 12px;
-  background: linear-gradient(135deg, #f8fafd 0%, #ffffff 100%);
+  background: linear-gradient(135deg, var(--sys-primary-bg-soft) 0%, #ffffff 100%);
   border-radius: 8px;
   transition: all 0.3s ease;
-  border: 2px solid #eaedf4;
+  border: 2px solid var(--sys-primary-bg-soft);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1011,10 +1011,10 @@ export default {
 
 
   &.active {
-    border-color: #c6d1fd;
+    border-color: var(--sys-primary-border);
 
     .permission-name {
-      color: #3765f8;
+      color: var(--sys-primary);
     }
   }
 
@@ -1039,12 +1039,12 @@ export default {
     }
 
     ::v-deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-      background-color: #3765f8;
-      border-color: #3765f8;
+      background-color: var(--sys-primary);
+      border-color: var(--sys-primary);
     }
 
     ::v-deep(.el-checkbox__input.is-checked + .el-checkbox__label) {
-      color: #3765f8;
+      color: var(--sys-primary);
     }
   }
 
@@ -1094,7 +1094,7 @@ export default {
         cursor: pointer;
         flex-shrink: 0;
         &:hover {
-          color: #6b8cff;
+          color: var(--sys-primary-text);
         }
       }
     }
@@ -1125,7 +1125,7 @@ export default {
 .permission-edit-input {
   font-size: 14px;
   color: #3d4566;
-  border: 1px solid #6b8cff;
+  border: 1px solid var(--sys-primary-light);
   border-radius: 4px;
   padding: 2px 6px;
   outline: none;
@@ -1170,7 +1170,7 @@ export default {
 .agent-card {
   width: 100%;
   padding: 12px 0px;
-  // background: #f5f7fa;
+  // background: var(--sys-primary-bg-soft);
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -1181,12 +1181,12 @@ export default {
   box-sizing: border-box;
 
   &:hover {
-    background: #e6f0ff;
+    background: var(--sys-surface);
   }
 
   &.active, &.expanded {
-    border-color: #6b8cff;
-    background: #e6f0ff;
+    border-color: var(--sys-primary-light);
+    background: var(--sys-surface);
   }
 
   .agent-icon {
@@ -1244,7 +1244,7 @@ export default {
   padding-top: 20px;
 
   .el-button--primary {
-    background: linear-gradient(135deg, #6b8cff, #a966ff);
+    background: linear-gradient(135deg, var(--sys-primary-light), var(--sys-gradient-to));
     border: none;
     width: 120px;
   }

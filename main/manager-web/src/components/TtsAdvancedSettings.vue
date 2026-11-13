@@ -207,7 +207,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid #e8f0ff;
+  border-bottom: 1px solid var(--sys-surface);
 }
 
 .drawer-title {
@@ -235,8 +235,8 @@ export default {
 }
 
 .drawer-close-btn:hover {
-  color: #409eff;
-  border-color: #409eff;
+  color: var(--sys-primary-text);
+  border-color: var(--sys-primary);
 }
 
 .drawer-content {
@@ -272,7 +272,7 @@ export default {
 
 .drawer-footer {
   padding: 16px 24px;
-  border-top: 1px solid #e8f0ff;
+  border-top: 1px solid var(--sys-surface);
   display: flex;
   justify-content: center;
   gap: 12px;
@@ -299,11 +299,11 @@ export default {
   font-size: 14px;
 }
 .replacement-label i:hover {
-  color: #409eff;
+  color: var(--sys-primary-text);
 }
 .replacement-word-select ::v-deep .el-tag {
-  background: #e6ebff;
-  color: #5778ff;
+  background: var(--sys-surface-soft);
+  color: var(--sys-primary-text);
   border-radius: 8px;
   font-size: 12px;
   font-weight: normal;
@@ -311,7 +311,7 @@ export default {
 }
 
 .replacement-word-select ::v-deep .el-tag__close {
-  color: #5778ff;
+  color: var(--sys-primary-text);
 }
 .replacement-word-select ::v-deep .el-icon-close {
   background: #fff;
@@ -346,8 +346,8 @@ export default {
 }
 
 .replacement-tag {
-  background-color: #409eff;
-  border-color: #409eff;
+  background-color: var(--sys-primary);
+  border-color: var(--sys-primary);
   color: #fff;
 }
 

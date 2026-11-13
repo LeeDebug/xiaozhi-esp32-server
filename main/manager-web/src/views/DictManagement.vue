@@ -390,7 +390,7 @@ export default {
   position: relative;
   flex-direction: column;
   background-size: cover;
-  background: #eff4ff;
+  background: var(--sys-surface);
   -webkit-background-size: cover;
   -o-background-size: cover;
   overflow: hidden;
@@ -418,7 +418,7 @@ export default {
   display: flex;
   flex-direction: column;
   margin-bottom: 20px;
-  box-shadow: 0 0 12px rgba(74, 124, 253, 0.12);
+  box-shadow: 0 0 12px rgba(var(--sys-primary-rgb), 0.12);
   border-radius: 6px;
   .dict-type-checkbox {
     flex: 1;
@@ -450,7 +450,7 @@ export default {
       box-sizing: border-box;
       border-radius: 4px;
       &:hover {
-       background: #4998ff;
+       background: var(--sys-primary);
         .dict-type-name, .dict-type-edit-btn {
           color: #ffffff;
         }
@@ -473,7 +473,7 @@ export default {
       }
     }
     .dict-type-active {
-      background-color: #4998ff;
+      background-color: var(--sys-primary);
       .dict-type-name, .dict-type-edit-btn {
         color: #ffffff;
       }
@@ -484,7 +484,7 @@ export default {
 .dict-type-header {
   display: flex;
   padding: 10px 16px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--sys-primary-bg-soft);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -574,7 +574,7 @@ export default {
 }
 
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background-color: #5f70f3 !important;
-  border-color: #5f70f3 !important;
+  background-color: var(--sys-primary) !important;
+  border-color: var(--sys-primary) !important;
 }
 </style>

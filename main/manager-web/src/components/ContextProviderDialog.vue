@@ -220,7 +220,7 @@ export default {
   border-radius: 3px;
 }
 .dialog-content::-webkit-scrollbar-track {
-  background: #f5f7fa;
+  background: var(--sys-primary-bg-soft);
 }
 
 .provider-item {
@@ -234,7 +234,7 @@ export default {
   flex: 1;
   border-radius: 12px;
   border: 1px solid #e4e7ed;
-  border-left: 4px solid #409EFF;
+  border-left: 4px solid var(--sys-primary);
   background-color: #fff;
   transition: all 0.3s ease;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);

@@ -245,7 +245,7 @@ onUnmounted(() => {
 
 <style scoped>
 .audio-container {
-  background: #eef0fd;
+  background: var(--sys-primary-bg-soft);
   padding: 8px;
   height: 40px;
   display: flex;
@@ -297,15 +297,15 @@ onUnmounted(() => {
 .progress-track {
   position: absolute;
   height: 100%;
-  background: #4167ed;
+  background: var(--sys-primary);
 }
 
 .progress-thumb {
   position: absolute;
   width: 12px;
   height: 12px;
-  background: #4167ed;
-  border: 2px solid #d6dcfc;
+  background: var(--sys-primary);
+  border: 2px solid var(--sys-primary-border);
   border-radius: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -328,7 +328,7 @@ onUnmounted(() => {
 .volume-slider-container {
   position: fixed;
   padding: 10px 4px;
-  background: #eef0fd;
+  background: var(--sys-primary-bg-soft);
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   z-index: 1000;
@@ -348,8 +348,8 @@ onUnmounted(() => {
   left: 1px;
   width: 9px;
   height: 9px;
-  background: #4167ed;
-  border: 2px solid #d6dcfc;
+  background: var(--sys-primary);
+  border: 2px solid var(--sys-primary-border);
   border-radius: 50%;
   transform: translateX(-50%);
   pointer-events: none;
@@ -374,6 +374,6 @@ onUnmounted(() => {
   bottom: 0;
   width: 2px;
   height: calc(100% * v-bind(volume));
-  background: #4167ed;
+  background: var(--sys-primary);
 }
 </style>

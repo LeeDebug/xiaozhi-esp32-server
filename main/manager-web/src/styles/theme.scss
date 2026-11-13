@@ -1,0 +1,31 @@
+/**
+ * 系统主题令牌（静态兜底值）
+ *
+ * 这里的值对应主色 #eb6800，由 src/utils/theme.js 的 buildPalette() 生成。
+ * 运行时 applyTheme() 会以 :root 的 inline style 覆盖它们，因此本文件只是
+ * 在 JS 尚未执行 / theme.js 加载失败时避免界面短暂闪回蓝色。
+ *
+ * 重要：组件样式一律使用 var(--sys-*)，不要再写死十六进制色值。
+ * 需要改系统色时，改 public/theme.js（或后台下发 themeColor），不要改本文件。
+ */
+:root {
+  --sys-primary: #eb6800;
+  --sys-primary-rgb: 235, 104, 0;
+  --sys-primary-hover: #ef832e;
+  --sys-primary-active: #cf5c00;
+  --sys-primary-deep: #b75100;
+  --sys-primary-light: #f3a161;
+  --sys-primary-lighter: #f7c69e;
+  --sys-primary-border: #f9d5b8;
+  --sys-primary-bg: #fdf0e6;
+  --sys-primary-bg-soft: #fef7f2;
+  --sys-surface: #fdf3eb;
+  --sys-surface-soft: #fce8d9;
+  --sys-primary-text: #bc5300;
+  --sys-primary-glow: rgba(235, 104, 0, 0.12);
+  --sys-primary-glow-soft: rgba(235, 104, 0, 0.06);
+  --sys-gradient-from: #eb6800;
+  --sys-gradient-to: #f3953a;
+  --sys-scrollbar-thumb: #f4ac73;
+  --sys-scrollbar-track: #fef6f0;
+}

@@ -105,7 +105,7 @@
                   > 
                     <el-switch
                       v-model="scope.row.isEnabled"
-                      active-color="#5778ff"
+                      :active-color="$themePrimary"
                       inactive-color="#DCDFE6"
                       :active-value="1"
                       :inactive-value="0"
@@ -116,7 +116,7 @@
                   <el-switch
                     v-else
                     v-model="scope.row.isEnabled"
-                    active-color="#5778ff"
+                    :active-color="$themePrimary"
                     inactive-color="#DCDFE6"
                     :active-value="1"
                     :inactive-value="0"
@@ -128,7 +128,7 @@
                 <template slot-scope="scope">
                   <el-switch
                     v-model="scope.row.isDefault"
-                    active-color="#5778ff"
+                    :active-color="$themePrimary"
                     inactive-color="#DCDFE6"
                     :active-value="1"
                     :inactive-value="0"
@@ -576,7 +576,7 @@ export default {
   position: relative;
   flex-direction: column;
   background-size: cover;
-  background: #eff4ff;
+  background: var(--sys-surface);
   -webkit-background-size: cover;
   -o-background-size: cover;
 }
@@ -615,10 +615,10 @@ export default {
   height: 100%;
   box-sizing: border-box;
   overflow-y: auto;
-  border-right: 1px solid #ebeef5;
+  border-right: 1px solid var(--sys-primary-bg-soft);
   background: linear-gradient(
       120deg,
-      rgba(107, 140, 255, 0.3) 0%,
+      rgba(var(--sys-primary-rgb), 0.3) 0%,
       rgba(169, 102, 255, 0.3) 25%,
       transparent 60%
     ),
@@ -632,7 +632,7 @@ export default {
 .nav-panel .el-menu-item {
   height: 50px;
   flex-shrink: 0;
-  background: #e9f0ff;
+  background: var(--sys-primary-bg-soft);
   line-height: 50px;
   border-radius: 4px 0 0 4px !important;
   transition: all 0.3s;
@@ -645,7 +645,7 @@ export default {
 }
 
 .nav-panel .el-menu-item.is-active {
-  background: #5778ff;
+  background: var(--sys-primary);
   position: relative;
   padding-left: 40px !important;
 }
@@ -699,7 +699,7 @@ export default {
 }
 
 .btn-search {
-  background: linear-gradient(135deg, #6b8cff, #a966ff);
+  background: linear-gradient(135deg, var(--sys-primary-light), var(--sys-gradient-to));
   border: none;
   color: white;
 }
@@ -717,7 +717,7 @@ export default {
 }
 
 ::v-deep .search-input .el-input__inner:focus {
-  border-color: #6b8cff;
+  border-color: var(--sys-primary-light);
   outline: none;
 }
 
@@ -772,7 +772,7 @@ export default {
 // }
 
 // .batch-actions .el-button--primary {
-//   background: #5f70f3 !important;
+//   background: var(--sys-primary) !important;
 //   color: white;
 // }
 
@@ -787,13 +787,13 @@ export default {
 // }
 
 // .batch-actions .el-button:first-child {
-//   background: linear-gradient(135deg, #409eff, #6b8cff);
+//   background: linear-gradient(135deg, var(--sys-primary), var(--sys-primary-light));
 //   border: none;
 //   color: white;
 // }
 
 // .batch-actions .el-button:first-child:hover {
-//   background: linear-gradient(135deg, #3a8ee6, #5a7cff);
+//   background: linear-gradient(135deg, var(--sys-primary), var(--sys-primary-lighter));
 // }
 
 .el-table th ::v-deep .el-table__cell {
@@ -858,12 +858,12 @@ export default {
 }
 
 ::v-deep .el-checkbox__input.is-checked .el-checkbox__inner {
-  background-color: #5f70f3;
-  border-color: #5f70f3;
+  background-color: var(--sys-primary);
+  border-color: var(--sys-primary);
 }
 
 .voice-management-btn {
-  background: #9db3ea;
+  background: var(--sys-primary-lighter);
   color: white;
   min-width: 68px;
   line-height: 14px;
@@ -873,7 +873,7 @@ export default {
 }
 
 .voice-management-btn:hover {
-  background: #8aa2e0;
+  background: var(--sys-primary-lighter);
   /* 悬停时颜色加深 */
   transform: scale(1.05);
 }
@@ -955,7 +955,7 @@ export default {
     }
 
     .el-table__row:hover>td {
-        background-color: #f5f7fa !important;
+        background-color: var(--sys-primary-bg-soft) !important;
     }
 
     &::before {
@@ -975,11 +975,11 @@ export default {
 }
 
 ::v-deep .el-loading-spinner .path {
-  stroke: #6b8cff;
+  stroke: var(--sys-primary-light);
 }
 
 ::v-deep .el-loading-text {
-  color: #6b8cff !important;
+  color: var(--sys-primary-text) !important;
   font-size: 14px;
   margin-top: 8px;
 }

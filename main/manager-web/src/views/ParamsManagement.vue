@@ -740,7 +740,7 @@ export default {
   display: flex;
   position: relative;
   flex-direction: column;
-  background: #eff4ff;
+  background: var(--sys-surface);
   overflow: hidden;
 }
 
@@ -837,8 +837,8 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #e4e8f5;
-  background: #f7f9ff;
+  border: 1px solid var(--sys-primary-bg-soft);
+  background: var(--sys-primary-bg-soft);
   color: #5a648f;
   border-radius: 8px;
   padding: 7px 12px;
@@ -847,15 +847,15 @@ export default {
   transition: all 0.15s ease;
 
   &:hover {
-    border-color: #b7c3ef;
+    border-color: var(--sys-primary-border);
     color: #3f4c88;
   }
 
   &.active {
-    background: linear-gradient(135deg, #6b8cff, #7a6dff);
+    background: linear-gradient(135deg, var(--sys-primary-light), var(--sys-primary-lighter));
     border-color: transparent;
     color: #fff;
-    box-shadow: 0 4px 12px rgba(107, 140, 255, 0.28);
+    box-shadow: 0 4px 12px rgba(var(--sys-primary-rgb), 0.28);
 
     .group-tab-count {
       background: rgba(255, 255, 255, 0.22);
@@ -870,7 +870,7 @@ export default {
   height: 20px;
   line-height: 20px;
   border-radius: 10px;
-  background: #e8ecfb;
+  background: var(--sys-surface);
   color: #5a648f;
   font-size: 12px;
   text-align: center;
@@ -900,11 +900,11 @@ export default {
   }
 
   &:hover {
-    background: #eef2ff;
+    background: var(--sys-primary-bg-soft);
   }
 
   &.active {
-    background: #e8ecfb;
+    background: var(--sys-surface);
     color: #4d59a8;
     font-weight: 600;
   }
@@ -922,7 +922,7 @@ export default {
 
   ::v-deep .el-collapse-item {
     margin-bottom: 10px;
-    border: 1px solid #eef1fb;
+    border: 1px solid var(--sys-primary-bg-soft);
     border-radius: 10px;
     overflow: hidden;
   }
@@ -931,7 +931,7 @@ export default {
     height: 44px;
     line-height: 44px;
     padding: 0 14px;
-    background: #f8faff;
+    background: var(--sys-primary-bg-soft);
     border-bottom: 1px solid transparent;
     font-weight: 500;
     color: #3f4a75;
@@ -946,7 +946,7 @@ export default {
   }
 
   ::v-deep .el-collapse-item.is-active .el-collapse-item__header {
-    border-bottom-color: #eef1fb;
+    border-bottom-color: var(--sys-primary-bg-soft);
   }
 }
 
@@ -965,7 +965,7 @@ export default {
 .section-count {
   font-size: 12px;
   color: #7b84ad;
-  background: #eef1fb;
+  background: var(--sys-primary-bg-soft);
   border-radius: 10px;
   padding: 0 8px;
   height: 20px;
@@ -981,7 +981,7 @@ export default {
   width: 100%;
 
   ::v-deep .params-table-header {
-    background: #fcfdff;
+    background: var(--sys-primary-bg-soft);
     color: #6a739c;
     font-weight: 500;
   }
@@ -991,7 +991,7 @@ export default {
   font-family: Consolas, 'SF Mono', Monaco, Menlo, monospace;
   font-size: 12px;
   color: #3d4a7a;
-  background: #f3f6ff;
+  background: var(--sys-primary-bg-soft);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -1001,13 +1001,13 @@ export default {
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 4px;
-  background: #eef1f8;
+  background: var(--sys-primary-bg-soft);
   color: #6a739c;
 
-  &.type-number { background: #e8f5ff; color: #2f7db8; }
+  &.type-number { background: var(--sys-primary-bg-soft); color: var(--sys-primary); }
   &.type-boolean { background: #e9f8ef; color: #2f8a55; }
   &.type-json,
-  &.type-array { background: #f6efff; color: #7a4fb3; }
+  &.type-array { background: var(--sys-primary-bg-soft); color: #7a4fb3; }
 }
 
 .value-cell {
@@ -1034,7 +1034,7 @@ export default {
   justify-content: space-between;
   gap: 12px;
   padding-top: 12px;
-  border-top: 1px solid #eef1fb;
+  border-top: 1px solid var(--sys-primary-bg-soft);
   margin-top: 8px;
 }
 

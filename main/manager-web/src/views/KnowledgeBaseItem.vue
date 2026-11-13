@@ -354,7 +354,7 @@ export default {
     getProgressTextColor(doc) {
       const code = doc.parseStatusCode;
       if (code === 3) return '#34c759';
-      if (code === 1) return '#2f5bff';
+      if (code === 1) return this.$themePrimary;
       return '#7888a8';
     },
 
@@ -447,11 +447,11 @@ export default {
   cursor: pointer;
   transition: all 0.25s;
   position: relative;
-  box-shadow: 0 0 6px rgba(47, 91, 255, 0.15);
+  box-shadow: 0 0 6px rgba(var(--sys-primary-rgb), 0.15);
 
   &:hover {
-    box-shadow: 0 0 6px rgba(47, 91, 255, 0.15);
-    border: 1px solid #6b80eb;
+    box-shadow: 0 0 6px rgba(var(--sys-primary-rgb), 0.15);
+    border: 1px solid var(--sys-primary);
   }
 }
 
@@ -521,7 +521,7 @@ export default {
 
   .bg {
     fill: none;
-    stroke: #e7ecf5;
+    stroke: var(--sys-primary-bg-soft);
     stroke-width: 4;
   }
 
@@ -532,8 +532,8 @@ export default {
     transition: stroke-dashoffset 0.5s ease;
 
     &.complete { stroke: #34c759; }
-    &.processing { stroke: #2f5bff; }
-    &.pending { stroke: #e7ecf5; }
+    &.processing { stroke: var(--sys-primary-deep); }
+    &.pending { stroke: var(--sys-primary-bg-soft); }
   }
 }
 
@@ -558,7 +558,7 @@ export default {
     color: #7888a8;
   
     &.complete { color: #34c759; }
-    &.processing { color: #2f5bff; }
+    &.processing { color: var(--sys-primary-text); }
   }
 
   .doc-slice-count {

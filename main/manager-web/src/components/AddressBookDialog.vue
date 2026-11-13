@@ -145,8 +145,8 @@ export default {
       transition: all 0.3s ease;
 
       &:focus {
-        border-color: #5f70f3;
-        box-shadow: 0 0 0 2px rgba(95, 112, 243, 0.2);
+        border-color: var(--sys-primary);
+        box-shadow: 0 0 0 2px rgba(var(--sys-primary-rgb), 0.2);
       }
     }
   }
@@ -159,8 +159,8 @@ export default {
       transition: all 0.3s ease;
 
       &:focus {
-        border-color: #5f70f3;
-        box-shadow: 0 0 0 2px rgba(95, 112, 243, 0.2);
+        border-color: var(--sys-primary);
+        box-shadow: 0 0 0 2px rgba(var(--sys-primary-rgb), 0.2);
       }
     }
   }

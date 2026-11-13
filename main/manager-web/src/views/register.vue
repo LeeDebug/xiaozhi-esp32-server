@@ -95,7 +95,7 @@
               </div>
 
               <!-- 修改底部链接 -->
-              <div style="font-weight: 400;font-size: 14px;text-align: left;color: #5778ff;margin-top: 20px;">
+              <div style="font-weight: 400;font-size: 14px;text-align: left;color: var(--sys-primary-text);margin-top: 20px;">
                 <div style="cursor: pointer;" @click="goToLogin">{{ $t('register.goToLogin') }}</div>
               </div>
             </form>
@@ -107,9 +107,9 @@
           <!-- 保持相同的协议声明 -->
           <div style="font-size: 14px;color: #979db1;">
             {{ $t('register.agreeTo') }}
-            <div style="display: inline-block;color: #5778FF;cursor: pointer;" @click="openPage('/user-agreement.html')">{{ $t('register.userAgreement') }}</div>
+            <div style="display: inline-block;color: var(--sys-primary-text);cursor: pointer;" @click="openPage('/user-agreement.html')">{{ $t('register.userAgreement') }}</div>
             {{ $t('login.and') }}
-            <div style="display: inline-block;color: #5778FF;cursor: pointer;" @click="openPage('/privacy-policy.html')">{{ $t('register.privacyPolicy') }}</div>
+            <div style="display: inline-block;color: var(--sys-primary-text);cursor: pointer;" @click="openPage('/privacy-policy.html')">{{ $t('register.privacyPolicy') }}</div>
           </div>
         </div>
       </el-main>
@@ -364,7 +364,7 @@ export default {
   line-height: 40px;
   border-radius: 4px;
   font-size: 14px;
-  background: rgb(87, 120, 255);
+  background: rgb(var(--sys-primary-rgb));
   border: none;
   padding: 0px;
 

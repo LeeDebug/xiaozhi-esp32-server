@@ -541,7 +541,7 @@ export default {
 
 <style lang="scss" scoped>
 .header {
-  background: linear-gradient(180deg, #dfeafe, #eff4ff);
+  background: linear-gradient(180deg, var(--sys-primary-border), var(--sys-surface));
   height: 63px !important;
   min-width: 900px;
   overflow: visible;
@@ -578,7 +578,7 @@ export default {
   gap: 25px;
   background: white;
   border-radius: 30px;
-  box-shadow: 0 0 6px 0px #cfe1fb;
+  box-shadow: 0 0 6px 0px var(--sys-surface);
   padding: 4px;
 }
 
@@ -608,7 +608,7 @@ export default {
 
 .equipment-management.active-tab {
   color: #fff !important;
-  background: linear-gradient(90deg, #2983fe 0%, #5251fc 100%);
+  background: linear-gradient(90deg, var(--sys-primary) 0%, var(--sys-primary-lighter) 100%);
   box-shadow: 0 1px 8px rgba(41, 131, 254, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   position: relative;
   overflow: hidden;

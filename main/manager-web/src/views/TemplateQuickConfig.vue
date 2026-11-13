@@ -269,7 +269,7 @@ export default {
   display: flex;
   position: relative;
   flex-direction: column;
-  background: #eff4ff;
+  background: var(--sys-surface);
   background-size: cover;
   -webkit-background-size: cover;
   -o-background-size: cover;
@@ -394,14 +394,14 @@ export default {
   display: flex;
   align-items: center;
   gap: 15px;
-  background: #f8f9ff;
+  background: var(--sys-primary-bg-soft);
   position: relative;
 }
 
 .header-icon {
   width: 37px;
   height: 37px;
-  background: #5778ff;
+  background: var(--sys-primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -442,8 +442,8 @@ export default {
 }
 
 .custom-close-btn:hover {
-  color: #409EFF;
-  border-color: #409EFF;
+  color: var(--sys-primary-text);
+  border-color: var(--sys-primary);
 }
 
 .header-actions {
@@ -454,7 +454,7 @@ export default {
 }
 
 .header-actions .save-btn {
-  background: #5778ff;
+  background: var(--sys-primary);
   color: white;
   border: none;
   border-radius: 18px;
@@ -464,9 +464,9 @@ export default {
 }
 
 .header-actions .reset-btn {
-  background: #e6ebff;
-  color: #5778ff;
-  border: 1px solid #adbdff;
+  background: var(--sys-surface-soft);
+  color: var(--sys-primary-text);
+  border: 1px solid var(--sys-primary-border);
   border-radius: 18px;
   padding: 8px 16px;
   height: 32px;

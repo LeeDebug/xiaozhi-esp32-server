@@ -2131,7 +2131,7 @@ export default {
 
 ::v-deep .el-dialog__header {
   padding: 16px 20px 12px;
-  background: linear-gradient(135deg, #e2eeff, #edeafe);
+  background: linear-gradient(135deg, var(--sys-surface), var(--sys-surface));
   text-align: left;
 }
 
@@ -2159,7 +2159,7 @@ export default {
   width: 24px;
   height: 24px;
   margin-right: 8px;
-  color: #4a7cfd;
+  color: var(--sys-primary-text);
   font-size: 24px;
   line-height: 1;
 }
@@ -2226,31 +2226,31 @@ export default {
 }
 
 .snapshot-footer-cancel {
-  border: 1px solid #d7e1ff;
-  background: #f7f9ff;
-  color: #4a7cfd;
+  border: 1px solid var(--sys-primary-bg-soft);
+  background: var(--sys-primary-bg-soft);
+  color: var(--sys-primary-text);
 
   &:hover,
   &:focus {
-    border-color: #4a7cfd;
-    background: #eef4ff;
-    color: #4a7cfd;
-    box-shadow: 0 2px 8px rgba(74, 124, 253, 0.14);
+    border-color: var(--sys-primary);
+    background: var(--sys-surface);
+    color: var(--sys-primary-text);
+    box-shadow: 0 2px 8px rgba(var(--sys-primary-rgb), 0.14);
     transform: translateY(-2px);
   }
 }
 
 .snapshot-footer-confirm {
   border: none;
-  background: linear-gradient(to right, #4a7cfd, #8154fc);
+  background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to));
   color: #fff;
 
   &:hover,
   &:focus {
     border-color: transparent;
-    background: linear-gradient(to right, #4a7cfd, #8154fc);
+    background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to));
     color: #fff;
-    box-shadow: 0 2px 8px rgba(74, 124, 253, 0.3);
+    box-shadow: 0 2px 8px rgba(var(--sys-primary-rgb), 0.3);
     transform: translateY(-2px);
     opacity: 0.88;
   }
@@ -2259,7 +2259,7 @@ export default {
   &.is-disabled:hover,
   &.is-disabled:focus {
     border-color: transparent;
-    background: linear-gradient(to right, #a0b4fd, #b8a4fd);
+    background: linear-gradient(to right, var(--sys-primary-border), var(--sys-gradient-to));
     color: rgba(255, 255, 255, 0.6);
     box-shadow: none;
     transform: none;
@@ -2348,7 +2348,7 @@ export default {
 .detail-summary span {
   padding: 4px 9px;
   border-radius: 4px;
-  background: #f4f6ff;
+  background: var(--sys-primary-bg-soft);
   color: #4d5b7c;
 }
 
@@ -2363,7 +2363,7 @@ export default {
 .diff-field {
   padding: 12px 16px;
   border-bottom: 1px solid #e9e9e9;
-  background: #fafbff;
+  background: var(--sys-primary-bg-soft);
   color: #3d4566;
   font-size: 16px;
   font-weight: 700;
@@ -2458,12 +2458,12 @@ export default {
 }
 
 ::v-deep .code-diff-view::-webkit-scrollbar-thumb {
-  background: #a1c9fd;
+  background: var(--sys-scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::v-deep .code-diff-view::-webkit-scrollbar-track {
-  background: #f0f3fe;
+  background: var(--sys-scrollbar-track);
   border-radius: 3px;
 }
 
@@ -2500,9 +2500,9 @@ export default {
 
 .function-toggle-card {
   padding: 14px 16px;
-  border: 1px solid #dfe7ff;
+  border: 1px solid var(--sys-surface);
   border-radius: 8px;
-  background: #fbfdff;
+  background: var(--sys-primary-bg-soft);
   box-shadow: 0 2px 8px rgba(31, 48, 96, 0.04);
 }
 
@@ -2517,8 +2517,8 @@ export default {
 }
 
 .function-toggle-card.is-updated {
-  border-color: #dfe7ff;
-  background: #fbfdff;
+  border-color: var(--sys-surface);
+  background: var(--sys-primary-bg-soft);
 }
 
 .function-toggle-card.is-single .function-state-pane {
@@ -2537,7 +2537,7 @@ export default {
   height: 8px;
   margin-top: 7px;
   border-radius: 50%;
-  background: #6278ff;
+  background: var(--sys-primary-lighter);
 }
 
 .function-toggle-card.is-removed .function-dot {
@@ -2571,8 +2571,8 @@ export default {
 .function-change-badge {
   padding: 2px 8px;
   border-radius: 999px;
-  background: #eef4ff;
-  color: #4d65d9;
+  background: var(--sys-surface);
+  color: var(--sys-primary);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -2597,7 +2597,7 @@ export default {
 .function-state-pane {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid #edf0f7;
+  border: 1px solid var(--sys-primary-bg-soft);
   border-radius: 6px;
   background: #fff;
 }
@@ -2611,7 +2611,7 @@ export default {
 }
 
 .function-state-pane.is-disabled {
-  background: #fafbff;
+  background: var(--sys-primary-bg-soft);
 }
 
 .function-state-title {
@@ -2637,7 +2637,7 @@ export default {
 }
 
 .function-state-pane.is-disabled .function-state-badge {
-  background: #f0f2f7;
+  background: var(--sys-primary-bg-soft);
   color: #8b93a7;
 }
 
@@ -2652,7 +2652,7 @@ export default {
 }
 
 .function-param-row + .function-param-row {
-  border-top: 1px solid #e6ebf5;
+  border-top: 1px solid var(--sys-primary-bg-soft);
 }
 
 .function-param-row.is-changed {
@@ -2677,7 +2677,7 @@ export default {
   min-width: 0;
   min-height: 28px;
   padding: 5px 0 5px 10px;
-  border-left: 1px solid #e6ebf5;
+  border-left: 1px solid var(--sys-primary-bg-soft);
   color: #303133;
   font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
   font-size: 12px;
@@ -2751,7 +2751,7 @@ export default {
 .markdown-body ::v-deep code {
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgba(87, 120, 255, 0.12);
+  background: rgba(var(--sys-primary-rgb), 0.12);
   color: #3d4566;
   font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
   font-size: 12px;

@@ -551,7 +551,7 @@ export default {
 }
 
 ::v-deep .data-table .el-table__header-wrapper {
-  border-bottom: 2px solid #f1f2fb !important;
+  border-bottom: 2px solid var(--sys-primary-bg-soft) !important;
 }
 
 ::v-deep .data-table .el-table__body-wrapper .el-table__body td {
@@ -570,7 +570,7 @@ export default {
 }
 
 ::v-deep .remark-input .el-textarea__inner:focus {
-  border-color: #409EFF !important;
+  border-color: var(--sys-primary) !important;
   outline: none;
 }
 
@@ -619,14 +619,14 @@ export default {
 .custom-scrollbar-thumb {
   position: absolute;
   width: 100%;
-  background: #9dade7;
+  background: var(--sys-primary-lighter);
   border-radius: 4px;
   cursor: grab;
   transition: background 0.2s;
 }
 
 .custom-scrollbar-thumb:hover {
-  background: #6b84d9;
+  background: var(--sys-primary);
 }
 
 .custom-scrollbar-thumb:active {
@@ -634,12 +634,12 @@ export default {
 }
 
 .save-Tts {
-  background: #796dea;
+  background: var(--sys-primary-lighter);
   border: None;
 }
 
 .save-Tts:hover {
-  background: #8b80f0;
+  background: var(--sys-primary-lighter);
 }
 
 .custom-audio-container audio {
@@ -663,7 +663,7 @@ export default {
 .edit-btn:hover,
 .delete-btn:hover,
 .save-btn:hover {
-  color: #5f70f3 !important;
+  color: var(--sys-primary-text) !important;
   transform: scale(1.05);
 }
 

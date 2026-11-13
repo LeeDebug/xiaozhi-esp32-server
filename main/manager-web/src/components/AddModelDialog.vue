@@ -397,15 +397,15 @@ export default {
 }
 
 .custom-switch.is-checked .el-switch__core {
-  border-color: #b5bcf0;
-  background-color: #cfd7fa;
+  border-color: var(--sys-primary-border);
+  background-color: var(--sys-primary-border);
   padding: 0 20px;
 }
 
 .custom-switch.is-checked .el-switch__core:after {
   left: 100%;
   margin-left: -18px;
-  background-color: #1b47ee;
+  background-color: var(--sys-primary);
 }
 
 .custom-input-bg .el-input__inner {

@@ -286,7 +286,7 @@ export default {
     position: relative;
     flex-direction: column;
     background-size: cover;
-    background: #eff4ff;
+    background: var(--sys-surface);
     -webkit-background-size: cover;
     -o-background-size: cover;
     overflow: hidden;

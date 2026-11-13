@@ -480,7 +480,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #EBEEF5;
+  border-bottom: 1px solid var(--sys-primary-bg-soft);
 
   .header-left {
     display: flex;
@@ -508,7 +508,7 @@ export default {
   width: auto;
   height: 100%; 
   padding: 10px;
-  border-right: 1px solid #EBEEF5;
+  border-right: 1px solid var(--sys-primary-bg-soft);
   scrollbar-width: none;
   overflow-x: hidden;
   box-sizing: border-box;
@@ -546,7 +546,7 @@ export default {
   justify-content: space-between;
 
   &:hover {
-    background-color: #f5f7fa;
+    background-color: var(--sys-primary-bg-soft);
   }
 }
 
@@ -585,7 +585,7 @@ export default {
   flex-shrink: 0;
   width: 8px;
   height: 8px;
-  background-color: #5778ff;
+  background-color: var(--sys-primary);
   margin-right: 8px;
   border-radius: 50%;
 }
@@ -694,8 +694,8 @@ export default {
 }
 
 .custom-close-btn:hover {
-  color: #409EFF;
-  border-color: #409EFF;
+  color: var(--sys-primary-text);
+  border-color: var(--sys-primary);
 }
 
 ::v-deep .el-checkbox__label {
@@ -703,7 +703,7 @@ export default {
 }
 
 .mcp-access-point {
-  border-top: 1px solid #EBEEF5;
+  border-top: 1px solid var(--sys-primary-bg-soft);
   padding: 20px 24px;
   text-align: left;
 }
@@ -745,7 +745,7 @@ export default {
     margin-bottom: 12px;
 
     .doc-link {
-      color: #1677ff;
+      color: var(--sys-primary-text);
       text-decoration: none;
       margin-left: 4px;
 
@@ -775,7 +775,7 @@ export default {
     .inner-copy-btn {
       pointer-events: auto;
       border: none;
-      background: #1677ff;
+      background: var(--sys-primary);
       color: white;
       padding: 6px;
       margin-top: 4px;
@@ -839,9 +839,9 @@ export default {
     transition: all 0.3s;
 
     &:hover {
-      background: #1677ff;
+      background: var(--sys-primary);
       color: white;
-      border-color: #1677ff;
+      border-color: var(--sys-primary);
     }
 
     .refresh-icon {
@@ -876,15 +876,15 @@ export default {
 
   .tool-btn {
     padding: 6px 12px;
-    border-color: #1677ff;
-    color: #1677ff;
+    border-color: var(--sys-primary);
+    color: var(--sys-primary-text);
     background-color: white;
     font-size: 12px;
 
     &:hover {
-      background-color: #1677ff;
+      background-color: var(--sys-primary);
       color: white;
-      border-color: #1677ff;
+      border-color: var(--sys-primary);
     }
   }
 

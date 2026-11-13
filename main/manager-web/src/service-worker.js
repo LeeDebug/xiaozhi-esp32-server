@@ -8,8 +8,8 @@ self.addEventListener('message', (event) => {
 });
 
 // CDN资源列表
+// Element UI 主题改由本地变量化版本提供，不再缓存官方蓝色 theme-chalk
 const CDN_CSS = [
-  'https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css',
   'https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css'
 ];
 
@@ -131,6 +131,22 @@ if (isCDNEnabled) {
     })
   );
 }
+
+// 主题配置是运行时换色的入口，必须「网络优先」：
+// 否则修改 dist/theme.js 后仍会命中 StaleWhileRevalidate 的旧缓存，导致换色不生效。
+workbox.routing.registerRoute(
+  ({ url }) => url.pathname.endsWith('/theme.js'),
+  new workbox.strategies.NetworkFirst({
+    cacheName: 'theme-config',
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({
+        maxAgeSeconds: 24 * 60 * 60, // 1天
+        maxEntries: 2,
+      }),
+    ],
+  })
+);
 
 // 无论是否启用CDN模式，都缓存本地静态资源
 workbox.routing.registerRoute(

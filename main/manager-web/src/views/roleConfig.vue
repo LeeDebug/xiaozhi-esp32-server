@@ -1928,7 +1928,7 @@ export default {
   display: flex;
   position: relative;
   flex-direction: column;
-  background: #eff4ff;
+  background: var(--sys-surface);
   background-size: cover;
   -webkit-background-size: cover;
   -o-background-size: cover;
@@ -2016,10 +2016,10 @@ export default {
   padding-bottom: 4px;
   &::-webkit-scrollbar {
       height: 6px;
-      background: #e6ebff;
+      background: var(--sys-surface-soft);
     }
     &::-webkit-scrollbar-thumb {
-      background: #5778ff;
+      background: var(--sys-primary);
       border-radius: 8px;
     }
 }
@@ -2031,10 +2031,10 @@ export default {
 .current-version-tag {
   flex-shrink: 0;
   padding: 3px 9px;
-  border: 1px solid #dfe7ff;
+  border: 1px solid var(--sys-surface);
   border-radius: 999px;
-  background: #f4f7ff;
-  color: #5778ff;
+  background: var(--sys-primary-bg-soft);
+  color: var(--sys-primary-text);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.5;
@@ -2055,7 +2055,7 @@ export default {
 .header-icon {
   width: 37px;
   height: 37px;
-  background: #5778ff;
+  background: var(--sys-primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2069,7 +2069,7 @@ export default {
 
 .divider {
   height: 1px;
-  background: #e8f0ff;
+  background: var(--sys-surface);
 }
 
 .form-content {
@@ -2099,12 +2099,12 @@ export default {
 }
 
 .play-button {
-  color: #409eff;
+  color: var(--sys-primary-text);
   transition: color 0.3s;
 }
 
 .play-button:hover {
-  color: #66b1ff;
+  color: var(--sys-primary-lighter);
 }
 
 .play-button.is-loading {
@@ -2132,19 +2132,19 @@ export default {
   min-width: 60px;
   padding: 0 12px;
   border-radius: 8px;
-  background: #e6ebff;
+  background: var(--sys-surface-soft);
   line-height: 4vh;
   font-weight: 400;
   font-size: 11px;
   text-align: center;
-  color: #5778ff;
+  color: var(--sys-primary-text);
   cursor: pointer;
   transition: background-color 0.3s ease;
   white-space: nowrap;
 }
 
 .template-item:hover {
-  background-color: #d0d8ff;
+  background-color: var(--sys-primary-border);
 }
 
 .model-select-wrapper {
@@ -2195,12 +2195,12 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #5778ff;
+  color: var(--sys-primary-text);
   font-weight: bold;
   font-size: 12px;
   margin-right: 8px;
   position: relative;
-  background-color: #e6ebff;
+  background-color: var(--sys-surface-soft);
 }
 
 ::v-deep .el-form-item__label {
@@ -2242,21 +2242,21 @@ export default {
 }
 
 .custom-close-btn:hover {
-  color: #409eff;
-  border-color: #409eff;
+  color: var(--sys-primary-text);
+  border-color: var(--sys-primary);
 }
 
 .edit-function-btn {
-  background: #e6ebff;
-  color: #5778ff;
-  border: 1px solid #adbdff;
+  background: var(--sys-surface-soft);
+  color: var(--sys-primary-text);
+  border: 1px solid var(--sys-primary-border);
   border-radius: 18px;
   padding: 10px 20px;
   transition: all 0.3s;
 }
 
 .edit-function-btn.active-btn {
-  background: #5778ff;
+  background: var(--sys-primary);
   color: white;
 }
 
@@ -2268,23 +2268,23 @@ export default {
 }
 
 .chat-history-options ::v-deep .el-radio-button {
-  border-color: #5778ff;
+  border-color: var(--sys-primary);
 }
 
 .chat-history-options ::v-deep .el-radio-button .el-radio-button__inner {
-  color: #5778ff;
-  border-color: #5778ff;
+  color: var(--sys-primary-text);
+  border-color: var(--sys-primary);
   background-color: transparent;
 }
 
 .chat-history-options ::v-deep .el-radio-button.is-active .el-radio-button__inner {
-  background-color: #5778ff;
-  border-color: #5778ff;
+  background-color: var(--sys-primary);
+  border-color: var(--sys-primary);
   color: white;
 }
 
 .chat-history-options ::v-deep .el-radio-button .el-radio-button__inner:hover {
-  color: #5778ff;
+  color: var(--sys-primary-text);
 }
 
 .header-actions {
@@ -2309,7 +2309,7 @@ export default {
 }
 
 .header-actions .save-btn {
-  background: #5778ff;
+  background: var(--sys-primary);
   color: white;
   border: none;
   border-radius: 18px;
@@ -2329,9 +2329,9 @@ export default {
 }
 
 .header-actions .reset-btn {
-  background: #e6ebff;
-  color: #5778ff;
-  border: 1px solid #adbdff;
+  background: var(--sys-surface-soft);
+  color: var(--sys-primary-text);
+  border: 1px solid var(--sys-primary-border);
   border-radius: 18px;
   padding: 8px 16px;
   height: 32px;
@@ -2350,7 +2350,7 @@ export default {
 }
 
 .doc-link {
-  color: #5778ff;
+  color: var(--sys-primary-text);
   text-decoration: none;
   margin-left: 4px;
 
@@ -2385,21 +2385,21 @@ export default {
   padding: 0 8px;
 }
 .custom-tag {
-  background: #e6ebff;
-  color: #5778ff;
+  background: var(--sys-surface-soft);
+  color: var(--sys-primary-text);
   border-radius: 8px;
   font-size: 12px;
   font-weight: normal;
   border: none;
 }
 .custom-tag-btn {
-  background: #e6ebff;
-  color: #5778ff;
+  background: var(--sys-surface-soft);
+  color: var(--sys-primary-text);
   border-radius: 8px;
   font-weight: normal;
-  border: 1px solid #e6ebff;
+  border: 1px solid var(--sys-surface-soft);
   &:hover {
-    background-color: #d0d8ff;
+    background-color: var(--sys-primary-border);
   }
 }
 .input-new-tag {

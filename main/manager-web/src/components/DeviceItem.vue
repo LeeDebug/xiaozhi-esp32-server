@@ -120,7 +120,7 @@ export default {
 .device-item {
   width: 342px;
   border-radius: 20px;
-  background: #fafcfe;
+  background: var(--sys-primary-bg-soft);
   padding: 22px 22px 14px;
   box-sizing: border-box;
   &-title {
@@ -146,8 +146,8 @@ export default {
 .settings-btn {
   font-weight: 500;
   font-size: 12px;
-  color: #5778ff;
-  background: #e6ebff;
+  color: var(--sys-primary-text);
+  background: var(--sys-surface-soft);
   width: auto;
   padding: 0 12px;
   height: 21px;

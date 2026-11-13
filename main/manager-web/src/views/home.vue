@@ -438,7 +438,7 @@ export default {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #eff4ff;
+  background: var(--sys-surface);
   background-size: cover;
   /* 确保背景图像覆盖整个元素 */
   background-position: center;
@@ -454,9 +454,9 @@ export default {
   border-radius: 15px;
   position: relative;
   background: linear-gradient(269.62deg,
-      #e0e6fd 0%,
-      #cce7ff 49.69%,
-      #d3d3fe 100%);
+      var(--sys-primary-bg-soft) 0%,
+      var(--sys-primary-bg-soft) 49.69%,
+      var(--sys-primary-bg-soft) 100%);
 }
 
 .add-device-bg {
@@ -501,7 +501,7 @@ export default {
 .add-device-btn {
   color: #fff;
   margin-left: 10px;
-  background: #3375fd;
+  background: var(--sys-primary);
   border-radius: 20px;
 }
 
@@ -518,7 +518,7 @@ export default {
   &::v-deep .el-input__inner {
     border-radius: 20px;
     border: 1px solid transparent;
-    box-shadow: 0 2px 2px 0 #cfe1fb;
+    box-shadow: 0 2px 2px 0 var(--sys-surface);
   }
   &::v-deep .el-input__suffix {
     right: 10px;
@@ -588,7 +588,7 @@ export default {
 }
 
 .search-history-item:hover {
-  background-color: #f5f7fa;
+  background-color: var(--sys-primary-bg-soft);
 }
 
 .search-wrapper {
@@ -635,7 +635,7 @@ export default {
 }
 
 .search-history-item:hover {
-  background-color: #f5f7fa;
+  background-color: var(--sys-primary-bg-soft);
 }
 
 .search-history-item:hover .clear-item-icon {
@@ -696,7 +696,7 @@ export default {
 .skeleton-image {
   width: 80px;
   height: 80px;
-  background: #f0f2f5;
+  background: var(--sys-primary-bg-soft);
   border-radius: 4px;
   float: left;
   position: relative;
@@ -709,7 +709,7 @@ export default {
 
 .skeleton-line {
   height: 16px;
-  background: #f0f2f5;
+  background: var(--sys-primary-bg-soft);
   border-radius: 4px;
   margin-bottom: 12px;
   width: 70%;
@@ -719,7 +719,7 @@ export default {
 
 .skeleton-line-short {
   height: 12px;
-  background: #f0f2f5;
+  background: var(--sys-primary-bg-soft);
   border-radius: 4px;
   width: 50%;
 }
@@ -774,9 +774,9 @@ export default {
 .delete-agent-target {
   margin-top: 14px;
   padding: 10px 12px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--sys-primary-bg-soft);
   border-radius: 4px;
-  background: #f5f7fa;
+  background: var(--sys-primary-bg-soft);
   color: #303133;
   font-weight: 600;
   word-break: break-all;
@@ -820,7 +820,7 @@ export default {
 
 .delete-agent-dialog::v-deep .el-dialog__header {
   padding: 16px 20px 12px;
-  background: linear-gradient(135deg, #e2eeff, #edeafe);
+  background: linear-gradient(135deg, var(--sys-surface), var(--sys-surface));
   text-align: left;
 }
 
@@ -873,32 +873,32 @@ export default {
 
 .delete-agent-cancel {
   color: #fff;
-  background: #4d94f7;
+  background: var(--sys-primary);
   border: none;
 }
 
 .delete-agent-cancel:hover,
 .delete-agent-cancel:focus {
   color: #fff;
-  background: #4d94f7;
+  background: var(--sys-primary);
   opacity: 0.88;
 }
 
 .delete-agent-confirm {
-  background: linear-gradient(to right, #4a7cfd, #8154fc);
+  background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to));
   border: none;
 }
 
 .delete-agent-confirm:hover,
 .delete-agent-confirm:focus {
-  background: linear-gradient(to right, #4a7cfd, #8154fc);
+  background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to));
   opacity: 0.88;
 }
 
 .delete-agent-confirm.is-disabled,
 .delete-agent-confirm.is-disabled:hover,
 .delete-agent-confirm.is-disabled:focus {
-  background: linear-gradient(to right, #4a7cfd, #8154fc);
+  background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to));
   border: none;
   opacity: 0.45;
 }

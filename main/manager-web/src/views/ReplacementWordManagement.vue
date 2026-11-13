@@ -386,7 +386,7 @@ export default {
   position: relative;
   flex-direction: column;
   background-size: cover;
-  background: #eff4ff;
+  background: var(--sys-surface);
   -webkit-background-size: cover;
   -o-background-size: cover;
   overflow: hidden;
@@ -484,8 +484,8 @@ export default {
 }
 
 .custom-tag {
-  background: #e6ebff;
-  color: #5778ff;
+  background: var(--sys-surface-soft);
+  color: var(--sys-primary-text);
   border-radius: 8px;
   font-size: 12px;
   font-weight: normal;

@@ -186,7 +186,7 @@ export default {
   font-size: 20px;
   cursor: pointer;
   margin: 0 5px;
-  color: #1890ff;
+  color: var(--sys-primary-text);
 }
 
 .param-form {
@@ -216,8 +216,8 @@ export default {
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
       &:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        border-color: var(--sys-primary);
+        box-shadow: 0 0 0 3px rgba(var(--sys-primary-rgb), 0.2);
         background-color: #ffffff;
       }
 
@@ -242,8 +242,8 @@ export default {
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
       &:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        border-color: var(--sys-primary);
+        box-shadow: 0 0 0 3px rgba(var(--sys-primary-rgb), 0.2);
         background-color: #ffffff;
       }
 
@@ -267,8 +267,8 @@ export default {
       line-height: 1.5;
 
       &:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        border-color: var(--sys-primary);
+        box-shadow: 0 0 0 3px rgba(var(--sys-primary-rgb), 0.2);
         background-color: #ffffff;
       }
 
