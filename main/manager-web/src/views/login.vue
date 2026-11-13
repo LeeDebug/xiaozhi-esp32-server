@@ -9,12 +9,12 @@
             margin-left: 11px;
             gap: 10px;
           ">
-          <img loading="lazy" alt="" src="@/assets/xiaozhi-logo.png" style="width: 42px; height: 42px" />
-          <img loading="lazy" alt="" :src="xiaozhiAiIcon" style="height: 20px" />
+          <img loading="lazy" alt="" src="@/assets/big-herdsman_logo.png" style="width: 228px; height: 100%;" />
+          <!-- <img loading="lazy" alt="" :src="xiaozhiAiIcon" style="height: 20px" /> -->
         </div>
       </el-header>
       <div class="login-person">
-        <img loading="lazy" alt="" src="@/assets/login/login-person.png" style="width: 100%" />
+        <!-- <img loading="lazy" alt="" src="@/assets/login/login-person.png" style="width: 100%" /> -->
       </div>
       <el-main style="position: relative">
         <div class="login-box" @keyup.enter="login">
@@ -394,6 +394,18 @@ export default {
 </script>
 <style lang="scss" scoped>
 @import "./auth.scss";
+
+/* 登录页背景：图片层在上、渐变层在下。
+   图片正常加载时优先显示图片；图片缺失或加载失败时，
+   浏览器会跳过该层并绘制下面的渐变（与 auth.scss 中的兜底色一致）。 */
+.welcome {
+  background-color: #6baaff;
+  background-image: url("../assets/login-bg-img.png"),
+    linear-gradient(145deg, #f5f8fd, #6baaff, #9ebbfc, #f5f8fd);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
 
 .login-type-container {
   margin: 10px 20px;
