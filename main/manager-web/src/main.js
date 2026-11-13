@@ -15,6 +15,7 @@ import { register as registerServiceWorker } from './registerServiceWorker';
 import featureManager from './utils/featureManager';
 import { initTheme, getActivePrimary } from './utils/theme';
 
+// 换系统色只需改 public/theme.js（部署后为 dist/theme.js）里的 primary，不要改本文件
 // 在任何组件渲染之前注入主题，避免首帧闪回默认蓝色
 initTheme();
 

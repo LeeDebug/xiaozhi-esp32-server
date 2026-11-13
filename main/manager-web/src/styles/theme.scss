@@ -6,7 +6,11 @@
  * 在 JS 尚未执行 / theme.js 加载失败时避免界面短暂闪回蓝色。
  *
  * 重要：组件样式一律使用 var(--sys-*)，不要再写死十六进制色值。
- * 需要改系统色时，改 public/theme.js（或后台下发 themeColor），不要改本文件。
+ *
+ * 【换系统色不用改本文件】
+ *   改 public/theme.js（部署后 dist/theme.js）的 primary 即可，刷新浏览器生效。
+ *   本文件只在 JS 执行前的极短瞬间生效；若希望连这一瞬间的兜底色也一起换，
+ *   才需要同步改这里的色值并重新 npm run build。
  */
 :root {
   --sys-primary: #eb6800;

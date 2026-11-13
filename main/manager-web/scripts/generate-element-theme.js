@@ -7,6 +7,9 @@
  *
  * 用法：node scripts/generate-element-theme.js
  * 时机：仅在升级 element-ui 版本后需要重新执行；产物已提交到仓库。
+ *
+ * 【换系统色不用动本脚本，也不用动生成的 CSS】
+ *   改 public/theme.js（部署后 dist/theme.js）的 primary 一行即可。
  */
 const fs = require('fs');
 const path = require('path');
@@ -67,6 +70,7 @@ const header = `/*!
  * 生成: node scripts/generate-element-theme.js
  * 说明: primary 色板已替换为 --sys-* CSS 变量，由 src/utils/theme.js 在运行时注入；
  *       中性灰阶（#C0C4CC / #F2F6FC 等）保持不变。
+ * 换系统色不用改本文件：改 public/theme.js（部署后 dist/theme.js）的 primary 即可。
  */
 `;
 

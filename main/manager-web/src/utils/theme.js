@@ -1,6 +1,11 @@
 /**
  * 全站主题引擎（manager-web）
  *
+ * 【换系统色不要改本文件】
+ *   改 public/theme.js（部署后 dist/theme.js）里的 primary 一行即可，刷新浏览器生效。
+ *   本文件只是「根据主色派生整套色阶并注入 :root」的引擎，日常换色无需改动；
+ *   只有要调整派生算法（例如 hover 变亮的幅度）时才修改这里。
+ *
  * 系统色只有一条链路：
  *   1. 静态配置：public/theme.js -> window.__XIAOZHI_THEME__.primary
  *      （打包后为 dist/theme.js，直接编辑即可换色，无需重新 build）
@@ -12,6 +17,8 @@
  * 组件样式与 Element UI 主题 CSS 都只引用变量，所以换色是运行时行为。
  */
 
+// 兜底主色：仅在 public/theme.js 缺失或色值非法时使用。日常换色不要改这一行，
+// 改 public/theme.js（部署后 dist/theme.js）的 primary。
 export const DEFAULT_PRIMARY = '#eb6800';
 
 const HEX_RE = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
