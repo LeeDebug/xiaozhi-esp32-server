@@ -70,6 +70,7 @@
           :label="operationsLabel"
           align="center"
           :width="operationsWidth"
+          :fixed="operationsFixed ? 'right' : false"
         >
           <template slot-scope="scope">
             <slot name="operations" :row="scope.row" :$index="scope.$index" />
@@ -130,6 +131,11 @@ export default {
     operationsWidth: {
       type: [String, Number],
       default: 180
+    },
+    // 列较多、需要横向滚动时把操作列钉在右侧，避免「查看」等按钮被裁出视口
+    operationsFixed: {
+      type: Boolean,
+      default: false
     },
     // 分页相关
     showPagination: {

@@ -84,7 +84,8 @@
               :show-selection="false"
               :show-operations="true"
               :operations-label="$t('chatRecords.operation')"
-              :operations-width="140"
+              :operations-width="100"
+              :operations-fixed="true"
               :total="total"
               :current-page="currentPage"
               :page-size="pageSize"
@@ -230,13 +231,14 @@ export default {
   computed: {
     tableColumns() {
       return [
-        { prop: 'createdAtText', label: this.$t('chatRecords.colTime'), width: 170, align: 'center' },
-        { prop: 'sessionTitle', label: this.$t('chatRecords.colSession'), minWidth: 160, align: 'center' },
-        { prop: 'macAddress', label: this.$t('chatRecords.colDevice'), minWidth: 180, align: 'center' },
-        { prop: 'agentName', label: this.$t('chatRecords.colAgent'), minWidth: 120, align: 'center' },
-        { prop: 'chatCount', label: this.$t('chatRecords.colMessageCount'), width: 100, align: 'center' },
-        { prop: 'summary', label: this.$t('chatRecords.colSummary'), minWidth: 260, align: 'left' },
-        { prop: 'extra', label: this.$t('chatRecords.colExtra'), width: 90, align: 'center' }
+        // 列宽总量控制在略大于容器即可：过大会把操作列挤出视口，短内容列还会留出大片空白
+        { prop: 'createdAtText', label: this.$t('chatRecords.colTime'), width: 150, align: 'center' },
+        { prop: 'sessionTitle', label: this.$t('chatRecords.colSession'), minWidth: 120, align: 'center' },
+        { prop: 'macAddress', label: this.$t('chatRecords.colDevice'), minWidth: 155, align: 'center' },
+        { prop: 'agentName', label: this.$t('chatRecords.colAgent'), minWidth: 100, align: 'center' },
+        { prop: 'chatCount', label: this.$t('chatRecords.colMessageCount'), width: 70, align: 'center' },
+        { prop: 'summary', label: this.$t('chatRecords.colSummary'), minWidth: 160, align: 'left', showOverflowTooltip: false },
+        { prop: 'extra', label: this.$t('chatRecords.colExtra'), width: 60, align: 'center' }
       ];
     }
   },
@@ -505,7 +507,7 @@ export default {
 }
 
 .device-alias {
-  max-width: 110px;
+  max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
