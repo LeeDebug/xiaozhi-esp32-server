@@ -1,5 +1,6 @@
 package xiaozhi.modules.agent.service.impl;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -7,6 +8,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +41,7 @@ import xiaozhi.modules.agent.dao.AiAgentChatHistoryDao;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
 import xiaozhi.modules.agent.dto.ChatRecordQueryDTO;
+import xiaozhi.modules.agent.dto.ChatSessionQueryDTO;
 import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
 import xiaozhi.modules.agent.entity.AgentChatTitleEntity;
 import xiaozhi.modules.agent.entity.AgentEntity;
@@ -47,6 +50,7 @@ import xiaozhi.modules.agent.service.AgentChatTitleService;
 import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
+import xiaozhi.modules.agent.vo.ChatSessionVO;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.entity.DeviceEntity;
 
@@ -343,6 +347,89 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     }
 
     @Override
+    public PageData<ChatSessionVO> getChatSessionPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin) {
+        ChatRecordQueryDTO httpQuery = query == null ? new ChatRecordQueryDTO() : query;
+        List<String> visibleAgentIds = resolveVisibleAgentIds(userId, superAdmin);
+        if (!superAdmin && visibleAgentIds.isEmpty()) {
+            return new PageData<>(Collections.emptyList(), 0);
+        }
+        // 指定智能体时仍要校验归属，防止越权查看他人会话
+        if (!superAdmin && StringUtils.isNotBlank(httpQuery.getAgentId())
+                && !visibleAgentIds.contains(httpQuery.getAgentId())) {
+            return new PageData<>(Collections.emptyList(), 0);
+        }
+
+        int page = httpQuery.getPage() == null ? 1 : Math.max(1, httpQuery.getPage());
+        int limit = httpQuery.getLimit() == null ? 10 : Math.min(100, Math.max(1, httpQuery.getLimit()));
+
+        ChatSessionQueryDTO q = new ChatSessionQueryDTO();
+        q.setVisibleAgentIds(superAdmin ? null : visibleAgentIds);
+        q.setMacAddress(trimToNull(httpQuery.getMacAddress()));
+        q.setAgentId(trimToNull(httpQuery.getAgentId()));
+        q.setKeyword(trimToNull(httpQuery.getKeyword()));
+        q.setChatType(httpQuery.getChatType());
+        if (httpQuery.getStartTime() != null) {
+            q.setStartTime(toDbLiteral(httpQuery.getStartTime()));
+        }
+        if (httpQuery.getEndTime() != null) {
+            q.setEndTime(toDbLiteral(httpQuery.getEndTime()));
+        }
+        q.setOffset((long) (page - 1) * limit);
+        q.setLimit(limit);
+
+        long total = baseMapper.countChatSessions(q);
+        if (total == 0L) {
+            return new PageData<>(Collections.emptyList(), 0L);
+        }
+        List<Map<String, Object>> rows = baseMapper.selectChatSessions(q);
+        if (rows.isEmpty()) {
+            return new PageData<>(Collections.emptyList(), total);
+        }
+
+        List<String> sessionIds = rows.stream()
+                .map(row -> asString(row.get("session_id")))
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toList());
+        Set<String> macs = rows.stream()
+                .map(row -> asString(row.get("mac_address")))
+                .filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+        Set<String> agentIds = rows.stream()
+                .map(row -> asString(row.get("agent_id")))
+                .filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+
+        Map<String, String> titleBySession = findSessionTitles(sessionIds);
+        Map<String, String> summaryBySession = findFirstContents(sessionIds);
+        Map<String, String> aliasByMac = findDeviceAliases(macs);
+        Map<String, String> nameByAgent = findAgentNames(agentIds);
+
+        List<ChatSessionVO> list = rows.stream().map(row -> {
+            ChatSessionVO vo = new ChatSessionVO();
+            String sessionId = asString(row.get("session_id"));
+            String mac = asString(row.get("mac_address"));
+            String agentId = asString(row.get("agent_id"));
+            vo.setSessionId(sessionId);
+            vo.setSessionTitle(titleBySession.get(sessionId));
+            vo.setMacAddress(mac);
+            vo.setDeviceAlias(aliasByMac.get(mac));
+            vo.setAgentId(agentId);
+            vo.setAgentName(nameByAgent.get(agentId));
+            vo.setChatCount(asInt(row.get("chat_count")));
+
+            Long startedMs = toEpochMs(row.get("started_at"));
+            vo.setStartedAtMs(startedMs);
+            vo.setStartedAtText(formatChinaTime(startedMs));
+            Long lastMs = toEpochMs(row.get("last_at"));
+            vo.setCreatedAtMs(lastMs);
+            vo.setCreatedAtText(formatChinaTime(lastMs));
+            vo.setSummary(summaryBySession.get(sessionId));
+            vo.setHasAudio(asInt(row.get("has_audio")) > 0);
+            return vo;
+        }).collect(Collectors.toList());
+
+        return new PageData<>(list, total);
+    }
+
+    @Override
     public ChatRecordFilterVO getChatRecordFilters(Long userId, boolean superAdmin) {
         ChatRecordFilterVO result = new ChatRecordFilterVO();
         List<String> visibleAgentIds = resolveVisibleAgentIds(userId, superAdmin);
@@ -449,5 +536,117 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
             }
         }
         return map;
+    }
+
+    // ---------------- 会话维度查询的辅助方法 ----------------
+
+    private String trimToNull(String value) {
+        return StringUtils.isBlank(value) ? null : value.trim();
+    }
+
+    private String asString(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    private int asInt(Object value) {
+        return value instanceof Number ? ((Number) value).intValue() : 0;
+    }
+
+    /**
+     * 聚合查询返回的时间列，在不同 MyBatis/驱动组合下可能是 Timestamp、Date 或 LocalDateTime，
+     * 统一转成 epoch 毫秒。JDBC 使用 serverTimezone=UTC，Timestamp#getTime 与实体里的
+     * Date#getTime 口径一致，可直接交给 Asia/Shanghai 格式化。
+     */
+    private Long toEpochMs(Object value) {
+        if (value instanceof Timestamp) {
+            return ((Timestamp) value).getTime();
+        }
+        if (value instanceof Date) {
+            return ((Date) value).getTime();
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value).atZone(DB_ZONE).toInstant().toEpochMilli();
+        }
+        return null;
+    }
+
+    private String formatChinaTime(Long epochMs) {
+        return epochMs == null ? ""
+                : Instant.ofEpochMilli(epochMs).atZone(CHINA_ZONE).format(CN_TIME_FORMAT);
+    }
+
+    private Map<String, String> findSessionTitles(List<String> sessionIds) {
+        if (sessionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<AgentChatTitleEntity> titles = agentChatTitleDao.selectList(
+                new QueryWrapper<AgentChatTitleEntity>()
+                        .select("session_id", "title").in("session_id", sessionIds));
+        Map<String, String> map = new HashMap<>();
+        for (AgentChatTitleEntity title : titles) {
+            if (StringUtils.isNotBlank(title.getTitle())) {
+                map.putIfAbsent(title.getSessionId(), title.getTitle());
+            }
+        }
+        return map;
+    }
+
+    private Map<String, String> findDeviceAliases(Set<String> macs) {
+        if (macs.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<DeviceEntity> devices = deviceDao.selectList(new QueryWrapper<DeviceEntity>()
+                .select("mac_address", "alias").in("mac_address", macs));
+        Map<String, String> map = new HashMap<>();
+        for (DeviceEntity device : devices) {
+            if (StringUtils.isNotBlank(device.getAlias())) {
+                map.putIfAbsent(device.getMacAddress(), device.getAlias());
+            }
+        }
+        return map;
+    }
+
+    private Map<String, String> findAgentNames(Set<String> ids) {
+        if (ids.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<AgentEntity> agents = agentDao.selectList(new QueryWrapper<AgentEntity>()
+                .select("id", "agent_name").in("id", ids));
+        Map<String, String> map = new HashMap<>();
+        for (AgentEntity agent : agents) {
+            map.putIfAbsent(agent.getId(), agent.getAgentName());
+        }
+        return map;
+    }
+
+    /** 批量取每个会话首条消息正文，作为列表摘要（一次查询，避免 N+1） */
+    private Map<String, String> findFirstContents(List<String> sessionIds) {
+        if (sessionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        ChatSessionQueryDTO q = new ChatSessionQueryDTO();
+        q.setSessionIds(sessionIds);
+        Map<String, String> map = new HashMap<>();
+        for (Map<String, Object> row : baseMapper.selectFirstContents(q)) {
+            String sessionId = asString(row.get("session_id"));
+            if (StringUtils.isBlank(sessionId)) {
+                continue;
+            }
+            map.putIfAbsent(sessionId, toSummary(asString(row.get("content"))));
+        }
+        return map;
+    }
+
+    /** 兼容 {"content": "..."} 与普通文本；压缩空白后截断，避免工具调用 JSON 撑爆列表 */
+    private String toSummary(String content) {
+        if (StringUtils.isBlank(content)) {
+            return "";
+        }
+        String text = extractContentFromString(content);
+        if (text == null) {
+            text = content;
+        }
+        text = text.replaceAll("\\s+", " ").trim();
+        return text.length() > 120 ? text.substring(0, 120) + "..." : text;
     }
 }

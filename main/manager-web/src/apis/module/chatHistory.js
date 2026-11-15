@@ -2,7 +2,29 @@ import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
 export default {
-    // 多条件分页查询聊天记录
+    // 以会话（session_id）为维度的多条件分页查询，页面列表与弹窗左侧共用
+    getSessions(params, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/chat-history/sessions`)
+            .method('GET')
+            .data(params)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                console.error('获取聊天会话失败:', err);
+                RequestService.reAjaxFun(() => {
+                    this.getSessions(params, callback, failCallback);
+                });
+            }).send();
+    },
+
+    // 单条聊天记录粒度的多条件分页查询（保留供其它场景使用）
     getRecords(params, callback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/agent/chat-history/records`)

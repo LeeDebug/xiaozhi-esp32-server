@@ -11,7 +11,7 @@
                 <h2 class="page-title">{{ $t('chatRecords.title') }}</h2>
                 <span class="china-time-badge">{{ $t('chatRecords.chinaTime') }}</span>
               </div>
-              <div class="total-hint">{{ $t('chatRecords.totalRecords', { count: total }) }}</div>
+              <div class="total-hint">{{ $t('chatRecords.totalSessions', { count: total }) }}</div>
             </div>
 
             <div class="filter-bar">
@@ -92,6 +92,19 @@
               @size-change="handlePageSizeChange"
               @page-change="goToPage"
             >
+              <template slot="createdAtText" slot-scope="scope">
+                <div class="time-cell">
+                  <div>{{ scope.row.createdAtText }}</div>
+                  <div class="time-sub">{{ $t('chatRecords.startAt') }} {{ scope.row.startedAtText }}</div>
+                </div>
+              </template>
+
+              <template slot="sessionTitle" slot-scope="scope">
+                <span class="session-cell" :title="scope.row.sessionId" @click="openSession(scope.row)">
+                  {{ sessionLabel(scope.row) }}
+                </span>
+              </template>
+
               <template slot="macAddress" slot-scope="scope">
                 <div class="device-cell">
                   <span class="device-alias">{{ scope.row.deviceAlias || $t('chatRecords.unnamedDevice') }}</span>
@@ -104,32 +117,19 @@
                 {{ scope.row.agentName || scope.row.agentId || $t('chatRecords.unnamedAgent') }}
               </template>
 
-              <template slot="sessionTitle" slot-scope="scope">
-                <span :title="scope.row.sessionId">{{ sessionLabel(scope.row) }}</span>
+              <template slot="chatCount" slot-scope="scope">
+                <span class="count-badge">{{ scope.row.chatCount || 0 }}</span>
               </template>
 
-              <template slot="chatType" slot-scope="scope">
-                <el-tag size="mini" :type="roleTagType(scope.row.chatType)">
-                  {{ roleText(scope.row.chatType) }}
-                </el-tag>
-              </template>
-
-              <template slot="content" slot-scope="scope">
-                <span class="content-cell" @click="openSession(scope.row)">
-                  {{ extractDisplayText(scope.row.content) }}
-                </span>
-                <span v-if="scope.row.contentTruncated" class="truncated-hint">
-                  {{ $t('chatRecords.truncated') }}
+              <template slot="summary" slot-scope="scope">
+                <span class="summary-cell" :title="scope.row.summary" @click="openSession(scope.row)">
+                  {{ scope.row.summary || '-' }}
                 </span>
               </template>
 
               <template slot="extra" slot-scope="scope">
                 <span class="extra-cell">
                   <i v-if="scope.row.hasAudio" class="el-icon-headset" :title="$t('chatRecords.audio')"></i>
-                  <span v-if="scope.row.metrics && scope.row.metrics.e2eTotalMs" class="duration-text"
-                    :title="$t('chatRecords.duration')">
-                    {{ formatDuration(scope.row.metrics.e2eTotalMs) }}
-                  </span>
                 </span>
               </template>
 
@@ -152,7 +152,7 @@
       :query="dialogQuery"
       :mac-address="dialogMacAddress"
       :device-alias="dialogDeviceAlias"
-      :initial-session-id="dialogInitialSessionId"
+      :initial-session="dialogInitialSession"
       :agent-id="dialogAgentId"
       :agent-name="dialogAgentName"
       @update:visible="dialogVisible = $event"
@@ -211,18 +211,18 @@ export default {
       dateRange: [],
       deviceOptions: [],
       agentOptions: [],
-      records: [],
+      records: [], // 当前页的会话列表（每行一个 session_id）
       loading: false,
       total: 0,
       currentPage: 1,
       pageSize: 10,
       pageSizeOptions: [10, 20, 50, 100],
-      // 弹窗入参：查询条件快照 + 当前设备，保证弹窗里只出现这个设备在本次筛选下的记录
+      // 弹窗入参：查询条件快照 + 当前设备 + 用户点击的那一行会话
       dialogVisible: false,
       dialogQuery: {},
       dialogMacAddress: '',
       dialogDeviceAlias: '',
-      dialogInitialSessionId: '',
+      dialogInitialSession: null,
       dialogAgentId: '',
       dialogAgentName: ''
     };
@@ -230,13 +230,13 @@ export default {
   computed: {
     tableColumns() {
       return [
-        { prop: 'createdAtText', label: this.$t('chatRecords.colTime'), width: 160, align: 'center' },
+        { prop: 'createdAtText', label: this.$t('chatRecords.colTime'), width: 170, align: 'center' },
+        { prop: 'sessionTitle', label: this.$t('chatRecords.colSession'), minWidth: 160, align: 'center' },
         { prop: 'macAddress', label: this.$t('chatRecords.colDevice'), minWidth: 180, align: 'center' },
         { prop: 'agentName', label: this.$t('chatRecords.colAgent'), minWidth: 120, align: 'center' },
-        { prop: 'sessionTitle', label: this.$t('chatRecords.colSession'), minWidth: 130, align: 'center' },
-        { prop: 'chatType', label: this.$t('chatRecords.colRole'), width: 100, align: 'center' },
-        { prop: 'content', label: this.$t('chatRecords.colContent'), minWidth: 260, align: 'left' },
-        { prop: 'extra', label: this.$t('chatRecords.colExtra'), width: 110, align: 'center' }
+        { prop: 'chatCount', label: this.$t('chatRecords.colMessageCount'), width: 100, align: 'center' },
+        { prop: 'summary', label: this.$t('chatRecords.colSummary'), minWidth: 260, align: 'left' },
+        { prop: 'extra', label: this.$t('chatRecords.colExtra'), width: 90, align: 'center' }
       ];
     }
   },
@@ -244,12 +244,12 @@ export default {
     '$route.query.macAddress'(value) {
       this.filters.macAddress = value || '';
       this.currentPage = 1;
-      this.fetchRecords();
+      this.fetchSessions();
     },
     '$route.query.agentId'(value) {
       this.filters.agentId = value || '';
       this.currentPage = 1;
-      this.fetchRecords();
+      this.fetchSessions();
     }
   },
   created() {
@@ -257,7 +257,7 @@ export default {
     this.filters.macAddress = this.$route.query.macAddress || '';
     this.filters.agentId = this.$route.query.agentId || '';
     this.fetchFilterOptions();
-    this.fetchRecords();
+    this.fetchSessions();
   },
   methods: {
     fetchFilterOptions() {
@@ -290,9 +290,9 @@ export default {
       return params;
     },
 
-    fetchRecords() {
+    fetchSessions() {
       this.loading = true;
-      Api.chatHistory.getRecords(this.buildParams(), ({ data }) => {
+      Api.chatHistory.getSessions(this.buildParams(), ({ data }) => {
         this.loading = false;
         if (data && data.code === 0 && data.data) {
           this.records = data.data.list || [];
@@ -310,14 +310,14 @@ export default {
 
     handleSearch() {
       this.currentPage = 1;
-      this.fetchRecords();
+      this.fetchSessions();
     },
 
     handleReset() {
       this.filters = { macAddress: '', agentId: '', chatType: '', keyword: '' };
       this.dateRange = [];
       this.currentPage = 1;
-      this.fetchRecords();
+      this.fetchSessions();
     },
 
     applyQuickRange(days) {
@@ -329,18 +329,18 @@ export default {
         this.dateRange = [msToChinaString(start), msToChinaString(end)];
       }
       this.currentPage = 1;
-      this.fetchRecords();
+      this.fetchSessions();
     },
 
     handlePageSizeChange(size) {
       this.pageSize = size;
       this.currentPage = 1;
-      this.fetchRecords();
+      this.fetchSessions();
     },
 
     goToPage(page) {
       this.currentPage = page;
-      this.fetchRecords();
+      this.fetchSessions();
     },
 
     openSession(row) {
@@ -352,7 +352,8 @@ export default {
       this.dialogQuery = query;
       this.dialogMacAddress = row.macAddress || this.filters.macAddress || '';
       this.dialogDeviceAlias = row.deviceAlias || '';
-      this.dialogInitialSessionId = row.sessionId || '';
+      // 把用户点击的那一行会话直接交给弹窗置顶选中，避免它因设备过滤后不在弹窗列表第一页
+      this.dialogInitialSession = { ...row };
       this.dialogAgentId = row.agentId || '';
       this.dialogAgentName = row.agentName || row.agentId || '';
       this.dialogVisible = true;
@@ -365,39 +366,6 @@ export default {
     sessionLabel(row) {
       if (row.sessionTitle) return row.sessionTitle;
       return row.sessionId ? `${row.sessionId.slice(0, 8)}...` : this.$t('chatRecords.noTitle');
-    },
-
-    roleText(type) {
-      if (Number(type) === 1) return this.$t('chatRecords.roleUser');
-      if (Number(type) === 3) return this.$t('chatRecords.roleTool');
-      return this.$t('chatRecords.roleAgent');
-    },
-
-    roleTagType(type) {
-      if (Number(type) === 1) return '';
-      if (Number(type) === 3) return 'info';
-      return 'success';
-    },
-
-    formatDuration(ms) {
-      const value = Number(ms || 0);
-      return value >= 1000 ? `${(value / 1000).toFixed(2)}s` : `${Math.round(value)}ms`;
-    },
-
-    extractDisplayText(content) {
-      if (!content) return '';
-      try {
-        const parsed = JSON.parse(content);
-        if (Array.isArray(parsed)) {
-          return parsed.map(item => (item && item.text) || '').join('\n');
-        }
-        if (parsed && typeof parsed === 'object' && parsed.content) {
-          return parsed.content;
-        }
-      } catch (e) {
-        // 普通文本
-      }
-      return content;
     }
   }
 };
@@ -543,16 +511,43 @@ export default {
   white-space: nowrap;
 }
 
-.content-cell {
+.time-cell {
+  line-height: 1.35;
+  font-size: 13px;
+}
+
+.time-sub {
+  font-size: 11px;
+  color: #a4a7ad;
+  margin-top: 2px;
+}
+
+.session-cell {
   cursor: pointer;
   color: #3d4566;
+  font-weight: 500;
   &:hover { color: var(--sys-primary); }
 }
 
-.truncated-hint {
-  color: #a4a7ad;
+.count-badge {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 12px;
+  background: #b4b4b4;
+  color: #fff;
   font-size: 12px;
-  margin-left: 4px;
+  line-height: 18px;
+}
+
+.summary-cell {
+  cursor: pointer;
+  color: #606266;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  &:hover { color: var(--sys-primary); }
 }
 
 .extra-cell {
@@ -561,6 +556,4 @@ export default {
   gap: 6px;
   color: var(--sys-primary-text);
 }
-
-.duration-text { font-size: 12px; }
 </style>

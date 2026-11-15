@@ -44,6 +44,7 @@ import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.biz.AgentChatHistoryBizService;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
+import xiaozhi.modules.agent.vo.ChatSessionVO;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.enums.SuperAdminEnum;
 
@@ -84,6 +85,21 @@ public class AgentChatHistoryController {
         PageData<ChatRecordVO> page = agentChatHistoryService
                 .getChatRecordPage(query, user.getId(), superAdmin);
         return new Result<PageData<ChatRecordVO>>().ok(page);
+    }
+
+    /**
+     * 聊天记录页面 / 会话详情弹窗：以会话（session_id）为维度的分页列表。
+     * 与 /records 共用同一套筛选条件与 epoch 毫秒时间口径，便于两个列表保持一致。
+     */
+    @Operation(summary = "多条件分页查询聊天会话")
+    @RequiresPermissions("sys:role:normal")
+    @GetMapping("/sessions")
+    public Result<PageData<ChatSessionVO>> getChatSessions(@ModelAttribute ChatRecordQueryDTO query) {
+        UserDetail user = SecurityUser.getUser();
+        boolean superAdmin = Integer.valueOf(SuperAdminEnum.YES.value()).equals(user.getSuperAdmin());
+        PageData<ChatSessionVO> page = agentChatHistoryService
+                .getChatSessionPage(query, user.getId(), superAdmin);
+        return new Result<PageData<ChatSessionVO>>().ok(page);
     }
 
     /**

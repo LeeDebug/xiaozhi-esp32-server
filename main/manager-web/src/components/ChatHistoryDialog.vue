@@ -29,42 +29,21 @@
                 <div v-if="recordsMode" class="record-filter-hint">
                     {{ $t('chatRecords.dialogOnlyDevice') }}
                 </div>
-                <!-- 记录驱动模式：左侧列表与「聊天记录」页当前查询条件完全一致，并强制限定当前设备 -->
-                <template v-if="recordsMode">
-                    <div v-for="(record, index) in records" :key="'record-' + index" class="session-item record-item"
-                        :class="{ active: currentRecordIndex === index }" @click="selectRecord(record, index)">
-                        <div class="record-body">
-                            <div class="record-head">
-                                <span class="record-time">{{ record.createdAtText }}</span>
-                                <el-tag size="mini" :type="recordRoleType(record.chatType)" class="record-role">
-                                    {{ recordRoleText(record.chatType) }}
-                                </el-tag>
-                            </div>
-                            <div class="record-content">{{ displayText(record.content) }}</div>
-                            <div class="record-sub">
-                                <span class="record-agent">{{ record.agentName || record.agentId }}</span>
-                                <span class="record-session">{{ shortSession(record.sessionId) }}</span>
-                                <i v-if="record.hasAudio" class="el-icon-headset"></i>
-                            </div>
-                        </div>
+                <!-- 两种模式都按「会话」维度展示：头像 + 会话标题（无标题时显示时间） + 消息数角标 -->
+                <div v-for="session in sessions" :key="session.sessionId" class="session-item"
+                    :class="{ active: currentSessionId === session.sessionId }" @click="selectSession(session)">
+                    <img :src="getUserAvatar(session.sessionId)" class="avatar" />
+                    <div class="session-info">
+                        <div class="session-time">{{ sessionLabel(session) }}</div>
+                        <div v-if="recordsMode" class="session-sub">{{ session.createdAtText }}</div>
+                        <div class="message-count">{{ sessionCount(session) }}</div>
                     </div>
-                    <div v-if="!loading && records.length === 0" class="no-more">
-                        {{ $t('chatRecords.noRecords') }}
-                    </div>
-                </template>
-                <!-- 兼容旧模式：按智能体聚合的会话列表 -->
-                <template v-else>
-                    <div v-for="session in sessions" :key="session.sessionId" class="session-item"
-                        :class="{ active: currentSessionId === session.sessionId }" @click="selectSession(session)">
-                        <img :src="getUserAvatar(session.sessionId)" class="avatar" />
-                        <div class="session-info">
-                            <div class="session-time">{{ session.title || formatTime(session.createdAt) }}</div>
-                            <div class="message-count">{{ session.chatCount > 99 ? '99' : session.chatCount }}</div>
-                        </div>
-                    </div>
-                </template>
+                </div>
+                <div v-if="!loading && sessions.length === 0" class="no-more">
+                    {{ $t('chatRecords.noRecords') }}
+                </div>
                 <div v-if="loading" class="loading">{{ $t('chatHistory.loading') }}</div>
-                <div v-if="!hasMore && (recordsMode ? records.length > 0 : sessions.length > 0)" class="no-more">
+                <div v-if="!hasMore && sessions.length > 0" class="no-more">
                     {{ $t('chatHistory.noMoreRecords') }}
                 </div>
             </div>
@@ -199,21 +178,19 @@ export default {
             type: String,
             default: ''
         },
-        // 打开弹窗时默认选中的那条记录所属会话
-        initialSessionId: {
-            type: String,
-            default: ''
+        // 聊天记录页点击的那一行会话，弹窗打开时置顶并自动选中
+        initialSession: {
+            type: Object,
+            default: null
         }
     },
     data() {
         return {
             dialogVisible: false,
             sessions: [],
-            records: [],
             messages: [],
             currentSessionId: '',
             currentAgentId: '',
-            currentRecordIndex: -1,
             currentMacAddress: '',
             page: 1,
             limit: 20,
@@ -367,12 +344,14 @@ export default {
             return firstLine.length < text.length ? firstLine + '...' : text;
         },
         resetData() {
-            this.sessions = [];
-            this.records = [];
+            // 记录驱动模式把用户点击的会话置顶，后续分页追加时按 sessionId 去重，
+            // 保证弹窗一打开就能看到刚点的那个会话。
+            this.sessions = (this.recordsMode && this.initialSession && this.initialSession.sessionId)
+                ? [{ ...this.initialSession }]
+                : [];
             this.messages = [];
             this.currentSessionId = '';
             this.currentAgentId = this.agentId;
-            this.currentRecordIndex = -1;
             this.currentMacAddress = this.macAddress || '';
             this.page = 1;
             this.loading = false;
@@ -414,8 +393,8 @@ export default {
             });
         },
         /**
-         * 记录驱动模式：用聊天记录页当前的筛选条件重新拉取列表（同条件、同时间口径、同排序），
-         * 并强制把 macAddress 覆盖成当前点击行所属设备，保证弹窗内不会混入其他设备。
+         * 记录驱动模式：复用聊天记录页的会话查询接口与筛选条件（同时间口径、同排序），
+         * 并强制把 macAddress 覆盖成当前点击行所属设备，保证弹窗里不混入其它设备。
          */
         loadRecords() {
             const params = { ...this.query, page: this.page, limit: this.limit };
@@ -425,20 +404,16 @@ export default {
                 delete params.macAddress;
             }
 
-            Api.chatHistory.getRecords(params, (res) => {
+            Api.chatHistory.getSessions(params, (res) => {
                 if (res && res.data && res.data.code === 0 && res.data.data && Array.isArray(res.data.data.list)) {
                     const list = res.data.data.list;
                     this.hasMore = list.length === this.limit;
-                    this.records = [...this.records, ...list];
+                    const existing = new Set(this.sessions.map(item => item.sessionId));
+                    this.sessions = [...this.sessions, ...list.filter(item => !existing.has(item.sessionId))];
                     this.page++;
 
-                    if (!this.currentSessionId && this.records.length > 0) {
-                        let index = 0;
-                        if (this.initialSessionId) {
-                            const found = this.records.findIndex(item => item.sessionId === this.initialSessionId);
-                            if (found >= 0) index = found;
-                        }
-                        this.selectRecord(this.records[index], index);
+                    if (!this.currentSessionId && this.sessions.length > 0) {
+                        this.selectSession(this.sessions[0]);
                     }
                 } else {
                     this.hasMore = false;
@@ -451,70 +426,50 @@ export default {
                 this.hasMore = false;
             });
         },
+        /** 选中左侧会话，右侧展示完整对话（气泡 / 音频 / 耗时面板） */
         selectSession(session) {
+            if (!session || !session.sessionId) return;
             this.currentSessionId = session.sessionId;
-            this.currentAgentId = this.agentId;
-            Api.agent.getAgentChatHistory(this.agentId, session.sessionId, (res) => {
-                if (res.data && res.data.data) {
-                    this.messages = res.data.data;
-                    if (this.messages.length > 0 && this.messages[0].macAddress) {
-                        this.currentMacAddress = this.messages[0].macAddress;
-                    }
-                    // 更新会话列表中的聊天记录数量
-                    this.sessions = this.sessions.map(item => {
-                        if (item.sessionId === session.sessionId) {
-                            item.chatCount = this.messages.length;
-                        }
-                        return item;
-                    })
-                }
-            });
-        },
-        /** 点击左侧某条记录，右侧展示它所在会话的完整对话（气泡 / 音频 / 耗时面板） */
-        selectRecord(record, index) {
-            if (!record || !record.sessionId) return;
-            this.currentRecordIndex = index;
-            this.currentSessionId = record.sessionId;
-            this.currentAgentId = record.agentId || this.agentId;
-            this.currentMacAddress = this.macAddress || record.macAddress || '';
+            const agentId = this.recordsMode ? (session.agentId || this.agentId) : this.agentId;
+            this.currentAgentId = agentId;
+            this.currentMacAddress = this.macAddress || session.macAddress || '';
             this.expandedToolResults = {};
             this.expandedMetrics = {};
 
-            Api.agent.getAgentChatHistory(this.currentAgentId, record.sessionId, (res) => {
+            Api.agent.getAgentChatHistory(agentId, session.sessionId, (res) => {
                 if (res && res.data && Array.isArray(res.data.data)) {
                     const all = res.data.data;
-                    // session_id 每次连接生成，天然只属于一台设备；这里按设备再兜底过滤一次
-                    this.messages = this.macAddress
+                    // session_id 每次连接生成，天然只属于一台设备；按设备再兜底过滤一次
+                    this.messages = this.recordsMode && this.macAddress
                         ? all.filter(item => !item.macAddress || item.macAddress === this.macAddress)
                         : all;
                     if (this.messages.length > 0 && this.messages[0].macAddress) {
                         this.currentMacAddress = this.messages[0].macAddress;
+                    }
+                    // 旧模式没有聚合接口，用实际返回条数回填角标
+                    if (!this.recordsMode) {
+                        this.sessions = this.sessions.map(item => {
+                            if (item.sessionId === session.sessionId) {
+                                item.chatCount = this.messages.length;
+                            }
+                            return item;
+                        });
                     }
                 } else {
                     this.messages = [];
                 }
             });
         },
-        /** 左侧列表的内容摘要：兼容 JSON 数组 / {"content": ...} / 纯文本三种 content 形态 */
-        displayText(content) {
-            const value = this.extractContentFromString(content);
-            const text = Array.isArray(value)
-                ? value.map(item => (item && (item.text || item.content)) || '').filter(Boolean).join(' ')
-                : String(value || '');
-            return text.length > 90 ? `${text.slice(0, 90)}...` : text;
+        /** 新旧两套会话对象的标题字段不同，统一在这里适配 */
+        sessionLabel(session) {
+            if (this.recordsMode) {
+                return session.sessionTitle || session.createdAtText || '';
+            }
+            return session.title || this.formatTime(session.createdAt);
         },
-        recordRoleText(type) {
-            if (Number(type) === 1) return this.$t('chatRecords.roleUser');
-            if (Number(type) === 3) return this.$t('chatRecords.roleTool');
-            return this.$t('chatRecords.roleAgent');
-        },
-        recordRoleType(type) {
-            if (Number(type) === 1) return '';
-            if (Number(type) === 3) return 'info';
-            return 'success';
-        },
-        shortSession(sessionId) {
-            return sessionId ? `${String(sessionId).slice(0, 8)}...` : '';
+        sessionCount(session) {
+            const count = Number(session.chatCount || 0);
+            return count > 99 ? '99' : String(count);
         },
         handleScroll(e) {
             if (this.scrollTimer) {
@@ -672,7 +627,7 @@ export default {
 }
 
 .session-list--records {
-    width: 320px;
+    width: 270px;
 }
 
 .record-filter-hint {
@@ -683,71 +638,6 @@ export default {
     padding: 6px 8px;
     margin-bottom: 8px;
     line-height: 1.5;
-}
-
-.record-item {
-    display: block;
-    padding: 8px 10px;
-    margin-bottom: 6px;
-    border: 1px solid #f0f1f3;
-}
-
-.record-item.active {
-    background-color: var(--sys-primary-bg-soft);
-    border-color: var(--sys-primary-border);
-}
-
-.record-body {
-    width: 100%;
-}
-
-.record-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    margin-bottom: 4px;
-}
-
-.record-time {
-    font-size: 12px;
-    color: #6b7280;
-    font-variant-numeric: tabular-nums;
-}
-
-.record-role {
-    flex-shrink: 0;
-}
-
-.record-content {
-    font-size: 13px;
-    color: #272727;
-    line-height: 1.45;
-    word-break: break-all;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-}
-
-.record-sub {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 5px;
-    font-size: 11px;
-    color: #a4a7ad;
-}
-
-.record-agent {
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.record-session {
-    font-family: monospace;
 }
 
 .session-item {
@@ -764,7 +654,7 @@ export default {
 }
 
 .session-item.active {
-    background-color: var(--sys-surface);
+    background-color: var(--sys-primary-bg-soft);
 }
 
 .avatar {
@@ -772,36 +662,50 @@ export default {
     height: 40px;
     border-radius: 50%;
     margin-right: 10px;
+    flex-shrink: 0;
 }
 
 .session-info {
-    width: calc(100% - 50px);
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    padding-right: 30px;
 }
 
 .session-time {
     font-size: 14px;
     color: #272727;
-    float: left;
-    height: 30px;
-    line-height: 30px;
-    width: calc(100% - 30px);
-    /* 为消息数量留出空间 */
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.session-sub {
+    font-size: 11px;
+    color: #98a4b3;
+    margin-top: 4px;
+    line-height: 1.4;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .message-count {
-    font-size: 14px;
-    color: #fff;
-    background-color: #b4b4b4;
-    border-radius: 20px;
-    float: left;
-    width: 20px;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    min-width: 20px;
     height: 20px;
+    padding: 0 5px;
+    box-sizing: border-box;
+    border-radius: 20px;
+    background-color: #b4b4b4;
+    color: #fff;
+    font-size: 12px;
     line-height: 20px;
-    margin-top: 5px;
-    margin-left: 5px;
+    text-align: center;
 }
 
 .chat-content {

@@ -46,4 +46,72 @@
     DELETE FROM ai_agent_chat_history 
     WHERE agent_id = #{agentId}
   </delete>
+
+  <!-- 会话维度筛选：命中条件作用于「会话内是否存在这样的消息」，用于缩小会话范围。
+       聚合统计仍基于整个会话，因此内容搜索找到会话后，点开仍能看到完整对话。 -->
+  <sql id="chatSessionMatch">
+    <where>
+      <if test="q.visibleAgentIds != null and q.visibleAgentIds.size() > 0">
+        AND m.agent_id IN
+        <foreach collection="q.visibleAgentIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+      </if>
+      <if test="q.agentId != null and q.agentId != ''">
+        AND m.agent_id = #{q.agentId}
+      </if>
+      <if test="q.macAddress != null and q.macAddress != ''">
+        AND m.mac_address = #{q.macAddress}
+      </if>
+      <if test="q.keyword != null and q.keyword != ''">
+        AND m.content LIKE CONCAT('%', #{q.keyword}, '%')
+      </if>
+      <if test="q.chatType != null">
+        AND m.chat_type = #{q.chatType}
+      </if>
+      <if test="q.startTime != null">
+        AND m.created_at &gt;= #{q.startTime}
+      </if>
+      <if test="q.endTime != null">
+        AND m.created_at &lt;= #{q.endTime}
+      </if>
+    </where>
+  </sql>
+
+  <select id="countChatSessions" resultType="long">
+    SELECT COUNT(*) FROM (
+      SELECT DISTINCT m.session_id
+      FROM ai_agent_chat_history m
+      <include refid="chatSessionMatch"/>
+    ) t
+  </select>
+
+  <select id="selectChatSessions" resultType="java.util.Map">
+    SELECT h.session_id AS session_id,
+           MAX(h.mac_address) AS mac_address,
+           MAX(h.agent_id) AS agent_id,
+           MIN(h.created_at) AS started_at,
+           MAX(h.created_at) AS last_at,
+           COUNT(*) AS chat_count,
+           MAX(CASE WHEN h.audio_id IS NOT NULL AND h.audio_id &lt;&gt; '' THEN 1 ELSE 0 END) AS has_audio
+    FROM ai_agent_chat_history h
+    INNER JOIN (
+      SELECT DISTINCT m.session_id
+      FROM ai_agent_chat_history m
+      <include refid="chatSessionMatch"/>
+    ) matched ON matched.session_id = h.session_id
+    GROUP BY h.session_id
+    ORDER BY last_at DESC, h.session_id DESC
+    LIMIT #{q.offset}, #{q.limit}
+  </select>
+
+  <select id="selectFirstContents" resultType="java.util.Map">
+    SELECT h.session_id AS session_id, h.content AS content
+    FROM ai_agent_chat_history h
+    INNER JOIN (
+      SELECT session_id, MIN(id) AS min_id
+      FROM ai_agent_chat_history
+      WHERE session_id IN
+      <foreach collection="q.sessionIds" item="sid" open="(" separator="," close=")">#{sid}</foreach>
+      GROUP BY session_id
+    ) f ON f.min_id = h.id
+  </select>
 </mapper>

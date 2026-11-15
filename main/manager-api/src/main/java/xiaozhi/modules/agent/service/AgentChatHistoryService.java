@@ -13,6 +13,7 @@ import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
 import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
+import xiaozhi.modules.agent.vo.ChatSessionVO;
 
 /**
  * 智能体聊天记录表处理service
@@ -104,6 +105,20 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
      * @return 分页数据
      */
     PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin);
+
+    /**
+     * 以会话（session_id）为维度多条件分页查询，供聊天记录页面与会话详情弹窗共用。
+     *
+     * <p>筛选条件（设备 / 智能体 / 角色 / 时间范围 / 内容关键词）用于找出「会话内存在匹配消息」
+     * 的会话；返回的消息数、首末时间、摘要等仍统计整个会话。排序按会话最后一条消息时间倒序，
+     * 即中国时间最新的会话在最前。数据隔离规则与 {@link #getChatRecordPage} 一致。</p>
+     *
+     * @param query      查询条件（含分页）
+     * @param userId     当前用户ID
+     * @param superAdmin 是否超级管理员
+     * @return 分页数据
+     */
+    PageData<ChatSessionVO> getChatSessionPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin);
 
     /**
      * 获取聊天记录页面的设备/智能体筛选下拉选项
