@@ -111,7 +111,8 @@ export default {
       if (this.device.memModelId === 'Memory_nomem') {
         return
       }
-      this.$emit('chat-history', { agentId: this.device.agentId, agentName: this.device.agentName })
+      // 聊天记录已迁移为独立页面，跳转到该页面并按智能体预筛选
+      this.$router.push({ path: '/chat-history', query: { agentId: this.device.agentId } })
     }
   },
 }

@@ -1,13 +1,24 @@
 package xiaozhi.modules.agent.service.impl;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,13 +33,22 @@ import xiaozhi.common.page.PageData;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.modules.agent.Enums.AgentChatHistoryType;
+import xiaozhi.modules.agent.dao.AgentChatTitleDao;
+import xiaozhi.modules.agent.dao.AgentDao;
 import xiaozhi.modules.agent.dao.AiAgentChatHistoryDao;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
+import xiaozhi.modules.agent.dto.ChatRecordQueryDTO;
 import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
+import xiaozhi.modules.agent.entity.AgentChatTitleEntity;
+import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentChatTitleService;
 import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
+import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
+import xiaozhi.modules.agent.vo.ChatRecordVO;
+import xiaozhi.modules.device.dao.DeviceDao;
+import xiaozhi.modules.device.entity.DeviceEntity;
 
 /**
  * 智能体聊天记录表处理service {@link AgentChatHistoryService} impl
@@ -43,6 +63,20 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         implements AgentChatHistoryService {
 
     private final AgentChatTitleService agentChatTitleService;
+    private final AgentDao agentDao;
+    private final AgentChatTitleDao agentChatTitleDao;
+    private final DeviceDao deviceDao;
+
+    /** 页面展示统一使用中国标准时间，避免依赖浏览器或 JVM 默认时区。 */
+    private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
+
+    /** JDBC url 固定 serverTimezone=UTC，created_at(DATETIME) 保存的是 UTC 墙上时间。 */
+    private static final ZoneOffset DB_ZONE = ZoneOffset.UTC;
+
+    private static final DateTimeFormatter CN_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /** 列表页不返回超长正文，完整内容通过会话详情查看。 */
+    private static final int MAX_CONTENT_LENGTH = 1000;
 
     @Override
     public PageData<AgentChatSessionDTO> getSessionListByAgentId(Map<String, Object> params) {
@@ -218,5 +252,202 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
                 .eq(AgentChatHistoryEntity::getAudioId, audioId)
                 .eq(AgentChatHistoryEntity::getAgentId, agentId));
         return row == 1;
+    }
+
+    @Override
+    public PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin) {
+        ChatRecordQueryDTO q = query == null ? new ChatRecordQueryDTO() : query;
+        List<String> visibleAgentIds = resolveVisibleAgentIds(userId, superAdmin);
+        if (!superAdmin && visibleAgentIds.isEmpty()) {
+            return new PageData<>(Collections.emptyList(), 0);
+        }
+
+        int page = q.getPage() == null ? 1 : Math.max(1, q.getPage());
+        int limit = q.getLimit() == null ? 10 : Math.min(100, Math.max(1, q.getLimit()));
+
+        QueryWrapper<AgentChatHistoryEntity> wrapper = new QueryWrapper<>();
+        if (!superAdmin) {
+            if (StringUtils.isNotBlank(q.getAgentId())) {
+                // 指定智能体时仍需校验归属，防止越权查看他人记录
+                if (!visibleAgentIds.contains(q.getAgentId())) {
+                    return new PageData<>(Collections.emptyList(), 0);
+                }
+                wrapper.eq("agent_id", q.getAgentId());
+            } else {
+                wrapper.in("agent_id", visibleAgentIds);
+            }
+        } else if (StringUtils.isNotBlank(q.getAgentId())) {
+            wrapper.eq("agent_id", q.getAgentId());
+        }
+
+        if (StringUtils.isNotBlank(q.getMacAddress())) {
+            wrapper.eq("mac_address", q.getMacAddress().trim());
+        }
+        if (StringUtils.isNotBlank(q.getSessionId())) {
+            wrapper.eq("session_id", q.getSessionId().trim());
+        }
+        if (q.getChatType() != null) {
+            wrapper.eq("chat_type", q.getChatType());
+        }
+        if (StringUtils.isNotBlank(q.getKeyword())) {
+            wrapper.like("content", q.getKeyword().trim());
+        }
+        if (q.getStartTime() != null) {
+            wrapper.ge("created_at", toDbLiteral(q.getStartTime()));
+        }
+        if (q.getEndTime() != null) {
+            wrapper.le("created_at", toDbLiteral(q.getEndTime()));
+        }
+        // UTC 字面值与北京时间只差固定 8 小时偏移，倒序即「中国时间最新在前」
+        wrapper.orderByDesc("created_at").orderByDesc("id");
+
+        Page<AgentChatHistoryEntity> pageParam = new Page<>(page, limit);
+        IPage<AgentChatHistoryEntity> result = this.baseMapper.selectPage(pageParam, wrapper);
+        List<AgentChatHistoryEntity> rows = result.getRecords();
+        if (rows.isEmpty()) {
+            return new PageData<>(Collections.emptyList(), result.getTotal());
+        }
+
+        Map<String, String> aliasByMac = loadDeviceAliases(rows);
+        Map<String, String> agentNameById = loadAgentNames(rows);
+        Map<String, String> titleBySession = loadSessionTitles(rows);
+
+        List<ChatRecordVO> list = rows.stream().map(entity -> {
+            ChatRecordVO vo = new ChatRecordVO();
+            vo.setId(entity.getId());
+            long timeMs = entity.getCreatedAt() == null ? 0L : entity.getCreatedAt().getTime();
+            vo.setCreatedAtMs(timeMs);
+            vo.setCreatedAtText(timeMs == 0L ? ""
+                    : Instant.ofEpochMilli(timeMs).atZone(CHINA_ZONE).format(CN_TIME_FORMAT));
+            vo.setMacAddress(entity.getMacAddress());
+            vo.setDeviceAlias(aliasByMac.get(entity.getMacAddress()));
+            vo.setAgentId(entity.getAgentId());
+            vo.setAgentName(agentNameById.get(entity.getAgentId()));
+            vo.setSessionId(entity.getSessionId());
+            vo.setSessionTitle(titleBySession.get(entity.getSessionId()));
+            vo.setChatType(entity.getChatType());
+
+            String content = entity.getContent();
+            boolean truncated = content != null && content.length() > MAX_CONTENT_LENGTH;
+            vo.setContent(truncated ? content.substring(0, MAX_CONTENT_LENGTH) : content);
+            vo.setContentTruncated(truncated);
+            vo.setHasAudio(StringUtils.isNotBlank(entity.getAudioId()));
+            vo.setRoundId(entity.getRoundId());
+            if (StringUtils.isNotBlank(entity.getMetricsJson())) {
+                vo.setMetrics(JsonUtils.parseMap(entity.getMetricsJson()));
+            }
+            return vo;
+        }).collect(Collectors.toList());
+
+        return new PageData<>(list, result.getTotal());
+    }
+
+    @Override
+    public ChatRecordFilterVO getChatRecordFilters(Long userId, boolean superAdmin) {
+        ChatRecordFilterVO result = new ChatRecordFilterVO();
+        List<String> visibleAgentIds = resolveVisibleAgentIds(userId, superAdmin);
+        if (!superAdmin && visibleAgentIds.isEmpty()) {
+            return result;
+        }
+
+        QueryWrapper<AgentEntity> agentWrapper = new QueryWrapper<AgentEntity>()
+                .select("id", "agent_name").orderByDesc("created_at");
+        if (!superAdmin) {
+            agentWrapper.in("id", visibleAgentIds);
+        }
+        List<AgentEntity> agents = agentDao.selectList(agentWrapper);
+        result.setAgents(agents.stream()
+                .map(item -> new ChatRecordFilterVO.AgentOption(item.getId(), item.getAgentName()))
+                .collect(Collectors.toList()));
+
+        QueryWrapper<DeviceEntity> deviceWrapper = new QueryWrapper<DeviceEntity>()
+                .select("mac_address", "alias", "agent_id");
+        if (!superAdmin) {
+            deviceWrapper.in("agent_id", visibleAgentIds);
+        }
+        // 同一 MAC 理论上只应有一条设备记录，这里按 MAC 去重，避免下拉出现重复项
+        Map<String, ChatRecordFilterVO.DeviceOption> uniqueDevices = new LinkedHashMap<>();
+        for (DeviceEntity device : deviceDao.selectList(deviceWrapper)) {
+            if (StringUtils.isBlank(device.getMacAddress())) {
+                continue;
+            }
+            uniqueDevices.putIfAbsent(device.getMacAddress(),
+                    new ChatRecordFilterVO.DeviceOption(
+                            device.getMacAddress(), device.getAlias(), device.getAgentId()));
+        }
+        result.setDevices(new ArrayList<>(uniqueDevices.values()));
+        return result;
+    }
+
+    /**
+     * 普通用户可见的智能体ID列表；超管返回空列表（调用方按 superAdmin 跳过限制）。
+     * ai_agent_chat_history 本身没有 user_id，必须经 ai_agent.user_id 做归属过滤。
+     */
+    private List<String> resolveVisibleAgentIds(Long userId, boolean superAdmin) {
+        if (superAdmin || userId == null) {
+            return Collections.emptyList();
+        }
+        List<AgentEntity> agents = agentDao.selectList(new QueryWrapper<AgentEntity>()
+                .select("id").eq("user_id", userId));
+        return agents.stream().map(AgentEntity::getId)
+                .filter(Objects::nonNull).collect(Collectors.toList());
+    }
+
+    /**
+     * epoch 毫秒 → 与库中 created_at 同口径的 UTC 字面值。
+     * 前端按中国时间选择的起止时刻是绝对时刻，转成 UTC 字面值后即可直接比较 DATETIME 列。
+     */
+    private LocalDateTime toDbLiteral(long epochMs) {
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMs), DB_ZONE);
+    }
+
+    private Map<String, String> loadDeviceAliases(List<AgentChatHistoryEntity> rows) {
+        Set<String> macs = rows.stream().map(AgentChatHistoryEntity::getMacAddress)
+                .filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+        if (macs.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<DeviceEntity> devices = deviceDao.selectList(new QueryWrapper<DeviceEntity>()
+                .select("mac_address", "alias").in("mac_address", macs));
+        Map<String, String> map = new HashMap<>();
+        for (DeviceEntity device : devices) {
+            if (StringUtils.isNotBlank(device.getAlias())) {
+                map.putIfAbsent(device.getMacAddress(), device.getAlias());
+            }
+        }
+        return map;
+    }
+
+    private Map<String, String> loadAgentNames(List<AgentChatHistoryEntity> rows) {
+        Set<String> ids = rows.stream().map(AgentChatHistoryEntity::getAgentId)
+                .filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<AgentEntity> agents = agentDao.selectList(new QueryWrapper<AgentEntity>()
+                .select("id", "agent_name").in("id", ids));
+        Map<String, String> map = new HashMap<>();
+        for (AgentEntity agent : agents) {
+            map.putIfAbsent(agent.getId(), agent.getAgentName());
+        }
+        return map;
+    }
+
+    private Map<String, String> loadSessionTitles(List<AgentChatHistoryEntity> rows) {
+        Set<String> sessionIds = rows.stream().map(AgentChatHistoryEntity::getSessionId)
+                .filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+        if (sessionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<AgentChatTitleEntity> titles = agentChatTitleDao.selectList(
+                new QueryWrapper<AgentChatTitleEntity>()
+                        .select("session_id", "title").in("session_id", sessionIds));
+        Map<String, String> map = new HashMap<>();
+        for (AgentChatTitleEntity title : titles) {
+            if (StringUtils.isNotBlank(title.getTitle())) {
+                map.putIfAbsent(title.getSessionId(), title.getTitle());
+            }
+        }
+        return map;
     }
 }

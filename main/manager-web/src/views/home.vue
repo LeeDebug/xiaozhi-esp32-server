@@ -67,8 +67,7 @@
 
           <template v-else>
             <DeviceItem v-for="(item, index) in devices" :key="index" :device="item" :feature-status="featureStatus" 
-              @configure="goToRoleConfig" @deviceManage="handleDeviceManage" @delete="handleDeleteAgent" 
-              @chat-history="handleShowChatHistory" />
+              @configure="goToRoleConfig" @deviceManage="handleDeviceManage" @delete="handleDeleteAgent" />
           </template>
         </div>
       </div>
@@ -131,7 +130,6 @@
     <el-footer>
       <version-footer />
     </el-footer>
-    <chat-history-dialog :visible.sync="showChatHistory" :agent-id="currentAgentId" :agent-name="currentAgentName" />
   </div>
 
 </template>
@@ -140,7 +138,6 @@
 import Api from '@/apis/api';
 import { mapState } from "vuex";
 import AddWisdomBodyDialog from '@/components/AddWisdomBodyDialog.vue';
-import ChatHistoryDialog from '@/components/ChatHistoryDialog.vue';
 import DeviceItem from '@/components/DeviceItem.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
@@ -148,7 +145,7 @@ import featureManager from '@/utils/featureManager';
 
 export default {
   name: 'HomePage',
-  components: { DeviceItem, AddWisdomBodyDialog, HeaderBar, VersionFooter, ChatHistoryDialog },
+  components: { DeviceItem, AddWisdomBodyDialog, HeaderBar, VersionFooter },
   data() {
     return {
       addDeviceDialogVisible: false,
@@ -158,9 +155,6 @@ export default {
       searchRegex: null,
       isLoading: true,
       skeletonCount: localStorage.getItem('skeletonCount') || 8,
-      showChatHistory: false,
-      currentAgentId: '',
-      currentAgentName: '',
       // 功能状态
       featureStatus: {
         voiceprintRecognition: false,
@@ -310,11 +304,6 @@ export default {
           });
         }
       });
-    },
-    handleShowChatHistory({ agentId, agentName }) {
-      this.currentAgentId = agentId;
-      this.currentAgentName = agentName;
-      this.showChatHistory = true;
     },
     // 处理搜索
     handleSearch() {

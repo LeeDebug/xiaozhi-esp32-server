@@ -25,6 +25,15 @@
           }" />
           <span class="nav-text">{{ $t("header.smartManagement") }}</span>
         </div>
+        <!-- 聊天记录（独立页面，支持按设备/时间/内容查询） -->
+        <div class="equipment-management"
+          :class="{ 'active-tab': $route.path === '/chat-history' }"
+          @click="handleRouter('chatHistory')">
+          <img loading="lazy" alt="" src="@/assets/header/address_book.png" :style="{
+            filter: $route.path === '/chat-history' ? 'brightness(0) invert(1)' : 'None',
+          }" />
+          <span class="nav-text">{{ $t("header.chatRecords") }}</span>
+        </div>
         <!-- 普通用户显示音色克隆 -->
         <div v-if="!userInfo.superAdmin && featureStatus.voiceClone" class="equipment-management"
           :class="{ 'active-tab': $route.path === '/voice-clone-management' }"
@@ -243,6 +252,7 @@ export default {
       // 跳转页面配置
       routerPaths: {
         home: "/home",
+        chatHistory: "/chat-history",
         modelConfig: "/model-config",
         knowledgeBaseManagement: "/knowledge-base-management",
         addressBookManagement: "/address-book-management",

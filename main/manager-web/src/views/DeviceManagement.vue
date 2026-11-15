@@ -23,6 +23,7 @@
               :show-selection="true"
               :show-operations="true"
               :operations-label="$t('device.operation')"
+              :operations-width="230"
               :total="filteredDeviceList.length"
               :current-page="currentPage"
               :page-size="pageSize"
@@ -60,6 +61,9 @@
                 </el-button>
                 <el-button v-if="isGenerate(scope.row)" size="mini" type="text" @click="handleGenertor(scope.row)">
                   {{ $t('device.deviceThemeGeneration') }}
+                </el-button>
+                <el-button size="mini" type="text" @click="handleViewChatHistory(scope.row)">
+                  {{ $t('chatRecords.deviceEntry') }}
                 </el-button>
               </template>
               <template slot="footer-btns">
@@ -324,6 +328,10 @@ export default {
       const url = `${window.location.origin}${basePath}/generator/?deviceId=${row.device_id}`;
       sessionStorage.setItem('devicePath', window.location.href);
       window.location.href = url;
+    },
+    // 跳转到聊天记录页面，并自动按该设备筛选
+    handleViewChatHistory(row) {
+      this.$router.push({ path: '/chat-history', query: { macAddress: row.macAddress } });
     },
     goToPage(page) {
       this.currentPage = page;

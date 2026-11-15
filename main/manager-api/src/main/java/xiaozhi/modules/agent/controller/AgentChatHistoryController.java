@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,10 +38,14 @@ import xiaozhi.common.utils.Result;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatHistoryReportDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
+import xiaozhi.modules.agent.dto.ChatRecordQueryDTO;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.biz.AgentChatHistoryBizService;
+import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
+import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.security.user.SecurityUser;
+import xiaozhi.modules.sys.enums.SuperAdminEnum;
 
 @Tag(name = "智能体聊天历史管理")
 @RequiredArgsConstructor
@@ -64,6 +69,34 @@ public class AgentChatHistoryController {
     public Result<Boolean> uploadFile(@Valid @RequestBody AgentChatHistoryReportDTO request) {
         Boolean result = agentChatHistoryBizService.report(request);
         return new Result<Boolean>().ok(result);
+    }
+
+    /**
+     * 聊天记录页面：按设备、智能体、时间范围、内容关键词等组合分页查询。
+     * 时间参数使用 epoch 毫秒（绝对时刻），展示统一按中国时间由服务端格式化。
+     */
+    @Operation(summary = "多条件分页查询聊天记录")
+    @RequiresPermissions("sys:role:normal")
+    @GetMapping("/records")
+    public Result<PageData<ChatRecordVO>> getChatRecords(@ModelAttribute ChatRecordQueryDTO query) {
+        UserDetail user = SecurityUser.getUser();
+        boolean superAdmin = Integer.valueOf(SuperAdminEnum.YES.value()).equals(user.getSuperAdmin());
+        PageData<ChatRecordVO> page = agentChatHistoryService
+                .getChatRecordPage(query, user.getId(), superAdmin);
+        return new Result<PageData<ChatRecordVO>>().ok(page);
+    }
+
+    /**
+     * 聊天记录页面：设备与智能体下拉选项（按当前用户可见范围过滤）。
+     */
+    @Operation(summary = "获取聊天记录筛选选项")
+    @RequiresPermissions("sys:role:normal")
+    @GetMapping("/filter-options")
+    public Result<ChatRecordFilterVO> getChatRecordFilters() {
+        UserDetail user = SecurityUser.getUser();
+        boolean superAdmin = Integer.valueOf(SuperAdminEnum.YES.value()).equals(user.getSuperAdmin());
+        return new Result<ChatRecordFilterVO>()
+                .ok(agentChatHistoryService.getChatRecordFilters(user.getId(), superAdmin));
     }
 
     /**

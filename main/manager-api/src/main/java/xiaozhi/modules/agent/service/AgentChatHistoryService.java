@@ -8,8 +8,11 @@ import com.baomidou.mybatisplus.extension.repository.IRepository;
 import xiaozhi.common.page.PageData;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
+import xiaozhi.modules.agent.dto.ChatRecordQueryDTO;
 import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
 import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
+import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
+import xiaozhi.modules.agent.vo.ChatRecordVO;
 
 /**
  * 智能体聊天记录表处理service
@@ -87,4 +90,27 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
      * @return T：属于 F：不属于
      */
     boolean isAudioOwnedByAgent(String audioId,String agentId);
+
+    /**
+     * 多条件分页查询聊天记录（跨设备、跨智能体）
+     *
+     * <p>数据隔离：普通用户只可查询自己智能体下的记录，超管可查询全部。
+     * 排序按 created_at 倒序；created_at 在库中为 UTC 字面值，与北京时间
+     * 仅相差固定 8 小时偏移，因此倒序结果与中国时间最新在前完全一致。</p>
+     *
+     * @param query      查询条件（含分页）
+     * @param userId     当前用户ID
+     * @param superAdmin 是否超级管理员
+     * @return 分页数据
+     */
+    PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin);
+
+    /**
+     * 获取聊天记录页面的设备/智能体筛选下拉选项
+     *
+     * @param userId     当前用户ID
+     * @param superAdmin 是否超级管理员
+     * @return 筛选项
+     */
+    ChatRecordFilterVO getChatRecordFilters(Long userId, boolean superAdmin);
 }
