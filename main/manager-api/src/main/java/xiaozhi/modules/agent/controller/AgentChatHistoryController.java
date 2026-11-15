@@ -46,7 +46,6 @@ import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
 import xiaozhi.modules.security.user.SecurityUser;
-import xiaozhi.modules.sys.enums.SuperAdminEnum;
 
 @Tag(name = "智能体聊天历史管理")
 @RequiredArgsConstructor
@@ -80,10 +79,8 @@ public class AgentChatHistoryController {
     @RequiresPermissions("sys:role:normal")
     @GetMapping("/records")
     public Result<PageData<ChatRecordVO>> getChatRecords(@ModelAttribute ChatRecordQueryDTO query) {
-        UserDetail user = SecurityUser.getUser();
-        boolean superAdmin = Integer.valueOf(SuperAdminEnum.YES.value()).equals(user.getSuperAdmin());
         PageData<ChatRecordVO> page = agentChatHistoryService
-                .getChatRecordPage(query, user.getId(), superAdmin);
+                .getChatRecordPage(query, SecurityUser.getUserId());
         return new Result<PageData<ChatRecordVO>>().ok(page);
     }
 
@@ -95,10 +92,8 @@ public class AgentChatHistoryController {
     @RequiresPermissions("sys:role:normal")
     @GetMapping("/sessions")
     public Result<PageData<ChatSessionVO>> getChatSessions(@ModelAttribute ChatRecordQueryDTO query) {
-        UserDetail user = SecurityUser.getUser();
-        boolean superAdmin = Integer.valueOf(SuperAdminEnum.YES.value()).equals(user.getSuperAdmin());
         PageData<ChatSessionVO> page = agentChatHistoryService
-                .getChatSessionPage(query, user.getId(), superAdmin);
+                .getChatSessionPage(query, SecurityUser.getUserId());
         return new Result<PageData<ChatSessionVO>>().ok(page);
     }
 
@@ -109,10 +104,8 @@ public class AgentChatHistoryController {
     @RequiresPermissions("sys:role:normal")
     @GetMapping("/filter-options")
     public Result<ChatRecordFilterVO> getChatRecordFilters() {
-        UserDetail user = SecurityUser.getUser();
-        boolean superAdmin = Integer.valueOf(SuperAdminEnum.YES.value()).equals(user.getSuperAdmin());
         return new Result<ChatRecordFilterVO>()
-                .ok(agentChatHistoryService.getChatRecordFilters(user.getId(), superAdmin));
+                .ok(agentChatHistoryService.getChatRecordFilters(SecurityUser.getUserId()));
     }
 
     /**

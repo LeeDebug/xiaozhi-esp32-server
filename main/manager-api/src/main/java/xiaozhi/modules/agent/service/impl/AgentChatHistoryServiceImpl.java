@@ -259,10 +259,10 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     }
 
     @Override
-    public PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin) {
+    public PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId) {
         ChatRecordQueryDTO q = query == null ? new ChatRecordQueryDTO() : query;
-        List<String> visibleAgentIds = resolveVisibleAgentIds(userId, superAdmin);
-        if (!superAdmin && visibleAgentIds.isEmpty()) {
+        List<String> visibleAgentIds = resolveVisibleAgentIds(userId);
+        if (visibleAgentIds.isEmpty()) {
             return new PageData<>(Collections.emptyList(), 0);
         }
 
@@ -270,18 +270,14 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         int limit = q.getLimit() == null ? 10 : Math.min(100, Math.max(1, q.getLimit()));
 
         QueryWrapper<AgentChatHistoryEntity> wrapper = new QueryWrapper<>();
-        if (!superAdmin) {
-            if (StringUtils.isNotBlank(q.getAgentId())) {
-                // 指定智能体时仍需校验归属，防止越权查看他人记录
-                if (!visibleAgentIds.contains(q.getAgentId())) {
-                    return new PageData<>(Collections.emptyList(), 0);
-                }
-                wrapper.eq("agent_id", q.getAgentId());
-            } else {
-                wrapper.in("agent_id", visibleAgentIds);
+        if (StringUtils.isNotBlank(q.getAgentId())) {
+            // 指定智能体时仍需校验归属，防止越权查看他人记录
+            if (!visibleAgentIds.contains(q.getAgentId())) {
+                return new PageData<>(Collections.emptyList(), 0);
             }
-        } else if (StringUtils.isNotBlank(q.getAgentId())) {
             wrapper.eq("agent_id", q.getAgentId());
+        } else {
+            wrapper.in("agent_id", visibleAgentIds);
         }
 
         if (StringUtils.isNotBlank(q.getMacAddress())) {
@@ -347,14 +343,14 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     }
 
     @Override
-    public PageData<ChatSessionVO> getChatSessionPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin) {
+    public PageData<ChatSessionVO> getChatSessionPage(ChatRecordQueryDTO query, Long userId) {
         ChatRecordQueryDTO httpQuery = query == null ? new ChatRecordQueryDTO() : query;
-        List<String> visibleAgentIds = resolveVisibleAgentIds(userId, superAdmin);
-        if (!superAdmin && visibleAgentIds.isEmpty()) {
+        List<String> visibleAgentIds = resolveVisibleAgentIds(userId);
+        if (visibleAgentIds.isEmpty()) {
             return new PageData<>(Collections.emptyList(), 0);
         }
         // 指定智能体时仍要校验归属，防止越权查看他人会话
-        if (!superAdmin && StringUtils.isNotBlank(httpQuery.getAgentId())
+        if (StringUtils.isNotBlank(httpQuery.getAgentId())
                 && !visibleAgentIds.contains(httpQuery.getAgentId())) {
             return new PageData<>(Collections.emptyList(), 0);
         }
@@ -363,7 +359,8 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         int limit = httpQuery.getLimit() == null ? 10 : Math.min(100, Math.max(1, httpQuery.getLimit()));
 
         ChatSessionQueryDTO q = new ChatSessionQueryDTO();
-        q.setVisibleAgentIds(superAdmin ? null : visibleAgentIds);
+        // 会话列表与下拉选项统一按当前用户自己的智能体隔离，超管也不放行全库
+        q.setVisibleAgentIds(visibleAgentIds);
         q.setMacAddress(trimToNull(httpQuery.getMacAddress()));
         q.setAgentId(trimToNull(httpQuery.getAgentId()));
         q.setKeyword(trimToNull(httpQuery.getKeyword()));
@@ -430,28 +427,27 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     }
 
     @Override
-    public ChatRecordFilterVO getChatRecordFilters(Long userId, boolean superAdmin) {
+    public ChatRecordFilterVO getChatRecordFilters(Long userId) {
         ChatRecordFilterVO result = new ChatRecordFilterVO();
-        List<String> visibleAgentIds = resolveVisibleAgentIds(userId, superAdmin);
-        if (!superAdmin && visibleAgentIds.isEmpty()) {
+        List<String> visibleAgentIds = resolveVisibleAgentIds(userId);
+        if (visibleAgentIds.isEmpty()) {
             return result;
         }
 
+        // 智能体选项：与智能体管理页 /agent/list 同源，只取当前用户名下的智能体
         QueryWrapper<AgentEntity> agentWrapper = new QueryWrapper<AgentEntity>()
-                .select("id", "agent_name").orderByDesc("created_at");
-        if (!superAdmin) {
-            agentWrapper.in("id", visibleAgentIds);
-        }
+                .select("id", "agent_name")
+                .in("id", visibleAgentIds)
+                .orderByDesc("created_at");
         List<AgentEntity> agents = agentDao.selectList(agentWrapper);
         result.setAgents(agents.stream()
                 .map(item -> new ChatRecordFilterVO.AgentOption(item.getId(), item.getAgentName()))
                 .collect(Collectors.toList()));
 
+        // 设备选项：只取绑定在上述智能体上的设备，与 /device/bind/{agentId} 看到的设备一致
         QueryWrapper<DeviceEntity> deviceWrapper = new QueryWrapper<DeviceEntity>()
-                .select("mac_address", "alias", "agent_id");
-        if (!superAdmin) {
-            deviceWrapper.in("agent_id", visibleAgentIds);
-        }
+                .select("mac_address", "alias", "agent_id")
+                .in("agent_id", visibleAgentIds);
         // 同一 MAC 理论上只应有一条设备记录，这里按 MAC 去重，避免下拉出现重复项
         Map<String, ChatRecordFilterVO.DeviceOption> uniqueDevices = new LinkedHashMap<>();
         for (DeviceEntity device : deviceDao.selectList(deviceWrapper)) {
@@ -467,11 +463,13 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     }
 
     /**
-     * 普通用户可见的智能体ID列表；超管返回空列表（调用方按 superAdmin 跳过限制）。
-     * ai_agent_chat_history 本身没有 user_id，必须经 ai_agent.user_id 做归属过滤。
+     * 当前登录用户拥有的智能体ID列表，会话记录列表与筛选下拉共用这一口径。
+     * ai_agent_chat_history 本身没有 user_id，必须经 ai_agent.user_id 做归属过滤；
+     * 超级管理员也不放宽到全库，否则 /agent/list、/device/bind 只显示自己的 2 个智能体、
+     * 1 台设备，会话记录页的下拉却会混进其他账号的智能体与设备。
      */
-    private List<String> resolveVisibleAgentIds(Long userId, boolean superAdmin) {
-        if (superAdmin || userId == null) {
+    private List<String> resolveVisibleAgentIds(Long userId) {
+        if (userId == null) {
             return Collections.emptyList();
         }
         List<AgentEntity> agents = agentDao.selectList(new QueryWrapper<AgentEntity>()

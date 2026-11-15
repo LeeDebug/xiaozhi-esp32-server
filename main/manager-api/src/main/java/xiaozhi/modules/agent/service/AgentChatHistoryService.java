@@ -95,16 +95,16 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
     /**
      * 多条件分页查询会话记录（跨设备、跨智能体）
      *
-     * <p>数据隔离：普通用户只可查询自己智能体下的记录，超管可查询全部。
+     * <p>数据隔离：与智能体管理页 /agent/list 保持同一口径，只查询当前登录用户
+     * 自己智能体下的记录；超级管理员也不放宽到全库，避免看到其他用户的会话。
      * 排序按 created_at 倒序；created_at 在库中为 UTC 字面值，与北京时间
      * 仅相差固定 8 小时偏移，因此倒序结果与中国时间最新在前完全一致。</p>
      *
-     * @param query      查询条件（含分页）
-     * @param userId     当前用户ID
-     * @param superAdmin 是否超级管理员
+     * @param query  查询条件（含分页）
+     * @param userId 当前用户ID
      * @return 分页数据
      */
-    PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin);
+    PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId);
 
     /**
      * 以会话（session_id）为维度多条件分页查询，供会话记录页面与会话详情弹窗共用。
@@ -113,19 +113,19 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
      * 的会话；返回的消息数、首末时间、摘要等仍统计整个会话。排序按会话最后一条消息时间倒序，
      * 即中国时间最新的会话在最前。数据隔离规则与 {@link #getChatRecordPage} 一致。</p>
      *
-     * @param query      查询条件（含分页）
-     * @param userId     当前用户ID
-     * @param superAdmin 是否超级管理员
+     * @param query  查询条件（含分页）
+     * @param userId 当前用户ID
      * @return 分页数据
      */
-    PageData<ChatSessionVO> getChatSessionPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin);
+    PageData<ChatSessionVO> getChatSessionPage(ChatRecordQueryDTO query, Long userId);
 
     /**
-     * 获取会话记录页面的设备/智能体筛选下拉选项
+     * 获取会话记录页面的设备/智能体筛选下拉选项。
+     * 只返回当前登录用户拥有的智能体，以及绑定在这些智能体上的设备，
+     * 与智能体管理、设备管理页面看到的范围一致（超管也不越账号）。
      *
-     * @param userId     当前用户ID
-     * @param superAdmin 是否超级管理员
+     * @param userId 当前用户ID
      * @return 筛选项
      */
-    ChatRecordFilterVO getChatRecordFilters(Long userId, boolean superAdmin);
+    ChatRecordFilterVO getChatRecordFilters(Long userId);
 }
