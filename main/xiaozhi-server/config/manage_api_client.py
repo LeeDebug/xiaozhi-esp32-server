@@ -273,9 +273,9 @@ async def get_correct_words(instance, mac_address: str) -> Optional[Dict]:
     )
 
 
-@api_guard("生成并保存聊天记录总结失败")
+@api_guard("生成并保存会话记录总结失败")
 async def generate_and_save_chat_summary(instance, session_id: str) -> Optional[Dict]:
-    """生成并保存聊天记录总结（守护线程中调用，服务已关闭时静默返回 None）"""
+    """生成并保存会话记录总结（守护线程中调用，服务已关闭时静默返回 None）"""
     return await instance._execute_async_request(
         "POST",
         f"/agent/chat-summary/{session_id}/save",
@@ -296,7 +296,7 @@ async def report(
     instance, mac_address: str, session_id: str, chat_type: int, content: str, audio,
     report_time, extra=None
 ) -> Optional[Dict]:
-    """异步聊天记录上报
+    """异步会话记录上报
 
     extra 为本轮耗时快照（roundId / metrics），仅每轮最后一句携带；
     旧版本 manager-api 会忽略这两个未知字段，升级不同步也不会报错。

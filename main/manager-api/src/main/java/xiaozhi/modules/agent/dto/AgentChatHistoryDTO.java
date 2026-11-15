@@ -7,10 +7,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * 智能体聊天记录DTO
+ * 智能体会话记录DTO
  */
 @Data
-@Schema(description = "智能体聊天记录")
+@Schema(description = "智能体会话记录")
 public class AgentChatHistoryDTO {
     @Schema(description = "创建时间")
     private Date createdAt;

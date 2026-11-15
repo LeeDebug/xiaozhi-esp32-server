@@ -264,7 +264,7 @@ export default {
                 });
             }).send();
     },
-    // 获取智能体聊天记录
+    // 获取智能体会话记录
     getAgentChatHistory(agentId, sessionId, callback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/agent/${agentId}/chat-history/${sessionId}`)
@@ -389,7 +389,7 @@ export default {
                 });
             }).send();
     },
-    // 获取指定智能体用户类型聊天记录
+    // 获取指定智能体用户类型会话记录
     getRecentlyFiftyByAgentId(id, callback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/agent/${id}/chat-history/user`)
@@ -404,7 +404,7 @@ export default {
                 });
             }).send();
     },
-    // 获取指定智能体用户类型聊天记录
+    // 获取指定智能体用户类型会话记录
     getContentByAudioId(id, callback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/agent/${id}/chat-history/audio`)
@@ -503,7 +503,7 @@ export default {
             }).send();
     },
 
-    // 获取聊天记录下载链接UUID
+    // 获取会话记录下载链接UUID
     getDownloadUrl(agentId, sessionId, callback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/agent/chat-history/getDownloadUrl/${agentId}/${sessionId}`)

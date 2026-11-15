@@ -7,7 +7,7 @@ import lombok.Data;
  * 聊天会话列表项（以 session_id 为维度聚合）。
  *
  * <p>时间统一返回 createdAtMs（绝对时刻毫秒）与 createdAtText（Asia/Shanghai 格式化后的
- * 中国时间字符串），与聊天记录列表口径一致，前端无需处理时区。</p>
+ * 中国时间字符串），与会话记录列表口径一致，前端无需处理时区。</p>
  */
 @Data
 @Schema(description = "聊天会话列表项")

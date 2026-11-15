@@ -162,11 +162,11 @@ public interface ErrorCode {
     int SM2_DECRYPT_ERROR = 10130; // SM2解密失败
     int MODEL_TYPE_PROVIDE_CODE_NOT_NULL = 10131; // modelType和provideCode不能为空
 
-    // 聊天记录相关错误码
-    int CHAT_HISTORY_NO_PERMISSION = 10132; // 没有权限查看该智能体的聊天记录
+    // 会话记录相关错误码
+    int CHAT_HISTORY_NO_PERMISSION = 10132; // 没有权限查看该智能体的会话记录
     int CHAT_HISTORY_SESSION_ID_NOT_NULL = 10133; // 会话ID不能为空
     int CHAT_HISTORY_AGENT_ID_NOT_NULL = 10134; // 智能体ID不能为空
-    int CHAT_HISTORY_DOWNLOAD_FAILED = 10135; // 聊天记录下载失败
+    int CHAT_HISTORY_DOWNLOAD_FAILED = 10135; // 会话记录下载失败
     int DOWNLOAD_LINK_EXPIRED = 10136; // 下载链接已过期或无效
     int DOWNLOAD_LINK_INVALID = 10137; // 下载链接无效
     int CHAT_ROLE_USER = 10138; // 用户角色

@@ -4,10 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * 智能体聊天记录总结DTO
+ * 智能体会话记录总结DTO
  */
 @Data
-@Schema(description = "智能体聊天记录总结对象")
+@Schema(description = "智能体会话记录总结对象")
 public class AgentChatSummaryDTO {
 
     @Schema(description = "会话ID")

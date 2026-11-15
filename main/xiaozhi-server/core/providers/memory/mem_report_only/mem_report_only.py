@@ -1,5 +1,5 @@
 """
-仅上报聊天记录，不进行记忆总结
+仅上报会话记录，不进行记忆总结
 """
 
 from ..base import MemoryProviderBase, logger

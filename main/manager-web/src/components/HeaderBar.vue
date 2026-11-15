@@ -25,7 +25,7 @@
           }" />
           <span class="nav-text">{{ $t("header.smartManagement") }}</span>
         </div>
-        <!-- 聊天记录（独立页面，支持按设备/时间/内容查询） -->
+        <!-- 会话记录（独立页面，支持按设备/时间/内容查询） -->
         <div class="equipment-management"
           :class="{ 'active-tab': $route.path === '/chat-history' }"
           @click="handleRouter('chatHistory')">

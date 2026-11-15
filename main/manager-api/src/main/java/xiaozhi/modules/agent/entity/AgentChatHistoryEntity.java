@@ -13,7 +13,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 智能体聊天记录表
+ * 智能体会话记录表
  *
  * @author Goody
  * @version 1.0, 2025/4/30

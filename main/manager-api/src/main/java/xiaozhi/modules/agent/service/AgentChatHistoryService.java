@@ -16,7 +16,7 @@ import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
 
 /**
- * 智能体聊天记录表处理service
+ * 智能体会话记录表处理service
  *
  * @author Goody
  * @version 1.0, 2025/4/30
@@ -33,11 +33,11 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
     PageData<AgentChatSessionDTO> getSessionListByAgentId(Map<String, Object> params);
 
     /**
-     * 根据会话ID获取聊天记录列表
+     * 根据会话ID获取会话记录列表
      *
      * @param agentId   智能体ID
      * @param sessionId 会话ID
-     * @return 聊天记录列表
+     * @return 会话记录列表
      */
     List<AgentChatHistoryDTO> getChatHistoryBySessionId(String agentId, String sessionId);
 
@@ -50,7 +50,7 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
     String getAgentIdBySessionId(String sessionId);
 
     /**
-     * 根据智能体ID删除聊天记录
+     * 根据智能体ID删除会话记录
      *
      * @param agentId     智能体ID
      * @param deleteAudio 是否删除音频
@@ -59,10 +59,10 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
     void deleteByAgentId(String agentId, Boolean deleteAudio, Boolean deleteText);
 
     /**
-     * 根据智能体ID获取最近50条用户的聊天记录数据（带音频数据）
+     * 根据智能体ID获取最近50条用户的会话记录数据（带音频数据）
      *
      * @param agentId 智能体id
-     * @return 聊天记录列表（只有用户）
+     * @return 会话记录列表（只有用户）
      */
     List<AgentChatHistoryUserVO> getRecentlyFiftyByAgentId(String agentId);
 
@@ -93,7 +93,7 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
     boolean isAudioOwnedByAgent(String audioId,String agentId);
 
     /**
-     * 多条件分页查询聊天记录（跨设备、跨智能体）
+     * 多条件分页查询会话记录（跨设备、跨智能体）
      *
      * <p>数据隔离：普通用户只可查询自己智能体下的记录，超管可查询全部。
      * 排序按 created_at 倒序；created_at 在库中为 UTC 字面值，与北京时间
@@ -107,7 +107,7 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
     PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin);
 
     /**
-     * 以会话（session_id）为维度多条件分页查询，供聊天记录页面与会话详情弹窗共用。
+     * 以会话（session_id）为维度多条件分页查询，供会话记录页面与会话详情弹窗共用。
      *
      * <p>筛选条件（设备 / 智能体 / 角色 / 时间范围 / 内容关键词）用于找出「会话内存在匹配消息」
      * 的会话；返回的消息数、首末时间、摘要等仍统计整个会话。排序按会话最后一条消息时间倒序，
@@ -121,7 +121,7 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
     PageData<ChatSessionVO> getChatSessionPage(ChatRecordQueryDTO query, Long userId, boolean superAdmin);
 
     /**
-     * 获取聊天记录页面的设备/智能体筛选下拉选项
+     * 获取会话记录页面的设备/智能体筛选下拉选项
      *
      * @param userId     当前用户ID
      * @param superAdmin 是否超级管理员

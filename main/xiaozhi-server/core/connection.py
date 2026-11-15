@@ -140,7 +140,7 @@ class ConnectionHandler:
         self.report_asr_enable = self.read_config_from_api
         self.report_tts_enable = self.read_config_from_api
 
-        # 本轮问答的结构化耗时埋点：聊天记录弹窗的信息面板数据来源。
+        # 本轮问答的结构化耗时埋点：会话记录弹窗的信息面板数据来源。
         # startedAt 为 time.perf_counter() 的单调时钟值，仅用于进程内求差，
         # 绝不能写入上报 JSON；上报前由 build_round_metrics() 剔除。
         self.chat_round_started_at = None
@@ -1084,7 +1084,7 @@ class ConnectionHandler:
             # 一轮对话的端到端计时起点（用于统计「用户消息 -> 首段音频」）
             self.chat_round_started_at = time.perf_counter()
             # 结构化耗时埋点：roundId 直接复用本轮 sentence_id，
-            # 让「用户消息 + 工具调用 + 多段回复」在聊天记录里可归为同一轮。
+            # 让「用户消息 + 工具调用 + 多段回复」在会话记录里可归为同一轮。
             self.chat_round_metrics = {
                 "roundId": current_sentence_id,
                 "startedAt": self.chat_round_started_at,
@@ -1591,7 +1591,7 @@ class ConnectionHandler:
             self.chat(None, depth=depth + 1)
 
     def _report_worker(self):
-        """聊天记录上报工作线程"""
+        """会话记录上报工作线程"""
         while not self.stop_event.is_set():
             try:
                 # 从队列获取数据，设置超时以便定期检查停止事件
@@ -1605,13 +1605,13 @@ class ConnectionHandler:
                     # 提交任务到线程池
                     self.executor.submit(self._process_report, *item)
                 except Exception as e:
-                    self.logger.bind(tag=TAG).error(f"聊天记录上报线程异常: {e}")
+                    self.logger.bind(tag=TAG).error(f"会话记录上报线程异常: {e}")
             except queue.Empty:
                 continue
             except Exception as e:
-                self.logger.bind(tag=TAG).error(f"聊天记录上报工作线程异常: {e}")
+                self.logger.bind(tag=TAG).error(f"会话记录上报工作线程异常: {e}")
 
-        self.logger.bind(tag=TAG).info("聊天记录上报线程已退出")
+        self.logger.bind(tag=TAG).info("会话记录上报线程已退出")
 
     def _process_report(self, type, text, audio_data, report_time, extra=None):
         """处理上报任务

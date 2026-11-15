@@ -157,7 +157,7 @@ public interface Constant {
     String MEMORY_NO_MEM = "Memory_nomem";
 
     /**
-     * 仅上报聊天记录（不总结记忆）
+     * 仅上报会话记录（不总结记忆）
      */
     String MEMORY_MEM_REPORT_ONLY = "Memory_mem_report_only";
 

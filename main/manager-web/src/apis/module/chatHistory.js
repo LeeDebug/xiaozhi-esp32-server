@@ -24,7 +24,7 @@ export default {
             }).send();
     },
 
-    // 单条聊天记录粒度的多条件分页查询（保留供其它场景使用）
+    // 单条消息粒度的多条件分页查询（保留供其它场景使用）
     getRecords(params, callback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/agent/chat-history/records`)
@@ -39,7 +39,7 @@ export default {
                 if (failCallback) failCallback(err);
             })
             .networkFail((err) => {
-                console.error('获取聊天记录失败:', err);
+                console.error('获取会话记录失败:', err);
                 RequestService.reAjaxFun(() => {
                     this.getRecords(params, callback, failCallback);
                 });
@@ -60,7 +60,7 @@ export default {
                 if (failCallback) failCallback(err);
             })
             .networkFail((err) => {
-                console.error('获取聊天记录筛选项失败:', err);
+                console.error('获取会话记录筛选项失败:', err);
                 RequestService.reAjaxFun(() => {
                     this.getFilterOptions(callback, failCallback);
                 });

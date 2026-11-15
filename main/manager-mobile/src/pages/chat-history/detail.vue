@@ -68,7 +68,7 @@ function goBack() {
   uni.navigateBack()
 }
 
-// 加载聊天记录
+// 加载会话记录
 async function loadChatHistory() {
   if (!sessionId.value || !agentId.value) {
     console.error('缺少必要参数')
@@ -81,7 +81,7 @@ async function loadChatHistory() {
     messageList.value = response
   }
   catch (error) {
-    console.error('获取聊天记录失败:', error)
+    console.error('获取会话记录失败:', error)
     toast.error(t('chatHistory.loadFailed'))
   }
   finally {

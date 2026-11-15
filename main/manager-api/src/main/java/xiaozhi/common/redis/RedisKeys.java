@@ -140,7 +140,7 @@ public class RedisKeys {
     }
 
     /**
-     * 聊天记录UUID映射的Key
+     * 会话记录UUID映射的Key
      */
     public static String getChatHistoryKey(String uuid) {
         return "agent:chat:history:" + uuid;

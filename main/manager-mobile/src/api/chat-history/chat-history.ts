@@ -24,7 +24,7 @@ export function getChatSessions(agentId: string, params: GetSessionsParams) {
 }
 
 /**
- * 获取聊天记录详情
+ * 获取会话记录详情
  * @param agentId 智能体ID
  * @param sessionId 会话ID
  */

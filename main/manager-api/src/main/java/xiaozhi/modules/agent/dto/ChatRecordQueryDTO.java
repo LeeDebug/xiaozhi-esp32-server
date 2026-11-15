@@ -4,13 +4,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * 聊天记录多条件分页查询参数
+ * 会话记录多条件分页查询参数
  *
  * <p>时间参数统一使用 epoch 毫秒（绝对时刻），由前端按中国时间（UTC+8）解释后传入，
  * 避免直接传递 "yyyy-MM-dd HH:mm:ss" 字符串带来的服务器/浏览器时区歧义。</p>
  */
 @Data
-@Schema(description = "聊天记录查询参数")
+@Schema(description = "会话记录查询参数")
 public class ChatRecordQueryDTO {
 
     @Schema(description = "当前页码，从1开始")

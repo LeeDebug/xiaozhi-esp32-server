@@ -55,7 +55,7 @@ import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.entity.DeviceEntity;
 
 /**
- * 智能体聊天记录表处理service {@link AgentChatHistoryService} impl
+ * 智能体会话记录表处理service {@link AgentChatHistoryService} impl
  *
  * @author Goody
  * @version 1.0, 2025/4/30
@@ -119,7 +119,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
                 .eq("session_id", sessionId)
                 .orderByAsc("created_at");
 
-        // 查询聊天记录
+        // 查询会话记录
         List<AgentChatHistoryEntity> historyList = list(wrapper);
 
         // 转换为DTO

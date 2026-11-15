@@ -32,7 +32,7 @@ import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
 
 /**
- * 智能体聊天记录总结服务实现类
+ * 智能体会话记录总结服务实现类
  * 实现Python端mem_local_short.py中的总结逻辑
  */
 @Service
@@ -58,12 +58,12 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
 
     private AgentChatSummaryDTO generateChatSummary(String sessionId) {
         try {
-            System.out.println("开始生成会话 " + sessionId + " 的聊天记录总结");
+            System.out.println("开始生成会话 " + sessionId + " 的会话记录总结");
 
-            // 1. 根据sessionId获取聊天记录
+            // 1. 根据sessionId获取会话记录
             List<AgentChatHistoryDTO> chatHistory = getChatHistoryBySessionId(sessionId);
             if (chatHistory == null || chatHistory.isEmpty()) {
-                return new AgentChatSummaryDTO(sessionId, "未找到该会话的聊天记录");
+                return new AgentChatSummaryDTO(sessionId, "未找到该会话的会话记录");
             }
 
             // 2. 获取智能体信息
@@ -81,11 +81,11 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
             // 4. 生成总结（generateSummaryFromMessages方法已包含长度限制逻辑）
             String summary = generateSummaryFromMessages(meaningfulMessages, agentId);
 
-            log.info("成功生成会话 {} 的聊天记录总结，长度: {} 字符", sessionId, summary.length());
+            log.info("成功生成会话 {} 的会话记录总结，长度: {} 字符", sessionId, summary.length());
             return new AgentChatSummaryDTO(sessionId, agentId, summary);
 
         } catch (Exception e) {
-            log.error("生成会话 {} 的聊天记录总结时发生错误: {}", sessionId, e.getMessage());
+            log.error("生成会话 {} 的会话记录总结时发生错误: {}", sessionId, e.getMessage());
             return new AgentChatSummaryDTO(sessionId, "生成总结时发生错误: " + e.getMessage());
         }
     }
@@ -103,7 +103,7 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
             String memModelId = agentService.getAgentById(agentId).getMemModelId();
 
             if (memModelId == null || memModelId.equals(Constant.MEMORY_MEM_REPORT_ONLY)) {
-                log.info("会话 {} 使用仅上报聊天记录模式，跳过记忆总结", sessionId);
+                log.info("会话 {} 使用仅上报会话记录模式，跳过记忆总结", sessionId);
                 return true;
             }
 
@@ -119,7 +119,7 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
                             setSummaryMemory(summaryDTO.getSummary());
                         }
                     }, false);
-                    log.info("成功保存会话 {} 的聊天记录总结到智能体 {}", sessionId, agentId);
+                    log.info("成功保存会话 {} 的会话记录总结到智能体 {}", sessionId, agentId);
                 } else {
                     log.info("生成总结失败: {}", summaryDTO.getErrorMessage());
                 }
@@ -130,7 +130,7 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
             return true;
 
         } catch (Exception e) {
-            log.error("保存会话 {} 的聊天记录总结时发生错误: {}", sessionId, e.getMessage());
+            log.error("保存会话 {} 的会话记录总结时发生错误: {}", sessionId, e.getMessage());
             return false;
         }
     }
@@ -228,11 +228,11 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
     }
 
     /**
-     * 根据会话ID获取聊天记录
+     * 根据会话ID获取会话记录
      */
     private List<AgentChatHistoryDTO> getChatHistoryBySessionId(String sessionId) {
         try {
-            // 这里需要根据sessionId获取聊天记录
+            // 这里需要根据sessionId获取会话记录
             // 由于现有接口需要agentId，我们需要先找到关联的agentId
             String agentId = findAgentIdBySessionId(sessionId);
             if (StringUtils.isBlank(agentId)) {
@@ -240,7 +240,7 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
             }
             return agentChatHistoryService.getChatHistoryBySessionId(agentId, sessionId);
         } catch (Exception e) {
-            log.error("获取会话 {} 的聊天记录失败: {}", sessionId, e.getMessage());
+            log.error("获取会话 {} 的会话记录失败: {}", sessionId, e.getMessage());
             return null;
         }
     }

@@ -142,7 +142,7 @@ public class AgentController {
     }
 
     @PostMapping("/chat-summary/{sessionId}/save")
-    @Operation(summary = "根据会话ID生成聊天记录总结并保存（异步执行）")
+    @Operation(summary = "根据会话ID生成会话记录总结并保存（异步执行）")
     public Result<Void> generateAndSaveChatSummary(@PathVariable String sessionId) {
         requireSessionAgent(sessionId);
         try {
@@ -150,9 +150,9 @@ public class AgentController {
             new Thread(() -> {
                 try {
                     agentChatSummaryService.generateAndSaveChatSummary(sessionId);
-                    System.out.println("异步执行会话 " + sessionId + " 的聊天记录总结完成");
+                    System.out.println("异步执行会话 " + sessionId + " 的会话记录总结完成");
                 } catch (Exception e) {
-                    System.err.println("异步执行会话 " + sessionId + " 的聊天记录总结失败: " + e.getMessage());
+                    System.err.println("异步执行会话 " + sessionId + " 的会话记录总结失败: " + e.getMessage());
                 }
             }).start();
 
@@ -204,7 +204,7 @@ public class AgentController {
     }
 
     @GetMapping("/{id}/chat-history/{sessionId}")
-    @Operation(summary = "获取智能体聊天记录")
+    @Operation(summary = "获取智能体会话记录")
     @RequiresPermissions("sys:role:normal")
     public Result<List<AgentChatHistoryDTO>> getAgentChatHistory(
             @PathVariable("id") String id,
@@ -214,16 +214,16 @@ public class AgentController {
 
         // 检查权限
         if (!agentService.checkAgentPermission(id, user.getId())) {
-            return new Result<List<AgentChatHistoryDTO>>().error("没有权限查看该智能体的聊天记录");
+            return new Result<List<AgentChatHistoryDTO>>().error("没有权限查看该智能体的会话记录");
         }
 
-        // 查询聊天记录
+        // 查询会话记录
         List<AgentChatHistoryDTO> result = agentChatHistoryService.getChatHistoryBySessionId(id, sessionId);
         return new Result<List<AgentChatHistoryDTO>>().ok(result);
     }
 
     @GetMapping("/{id}/chat-history/user")
-    @Operation(summary = "获取智能体聊天记录（用户）")
+    @Operation(summary = "获取智能体会话记录（用户）")
     @RequiresPermissions("sys:role:normal")
     public Result<List<AgentChatHistoryUserVO>> getRecentlyFiftyByAgentId(
             @PathVariable("id") String id) {
@@ -232,10 +232,10 @@ public class AgentController {
 
         // 检查权限
         if (!agentService.checkAgentPermission(id, user.getId())) {
-            return new Result<List<AgentChatHistoryUserVO>>().error("没有权限查看该智能体的聊天记录");
+            return new Result<List<AgentChatHistoryUserVO>>().error("没有权限查看该智能体的会话记录");
         }
 
-        // 查询聊天记录
+        // 查询会话记录
         List<AgentChatHistoryUserVO> data = agentChatHistoryService.getRecentlyFiftyByAgentId(id);
         return new Result<List<AgentChatHistoryUserVO>>().ok(data);
     }
@@ -246,7 +246,7 @@ public class AgentController {
     public Result<String> getContentByAudioId(
             @PathVariable("id") String id) {
         requireAudioPermission(id);
-        // 查询聊天记录
+        // 查询会话记录
         String data = agentChatHistoryService.getContentByAudioId(id);
         return new Result<String>().ok(data);
     }

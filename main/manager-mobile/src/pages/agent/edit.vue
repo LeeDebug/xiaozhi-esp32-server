@@ -258,7 +258,7 @@ const tabList = [
     activeIcon: '/static/tabbar/device_activate.png',
   },
   {
-    label: '聊天记录',
+    label: '会话记录',
     value: 'settings',
     icon: '/static/tabbar/chat.png',
     activeIcon: '/static/tabbar/chat_activate.png',

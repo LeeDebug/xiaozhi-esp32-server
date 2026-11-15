@@ -111,7 +111,7 @@ export default {
       if (this.device.memModelId === 'Memory_nomem') {
         return
       }
-      // 聊天记录已迁移为独立页面，跳转到该页面并按智能体预筛选
+      // 会话记录已迁移为独立页面，跳转到该页面并按智能体预筛选
       this.$router.push({ path: '/chat-history', query: { agentId: this.device.agentId } })
     }
   },

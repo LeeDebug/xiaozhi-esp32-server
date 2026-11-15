@@ -633,7 +633,7 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
             // 根据记忆模型类型设置默认的chatHistoryConf值
             if (template.getMemModelId() != null) {
                 if (template.getMemModelId().equals("Memory_nomem")) {
-                    // 无记忆功能的模型，默认不记录聊天记录
+                    // 无记忆功能的模型，默认不记录会话
                     entity.setChatHistoryConf(0);
                 } else {
                     // 有记忆功能的模型，默认记录文本和语音

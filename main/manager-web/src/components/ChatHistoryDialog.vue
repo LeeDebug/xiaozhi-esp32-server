@@ -159,12 +159,12 @@ export default {
             type: String,
             default: ''
         },
-        // recordsMode：由「聊天记录」页面驱动，左侧列表直接使用该页的查询条件 + 当前设备
+        // recordsMode：由「会话记录」页面驱动，左侧列表直接使用该页的查询条件 + 当前设备
         recordsMode: {
             type: Boolean,
             default: false
         },
-        // 聊天记录页 buildParams() 的副本（不含分页），保证弹窗列表与页面结果同条件、同排序
+        // 会话记录页 buildParams() 的副本（不含分页），保证弹窗列表与页面结果同条件、同排序
         query: {
             type: Object,
             default: () => ({})
@@ -178,7 +178,7 @@ export default {
             type: String,
             default: ''
         },
-        // 聊天记录页点击的那一行会话，弹窗打开时置顶并自动选中
+        // 会话记录页点击的那一行会话，弹窗打开时置顶并自动选中
         initialSession: {
             type: Object,
             default: null
@@ -209,7 +209,7 @@ export default {
         MacAddressMask,
     },
     created() {
-        // 聊天记录页用 v-if 挂载本组件，挂载时 visible 恒为 true，watch 不会触发首次加载，
+        // 会话记录页用 v-if 挂载本组件，挂载时 visible 恒为 true，watch 不会触发首次加载，
         // 因此这里主动初始化；旧模式（组件常驻、visible 由 false -> true）仍由 watch 负责。
         this.dialogVisible = this.visible;
         if (this.dialogVisible) {
@@ -355,7 +355,7 @@ export default {
             });
         },
         /**
-         * 记录驱动模式：复用聊天记录页的会话查询接口与筛选条件（同时间口径、同排序），
+         * 记录驱动模式：复用会话记录页的会话查询接口与筛选条件（同时间口径、同排序），
          * 并强制把 macAddress 覆盖成当前点击行所属设备，保证弹窗里不混入其它设备。
          */
         loadRecords() {
@@ -559,7 +559,7 @@ export default {
             return require(`@/assets/user-avatar${avatarIndex}.png`);
         },
 
-        // 下载本会话聊天记录
+        // 下载本会话记录
         downloadCurrentSession() {
             Api.agent.getDownloadUrl(this.currentAgentId || this.agentId, this.currentSessionId, (res) => {
                 if (res && res.data && res.data.code === 0 && res.data.data) {
@@ -571,7 +571,7 @@ export default {
             });
         },
 
-        // 下载本会话及前20条会话聊天记录
+        // 下载本会话及前20条会话记录
         downloadCurrentSessionWithPrevious() {
             Api.agent.getDownloadUrl(this.agentId, this.currentSessionId, (res) => {
                 if (res && res.data && res.data.code === 0 && res.data.data) {

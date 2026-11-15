@@ -9,10 +9,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 聊天记录页面的筛选下拉选项
+ * 会话记录页面的筛选下拉选项
  */
 @Data
-@Schema(description = "聊天记录筛选选项")
+@Schema(description = "会话记录筛选选项")
 public class ChatRecordFilterVO {
 
     @Schema(description = "可选智能体")

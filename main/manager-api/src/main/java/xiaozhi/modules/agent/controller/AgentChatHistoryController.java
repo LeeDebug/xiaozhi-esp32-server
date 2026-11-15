@@ -73,10 +73,10 @@ public class AgentChatHistoryController {
     }
 
     /**
-     * 聊天记录页面：按设备、智能体、时间范围、内容关键词等组合分页查询。
+     * 会话记录页面：按设备、智能体、时间范围、内容关键词等组合分页查询。
      * 时间参数使用 epoch 毫秒（绝对时刻），展示统一按中国时间由服务端格式化。
      */
-    @Operation(summary = "多条件分页查询聊天记录")
+    @Operation(summary = "多条件分页查询会话记录")
     @RequiresPermissions("sys:role:normal")
     @GetMapping("/records")
     public Result<PageData<ChatRecordVO>> getChatRecords(@ModelAttribute ChatRecordQueryDTO query) {
@@ -88,7 +88,7 @@ public class AgentChatHistoryController {
     }
 
     /**
-     * 聊天记录页面 / 会话详情弹窗：以会话（session_id）为维度的分页列表。
+     * 会话记录页面 / 会话详情弹窗：以会话（session_id）为维度的分页列表。
      * 与 /records 共用同一套筛选条件与 epoch 毫秒时间口径，便于两个列表保持一致。
      */
     @Operation(summary = "多条件分页查询聊天会话")
@@ -103,9 +103,9 @@ public class AgentChatHistoryController {
     }
 
     /**
-     * 聊天记录页面：设备与智能体下拉选项（按当前用户可见范围过滤）。
+     * 会话记录页面：设备与智能体下拉选项（按当前用户可见范围过滤）。
      */
-    @Operation(summary = "获取聊天记录筛选选项")
+    @Operation(summary = "获取会话记录筛选选项")
     @RequiresPermissions("sys:role:normal")
     @GetMapping("/filter-options")
     public Result<ChatRecordFilterVO> getChatRecordFilters() {
@@ -116,13 +116,13 @@ public class AgentChatHistoryController {
     }
 
     /**
-     * 获取聊天记录下载链接
+     * 获取会话记录下载链接
      * 
      * @param agentId   智能体ID
      * @param sessionId 会话ID
      * @return UUID作为下载标识
      */
-    @Operation(summary = "获取聊天记录下载链接")
+    @Operation(summary = "获取会话记录下载链接")
     @RequiresPermissions("sys:role:normal")
     @PostMapping("/getDownloadUrl/{agentId}/{sessionId}")
     public Result<String> getDownloadUrl(@PathVariable("agentId") String agentId,
@@ -143,12 +143,12 @@ public class AgentChatHistoryController {
     }
 
     /**
-     * 下载本会话聊天记录
+     * 下载本会话记录
      * 
      * @param uuid     下载标识
      * @param response HTTP响应
      */
-    @Operation(summary = "下载本会话聊天记录")
+    @Operation(summary = "下载本会话记录")
     @GetMapping("/download/{uuid}/current")
     public void downloadCurrentSession(@PathVariable("uuid") String uuid,
             HttpServletResponse response) {
@@ -176,12 +176,12 @@ public class AgentChatHistoryController {
     }
 
     /**
-     * 下载本会话及前20条会话聊天记录
+     * 下载本会话及前20条会话记录
      * 
      * @param uuid     下载标识
      * @param response HTTP响应
      */
-    @Operation(summary = "下载本会话及前20条会话聊天记录")
+    @Operation(summary = "下载本会话及前20条会话记录")
     @GetMapping("/download/{uuid}/previous")
     public void downloadCurrentSessionWithPrevious(@PathVariable("uuid") String uuid,
             HttpServletResponse response) {
@@ -240,7 +240,7 @@ public class AgentChatHistoryController {
     }
 
     /**
-     * 下载指定会话的聊天记录
+     * 下载指定会话的会话记录
      * 
      * @param agentId    智能体ID
      * @param sessionIds 会话ID列表
@@ -253,15 +253,15 @@ public class AgentChatHistoryController {
             String fileName = URLEncoder.encode("history.txt", StandardCharsets.UTF_8.toString());
             response.setHeader("Content-Disposition", "attachment;filename=" + fileName);
 
-            // 获取聊天记录并写入响应流
+            // 获取会话记录并写入响应流
             try (OutputStream out = response.getOutputStream()) {
-                // 为每个会话生成聊天记录
+                // 为每个会话生成会话记录
                 for (String sessionId : sessionIds) {
-                    // 获取该会话的所有聊天记录
+                    // 获取该会话的所有会话记录
                     List<AgentChatHistoryDTO> chatHistoryList = agentChatHistoryService
                             .getChatHistoryBySessionId(agentId, sessionId);
 
-                    // 从聊天记录中获取第一条消息的创建时间作为会话时间
+                    // 从会话记录中获取第一条消息的创建时间作为会话时间
                     if (!chatHistoryList.isEmpty()) {
                         Date firstMessageTime = chatHistoryList.get(0).getCreatedAt();
                         String sessionTimeStr = DateUtils.format(firstMessageTime, DateUtils.DATE_TIME_PATTERN);

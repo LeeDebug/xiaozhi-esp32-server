@@ -145,7 +145,7 @@
       </div>
     </div>
 
-    <!-- 沿用旧聊天记录弹窗的左右布局；左侧列表改为当前查询结果 + 当前设备 -->
+    <!-- 沿用旧会话记录弹窗的左右布局；左侧列表改为当前查询结果 + 当前设备 -->
     <chat-history-dialog
       v-if="dialogVisible"
       :visible="dialogVisible"

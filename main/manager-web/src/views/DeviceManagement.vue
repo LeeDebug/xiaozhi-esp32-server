@@ -329,7 +329,7 @@ export default {
       sessionStorage.setItem('devicePath', window.location.href);
       window.location.href = url;
     },
-    // 跳转到聊天记录页面，并自动按该设备筛选
+    // 跳转到会话记录页面，并自动按该设备筛选
     handleViewChatHistory(row) {
       this.$router.push({ path: '/chat-history', query: { macAddress: row.macAddress } });
     },

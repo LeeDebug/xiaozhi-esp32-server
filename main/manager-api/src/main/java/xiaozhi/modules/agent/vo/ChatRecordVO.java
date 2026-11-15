@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * 聊天记录列表项
+ * 会话记录列表项
  *
  * <p>created_at 在库中是 UTC 字面值（JDBC 连接使用 serverTimezone=UTC），
  * 直接把 LocalDateTime 返回给前端会得到 UTC 墙上时间。这里统一返回
@@ -14,7 +14,7 @@ import lombok.Data;
  * 前端无需再依赖任何 Jackson/浏览器时区配置即可显示中国时间。</p>
  */
 @Data
-@Schema(description = "聊天记录列表项")
+@Schema(description = "会话记录列表项")
 public class ChatRecordVO {
 
     @Schema(description = "记录ID")

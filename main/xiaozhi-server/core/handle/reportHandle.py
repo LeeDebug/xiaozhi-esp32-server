@@ -23,7 +23,7 @@ TAG = __name__
 
 
 async def report(conn: "ConnectionHandler", chat_type, text, audio_data, report_time, extra=None):
-    """执行聊天记录上报操作
+    """执行会话记录上报操作
 
     Args:
         conn: 连接对象
@@ -55,7 +55,7 @@ async def report(conn: "ConnectionHandler", chat_type, text, audio_data, report_
             extra=extra,
         )
     except Exception as e:
-        conn.logger.bind(tag=TAG).error(f"聊天记录上报失败: {e}")
+        conn.logger.bind(tag=TAG).error(f"会话记录上报失败: {e}")
 
 
 def pcm_to_wav(conn: "ConnectionHandler", pcm_data):

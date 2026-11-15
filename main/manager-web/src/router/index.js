@@ -61,7 +61,7 @@ const routes = [
       return import('../views/DeviceManagement.vue')
     }
   },
-  // 聊天记录页面路由（支持 ?macAddress=xxx 从设备管理页带入筛选）
+  // 会话记录页面路由（支持 ?macAddress=xxx 从设备管理页带入筛选）
   {
     path: '/chat-history',
     name: 'ChatHistoryRecords',

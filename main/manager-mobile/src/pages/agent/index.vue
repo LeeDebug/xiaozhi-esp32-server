@@ -139,7 +139,7 @@ async function onRefresh() {
 
 // 触底加载更多
 async function onLoadMore() {
-  // 只有聊天记录需要加载更多
+  // 只有会话记录需要加载更多
   if (currentTab.value === 'chat-history' && chatRef.value?.loadMore) {
     await chatRef.value.loadMore()
   }

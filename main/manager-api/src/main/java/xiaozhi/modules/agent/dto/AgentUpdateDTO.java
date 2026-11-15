@@ -76,7 +76,7 @@ public class AgentUpdateDTO implements Serializable {
             + "根据对话记录，总结user的重要信息，以便在未来的对话中提供更个性化的服务", nullable = true)
     private String summaryMemory;
 
-    @Schema(description = "聊天记录配置（0不记录 1仅记录文本 2记录文本和语音）", example = "3", nullable = true)
+    @Schema(description = "会话记录配置（0不记录 1仅记录文本 2记录文本和语音）", example = "3", nullable = true)
     private Integer chatHistoryConf;
 
     @Schema(description = "语言编码", example = "zh_CN", nullable = true)

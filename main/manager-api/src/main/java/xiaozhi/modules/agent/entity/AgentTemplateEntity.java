@@ -96,7 +96,7 @@ public class AgentTemplateEntity implements Serializable {
     private String intentModelId;
 
     /**
-     * 聊天记录配置（0不记录 1仅记录文本 2记录文本和语音）
+     * 会话记录配置（0不记录 1仅记录文本 2记录文本和语音）
      */
     private Integer chatHistoryConf;
 

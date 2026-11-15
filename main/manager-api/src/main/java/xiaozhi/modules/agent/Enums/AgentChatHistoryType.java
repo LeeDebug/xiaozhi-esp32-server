@@ -4,7 +4,7 @@ package xiaozhi.modules.agent.Enums;
 import lombok.Getter;
 
 /**
- * 智能体聊天记录类型
+ * 智能体会话记录类型
  */
 @Getter
 public enum AgentChatHistoryType {

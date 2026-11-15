@@ -43,7 +43,7 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
     private final DeviceService deviceService;
 
     /**
-     * 处理聊天记录上报，包括文件上传和相关信息记录
+     * 处理会话记录上报，包括文件上传和相关信息记录
      *
      * @param report 包含聊天上报所需信息的输入对象
      * @return 上传结果，true表示成功，false表示失败
@@ -83,7 +83,7 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
         if (device != null) {
             deviceService.updateDeviceConnectionInfo(agentId, device.getId(), null);
         } else {
-            log.warn("聊天记录上报时，未找到mac地址为 {} 的设备", macAddress);
+            log.warn("会话记录上报时，未找到mac地址为 {} 的设备", macAddress);
         }
 
         return Boolean.TRUE;
@@ -119,7 +119,7 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
         String metricsJson = (roundId == null || report.getMetrics() == null || report.getMetrics().isEmpty())
                 ? null : JsonUtils.toJsonString(report.getMetrics());
 
-        // 构建聊天记录实体
+        // 构建会话记录实体
         AgentChatHistoryEntity entity = AgentChatHistoryEntity.builder()
                 .macAddress(macAddress)
                 .agentId(agentId)
