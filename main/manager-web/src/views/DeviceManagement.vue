@@ -56,9 +56,9 @@
                   @change="handleOtaSwitchChange(scope.row)"></el-switch>
               </template>
               <template slot="ownerUsername" slot-scope="scope">
-                <el-tag v-if="scope.row.ownerUsername" size="mini"
+                <el-tag v-if="hasOwner(scope.row)" size="mini"
                   :type="scope.row.isOwn === false ? 'warning' : 'success'">
-                  {{ scope.row.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ scope.row.ownerUsername }}
+                  {{ scope.row.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ ownerDisplayName(scope.row) }}
                 </el-tag>
                 <span v-else>-</span>
               </template>
@@ -107,6 +107,7 @@
 
 <script>
 import Api from '@/apis/api';
+import { ownerDisplayName, hasOwner } from '@/utils/ownerDisplay';
 import AddDeviceDialog from "@/components/AddDeviceDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
 import ManualAddDeviceDialog from "@/components/ManualAddDeviceDialog.vue";
@@ -203,6 +204,8 @@ export default {
     this.getFirmwareTypes()
   },
   methods: {
+    ownerDisplayName,
+    hasOwner,
     async getFirmwareTypes() {
       try {
         const res = await Api.dict.getDictDataByType('FIRMWARE_TYPE')
@@ -374,6 +377,7 @@ export default {
               _submitting: false,
               otaSwitch: device.autoUpdate === 1,
               ownerUsername: device.ownerUsername || '',
+              ownerNickname: device.ownerNickname || '',
               isOwn: device.isOwn !== false,
               rawBindTime,
               selected: false,

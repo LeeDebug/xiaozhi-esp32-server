@@ -115,6 +115,40 @@ export default {
                 })
             }).send()
     },
+    // 获取当前用户完整资料（个人信息页）
+    getProfile(callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/user/profile`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime()
+                callback(res)
+            })
+            .networkFail((err) => {
+                console.error('获取用户资料失败:', err)
+                RequestService.reAjaxFun(() => {
+                    this.getProfile(callback)
+                })
+            }).send()
+    },
+    // 修改当前用户昵称，返回最新资料
+    updateProfile(nickname, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/user/profile`)
+            .method('PUT')
+            .data({ nickname })
+            .success((res) => {
+                RequestService.clearRequestTime()
+                callback(res)
+            })
+            .fail((res) => {
+                RequestService.clearRequestTime()
+                callback(res)
+            })
+            .networkFail((err) => {
+                console.error('修改用户昵称失败:', err)
+            }).send()
+    },
     // 修改用户密码
     changePassword(oldPassword, newPassword, successCallback, errorCallback) {
         RequestService.sendRequest()

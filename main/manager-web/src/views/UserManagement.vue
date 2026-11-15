@@ -8,7 +8,7 @@
             <div class="operation-header">
               <h2 class="page-title">{{ $t('header.userManagement') }}</h2>
               <div class="right-operations">
-                <el-input :placeholder="$t('user.searchPhone')" v-model="searchPhone" class="search-input" clearable
+                <el-input :placeholder="$t('user.searchPhoneOrNickname')" v-model="searchPhone" class="search-input" clearable
                   @keyup.enter.native="handleSearch" />
                 <CustomButton icon="el-icon-search" type="confirm" @click="handleSearch">{{ $t('user.search') }}</CustomButton>
               </div>
@@ -38,6 +38,8 @@
                 <el-tag v-else type="danger">{{ $t('user.disabled') }}</el-tag>
               </template>
               <template slot="operations" slot-scope="scope">
+                <el-button size="mini" type="text" @click="editNickname(scope.row)">{{ $t('user.editNickname')
+                  }}</el-button>
                 <el-button size="mini" type="text" @click="resetPassword(scope.row)">{{ $t('user.resetPassword')
                   }}</el-button>
                 <el-button size="mini" type="text" v-if="scope.row.status === 1"
@@ -69,6 +71,24 @@
     </div>
 
     <view-password-dialog :visible.sync="showViewPassword" :password="currentPassword" />
+    <el-dialog :title="$t('user.editNicknameTitle')" :visible.sync="nicknameDialogVisible" width="460px"
+      :close-on-click-modal="false">
+      <div class="nickname-dialog-body">
+        <div class="nickname-dialog-row">
+          <span class="nickname-dialog-label">{{ $t('user.username') }}</span>
+          <span>{{ editingUser ? editingUser.mobile : '-' }}</span>
+        </div>
+        <el-input v-model="nicknameDraft" maxlength="64" show-word-limit
+          :placeholder="$t('user.nicknamePlaceholder')" @keyup.enter.native="saveNickname" />
+        <div class="nickname-dialog-tip">{{ $t('user.nicknameTip') }}</div>
+      </div>
+      <span slot="footer">
+        <el-button size="small" @click="nicknameDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button size="small" type="primary" :loading="nicknameSaving" @click="saveNickname">
+          {{ $t('common.confirm') }}
+        </el-button>
+      </span>
+    </el-dialog>
     <el-footer>
       <version-footer />
     </el-footer>
@@ -96,6 +116,10 @@ export default {
       total: 0,
       isAllSelected: false,
       loading: false,
+      nicknameDialogVisible: false,
+      nicknameDraft: '',
+      nicknameSaving: false,
+      editingUser: null,
       tableColumns: []
     };
   },
@@ -117,6 +141,11 @@ export default {
           align: 'center'
         },
         {
+          prop: 'nickname',
+          label: this.$t('user.nickname'),
+          align: 'center'
+        },
+        {
           prop: 'deviceCount',
           label: this.$t('user.deviceCount'),
           align: 'center'
@@ -132,6 +161,35 @@ export default {
           align: 'center'
         }
       ];
+    },
+    editNickname(row) {
+      this.editingUser = row;
+      this.nicknameDraft = row.nickname || '';
+      this.nicknameDialogVisible = true;
+    },
+    saveNickname() {
+      if (!this.editingUser) return;
+      const value = (this.nicknameDraft || '').trim();
+      if (value.length > 64) {
+        this.$message.error(this.$t('user.nicknameTooLong'));
+        return;
+      }
+      this.nicknameSaving = true;
+      Api.admin.updateUserNickname(this.editingUser.userid, value, ({ data }) => {
+        this.nicknameSaving = false;
+        if (data.code === 0) {
+          this.nicknameDialogVisible = false;
+          // 管理员改的是自己时，同步 Vuex，右上角昵称立即刷新
+          const current = this.$store.state.userInfo || {};
+          if (String(current.id) === String(this.editingUser.userid)) {
+            this.$store.commit('setUserInfo', { ...current, nickname: value });
+          }
+          this.$message.success(this.$t('user.nicknameSaveSuccess'));
+          this.fetchUsers();
+        } else {
+          this.$message.error(data.msg || this.$t('user.nicknameSaveFailed'));
+        }
+      });
     },
     handlePageSizeChange(val) {
       this.pageSize = val;
@@ -449,6 +507,27 @@ export default {
 
 .ctrl_btn {
   display: flex;
+}
+
+.nickname-dialog-body {
+  .nickname-dialog-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+
+  .nickname-dialog-label {
+    color: #909399;
+    min-width: 70px;
+  }
+
+  .nickname-dialog-tip {
+    color: #a8abb2;
+    font-size: 12px;
+    margin-top: 10px;
+  }
 }
 
 :deep(.el-table .el-button--text) {

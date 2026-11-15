@@ -34,4 +34,13 @@ public interface UserDataScopeService {
      * @return userId -> username
      */
     Map<Long, String> getUsernameMap(Collection<Long> userIds);
+
+    /**
+     * 批量查询用户昵称，用于在列表数据上以昵称标注归属。
+     * 昵称为空的用户不会出现在结果中，由前端回退显示 ownerUsername。
+     *
+     * @param userIds 归属用户ID集合
+     * @return userId -> nickname
+     */
+    Map<Long, String> getNicknameMap(Collection<Long> userIds);
 }

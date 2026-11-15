@@ -51,6 +51,9 @@ public class UserShowDeviceListVO {
     @Schema(description = "所属用户名，用于区分自己的与其他用户的设备")
     private String ownerUsername;
 
+    @Schema(description = "所属用户昵称，为空时前端回退显示 ownerUsername")
+    private String ownerNickname;
+
     @Schema(description = "是否属于当前登录用户")
     private Boolean isOwn;
 

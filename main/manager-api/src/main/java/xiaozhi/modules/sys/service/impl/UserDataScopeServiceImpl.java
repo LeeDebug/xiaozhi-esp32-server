@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.apache.commons.lang3.StringUtils;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 
@@ -77,6 +78,29 @@ public class UserDataScopeServiceImpl implements UserDataScopeService {
         for (SysUserEntity user : users) {
             if (user.getId() != null) {
                 map.put(user.getId(), user.getUsername());
+            }
+        }
+        return map;
+    }
+
+    @Override
+    public Map<Long, String> getNicknameMap(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Long> ids = userIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (ids.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<SysUserEntity> users = sysUserDao.selectList(new QueryWrapper<SysUserEntity>()
+                .select("id", "nickname").in("id", ids));
+        Map<Long, String> map = new HashMap<>();
+        for (SysUserEntity user : users) {
+            if (user.getId() != null && StringUtils.isNotBlank(user.getNickname())) {
+                map.put(user.getId(), user.getNickname().trim());
             }
         }
         return map;

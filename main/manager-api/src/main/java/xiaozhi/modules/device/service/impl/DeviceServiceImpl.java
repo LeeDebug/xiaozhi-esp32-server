@@ -302,12 +302,15 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         List<DeviceEntity> devices = baseDao.selectList(wrapper);
         Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(
                 devices.stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
+        Map<Long, String> nicknameMap = userDataScopeService.getNicknameMap(
+                devices.stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
         return devices.stream()
-                .map(device -> toUserShowDeviceListVO(device, usernameMap))
+                .map(device -> toUserShowDeviceListVO(device, usernameMap, nicknameMap))
                 .collect(Collectors.toList());
     }
 
-    private UserShowDeviceListVO toUserShowDeviceListVO(DeviceEntity device, Map<Long, String> usernameMap) {
+    private UserShowDeviceListVO toUserShowDeviceListVO(DeviceEntity device, Map<Long, String> usernameMap,
+            Map<Long, String> nicknameMap) {
         UserShowDeviceListVO vo = ConvertUtils.sourceToTarget(device, UserShowDeviceListVO.class);
         vo.setDeviceType(device.getBoard());
         vo.setBoard(device.getBoard());
@@ -316,6 +319,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         vo.setLastConnectedAtTimestamp(toTimestamp(device.getLastConnectedAt()));
         // 数据归属标注：超管开启全库可见后，前端据此显示「我的 / 其他用户 · 用户名」
         vo.setOwnerUsername(usernameMap.get(device.getUserId()));
+        vo.setOwnerNickname(nicknameMap.get(device.getUserId()));
         vo.setIsOwn(userDataScopeService.isOwn(device.getUserId()));
         return vo;
     }
@@ -401,8 +405,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         // 循环处理page获取回来的数据，返回需要的字段
         Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(
                 page.getRecords().stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
+        Map<Long, String> nicknameMap = userDataScopeService.getNicknameMap(
+                page.getRecords().stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
         List<UserShowDeviceListVO> list = page.getRecords().stream().map(device -> {
-            UserShowDeviceListVO vo = toUserShowDeviceListVO(device, usernameMap);
+            UserShowDeviceListVO vo = toUserShowDeviceListVO(device, usernameMap, nicknameMap);
             // 把最后修改的时间，改为简短描述的时间
             vo.setRecentChatTime(DateUtils.getShortTime(device.getUpdateDate()));
             sysUserUtilService.assignUsername(device.getUserId(),

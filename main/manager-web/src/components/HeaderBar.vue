@@ -203,7 +203,7 @@
       <div class="header-right">
         <img loading="lazy" alt="" src="@/assets/home/avatar.png" class="avatar-img" @click="handleAvatarClick" />
         <span class="el-user-dropdown" @click="handleAvatarClick">
-          {{ userInfo.username || "加载中..." }}
+          {{ userInfo.nickname || userInfo.username || "加载中..." }}
           <i class="el-icon-arrow-down el-icon--right" :class="{ 'rotate-down': userMenuVisible }"></i>
         </span>
         <el-cascader :options="userMenuOptions" trigger="click" :props="cascaderProps"
@@ -260,6 +260,7 @@ export default {
         voiceResourceManagement: "/voice-resource-management",
         paramManagement: "/params-management",
         userManagement: "/user-management",
+        userProfile: "/user-profile",
         otaManagement: "/ota-management",
         dictManagement: "/dict-management",
         providerManagement: "/provider-management",
@@ -330,6 +331,10 @@ export default {
     // 用户菜单选项
     userMenuOptions() {
       return [
+        {
+          label: this.$t("header.userProfile"),
+          value: "userProfile",
+        },
         {
           label: this.currentLanguageText,
           value: "language",
@@ -436,6 +441,9 @@ export default {
       } else {
         // 处理其他操作
         switch (action) {
+          case "userProfile":
+            this.handleRouter("userProfile");
+            break;
           case "changePassword":
             this.showChangePasswordDialog();
             break;

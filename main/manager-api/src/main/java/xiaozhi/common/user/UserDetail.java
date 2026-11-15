@@ -13,6 +13,8 @@ import lombok.Data;
 public class UserDetail implements Serializable {
     private Long id;
     private String username;
+    /** 用户昵称（展示用，由 Oauth2Realm 每次请求从数据库重建，改完即时生效） */
+    private String nickname;
     private Integer superAdmin;
     private String token;
     private Integer status;

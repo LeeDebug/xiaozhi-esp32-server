@@ -331,6 +331,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
             OwnerInfo owner = ownerByAgent.get(entity.getAgentId());
             if (owner != null) {
                 vo.setOwnerUsername(owner.getUsername());
+                vo.setOwnerNickname(owner.getNickname());
                 vo.setIsOwn(owner.getIsOwn());
             }
             vo.setSessionId(entity.getSessionId());
@@ -424,6 +425,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
             OwnerInfo owner = ownerByAgent.get(agentId);
             if (owner != null) {
                 vo.setOwnerUsername(owner.getUsername());
+                vo.setOwnerNickname(owner.getNickname());
                 vo.setIsOwn(owner.getIsOwn());
             }
             vo.setChatCount(asInt(row.get("chat_count")));
@@ -461,12 +463,15 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         List<AgentEntity> agents = agentDao.selectList(agentWrapper);
         Map<Long, String> agentUsernameMap = userDataScopeService.getUsernameMap(
                 agents.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
+        Map<Long, String> agentNicknameMap = userDataScopeService.getNicknameMap(
+                agents.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
         List<ChatRecordFilterVO.AgentOption> agentOptions = new ArrayList<>();
         for (AgentEntity agent : agents) {
             ChatRecordFilterVO.AgentOption option = new ChatRecordFilterVO.AgentOption();
             option.setAgentId(agent.getId());
             option.setAgentName(agent.getAgentName());
             option.setOwnerUsername(agentUsernameMap.get(agent.getUserId()));
+            option.setOwnerNickname(agentNicknameMap.get(agent.getUserId()));
             option.setIsOwn(userDataScopeService.isOwn(agent.getUserId()));
             agentOptions.add(option);
         }
@@ -481,6 +486,8 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         List<DeviceEntity> devices = deviceDao.selectList(deviceWrapper);
         Map<Long, String> deviceUsernameMap = userDataScopeService.getUsernameMap(
                 devices.stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
+        Map<Long, String> deviceNicknameMap = userDataScopeService.getNicknameMap(
+                devices.stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
         // 同一 MAC 理论上只应有一条设备记录，这里按 MAC 去重，避免下拉出现重复项
         Map<String, ChatRecordFilterVO.DeviceOption> uniqueDevices = new LinkedHashMap<>();
         for (DeviceEntity device : devices) {
@@ -492,6 +499,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
             option.setAlias(device.getAlias());
             option.setAgentId(device.getAgentId());
             option.setOwnerUsername(deviceUsernameMap.get(device.getUserId()));
+            option.setOwnerNickname(deviceNicknameMap.get(device.getUserId()));
             option.setIsOwn(userDataScopeService.isOwn(device.getUserId()));
             uniqueDevices.putIfAbsent(device.getMacAddress(), option);
         }
@@ -525,10 +533,13 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
                 .select("id", "user_id").in("id", agentIds));
         Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(
                 agents.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
+        Map<Long, String> nicknameMap = userDataScopeService.getNicknameMap(
+                agents.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
         Map<String, OwnerInfo> map = new HashMap<>();
         for (AgentEntity agent : agents) {
             map.putIfAbsent(agent.getId(), new OwnerInfo(
                     usernameMap.get(agent.getUserId()),
+                    nicknameMap.get(agent.getUserId()),
                     userDataScopeService.isOwn(agent.getUserId())));
         }
         return map;
@@ -536,15 +547,21 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
 
     private static class OwnerInfo {
         private final String username;
+        private final String nickname;
         private final Boolean isOwn;
 
-        OwnerInfo(String username, Boolean isOwn) {
+        OwnerInfo(String username, String nickname, Boolean isOwn) {
             this.username = username;
+            this.nickname = nickname;
             this.isOwn = isOwn;
         }
 
         String getUsername() {
             return username;
+        }
+
+        String getNickname() {
+            return nickname;
         }
 
         Boolean getIsOwn() {

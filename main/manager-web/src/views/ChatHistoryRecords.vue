@@ -118,9 +118,9 @@
                 <div class="agent-cell">
                   <span>{{ scope.row.agentName || scope.row.agentId || $t('chatRecords.unnamedAgent') }}</span>
                   <!-- 超管开启全库可见后，标注该会话属于自己还是其他用户 -->
-                  <el-tag v-if="showOwnerTags && scope.row.ownerUsername" size="mini"
+                  <el-tag v-if="showOwnerTags && hasOwner(scope.row)" size="mini"
                     :type="scope.row.isOwn === false ? 'warning' : 'success'">
-                    {{ scope.row.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ scope.row.ownerUsername }}
+                    {{ scope.row.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ ownerDisplayName(scope.row) }}
                   </el-tag>
                 </div>
               </template>
@@ -172,6 +172,7 @@
 
 <script>
 import Api from '@/apis/api';
+import { ownerDisplayName, hasOwner } from '@/utils/ownerDisplay';
 import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
 import CustomButton from '@/components/CustomButton.vue';
@@ -275,6 +276,8 @@ export default {
     this.fetchSessions();
   },
   methods: {
+    ownerDisplayName,
+    hasOwner,
     fetchFilterOptions() {
       Api.chatHistory.getFilterOptions(({ data }) => {
         if (data && data.code === 0 && data.data) {
@@ -385,9 +388,9 @@ export default {
     },
 
     ownerSuffix(item) {
-      if (!this.showOwnerTags || !item.ownerUsername) return '';
+      if (!this.showOwnerTags || !this.hasOwner(item)) return '';
       const tag = item.isOwn === false ? this.$t('common.ownerOther') : this.$t('common.ownerMine');
-      return `（${tag} · ${item.ownerUsername}）`;
+      return `（${tag} · ${this.ownerDisplayName(item)}）`;
     },
 
     sessionLabel(row) {

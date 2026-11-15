@@ -7,6 +7,7 @@ import xiaozhi.modules.sys.dto.PasswordDTO;
 import xiaozhi.modules.sys.dto.SysUserDTO;
 import xiaozhi.modules.sys.entity.SysUserEntity;
 import xiaozhi.modules.sys.vo.AdminPageUserVO;
+import xiaozhi.modules.sys.vo.UserProfileVO;
 
 /**
  * 系统用户
@@ -57,6 +58,16 @@ public interface SysUserService extends BaseService<SysUserEntity> {
      * @return 用户列表分页数据
      */
     PageData<AdminPageUserVO> page(AdminPageUserDTO dto);
+
+    /**
+     * 查询用户完整资料（个人信息页）
+     */
+    UserProfileVO getProfile(Long userId);
+
+    /**
+     * 修改用户昵称。本人或管理员代改均可；允许清空（清空后展示回退为登录账号）。
+     */
+    void updateNickname(Long userId, String nickname);
 
     /**
      * 批量修改用户状态

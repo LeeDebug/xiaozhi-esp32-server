@@ -17,8 +17,11 @@ public class AdminPageUserVO {
     @Schema(description = "设备数量")
     private String deviceCount;
 
-    @Schema(description = "手机号码")
+    @Schema(description = "手机号码 / 登录账号")
     private String mobile;
+
+    @Schema(description = "用户昵称")
+    private String nickname;
 
     @Schema(description = "状态")
     private Integer status;

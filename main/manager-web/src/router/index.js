@@ -77,6 +77,14 @@ const routes = [
       return import('../views/UserManagement.vue')
     }
   },
+  // 个人信息页面路由（右上角用户下拉进入）
+  {
+    path: '/user-profile',
+    name: 'UserProfile',
+    component: function () {
+      return import('../views/UserProfile.vue')
+    }
+  },
   {
     path: '/model-config',
     name: 'ModelConfig',

@@ -41,6 +41,24 @@ export default {
                 })
             }).send()
     },
+    // 修改指定用户昵称（超级管理员）
+    updateUserNickname(id, nickname, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/admin/users/${id}/nickname`)
+            .method('PUT')
+            .data({ nickname })
+            .success((res) => {
+                RequestService.clearRequestTime()
+                callback(res)
+            })
+            .fail((res) => {
+                RequestService.clearRequestTime()
+                callback(res)
+            })
+            .networkFail((err) => {
+                console.error('修改用户昵称失败:', err)
+            }).send()
+    },
     // 重置用户密码
     resetUserPassword(id, callback) {
         RequestService.sendRequest()

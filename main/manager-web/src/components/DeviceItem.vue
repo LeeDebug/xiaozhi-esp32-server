@@ -16,8 +16,8 @@
       </div>
     </div>
     <!-- 超管开启「查看所有用户数据」后，标注该智能体属于自己还是其他用户 -->
-    <div v-if="device.ownerUsername" class="owner-badge" :class="{ 'owner-other': device.isOwn === false }">
-      {{ device.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ device.ownerUsername }}
+    <div v-if="hasOwner(device)" class="owner-badge" :class="{ 'owner-other': device.isOwn === false }">
+      {{ device.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ ownerDisplayName(device) }}
     </div>
     <div class="device-name">
       {{ $t('home.languageModel') }}：{{ device.llmModelName }}
@@ -56,6 +56,7 @@
 
 <script>
 import i18n from '@/i18n';
+import { ownerDisplayName, hasOwner } from '@/utils/ownerDisplay';
 
 export default {
   name: 'DeviceItem',
@@ -99,6 +100,8 @@ export default {
     }
   },
   methods: {
+    ownerDisplayName,
+    hasOwner,
     handleDelete() {
       this.$emit('delete', this.device)
     },

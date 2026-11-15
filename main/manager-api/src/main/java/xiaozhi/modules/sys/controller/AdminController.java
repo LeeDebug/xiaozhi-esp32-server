@@ -25,6 +25,7 @@ import xiaozhi.modules.device.dto.DevicePageUserDTO;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.device.vo.UserShowDeviceListVO;
 import xiaozhi.modules.sys.dto.AdminPageUserDTO;
+import xiaozhi.modules.sys.dto.NicknameDTO;
 import xiaozhi.modules.sys.service.SysUserService;
 import xiaozhi.modules.sys.vo.AdminPageUserVO;
 
@@ -86,6 +87,18 @@ public class AdminController {
     public Result<Void> changeStatus(@PathVariable Integer status, @RequestBody String[] userIds) {
         sysUserService.changeStatus(status, userIds);
         return new Result<Void>();
+    }
+
+    @PutMapping("/users/{id}/nickname")
+    @Operation(summary = "管理员修改指定用户昵称")
+    @RequiresPermissions("sys:role:superAdmin")
+    public Result<Void> updateNickname(@PathVariable Long id, @RequestBody NicknameDTO dto) {
+        String nickname = dto == null ? null : dto.getNickname();
+        if (nickname != null && nickname.trim().length() > 64) {
+            return new Result<Void>().error("昵称最长64个字符");
+        }
+        sysUserService.updateNickname(id, nickname);
+        return new Result<>();
     }
 
     @GetMapping("/device/all")

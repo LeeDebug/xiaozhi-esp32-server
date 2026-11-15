@@ -21,6 +21,8 @@ import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
 import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.utils.ConvertUtils;
+import xiaozhi.modules.agent.dao.AgentDao;
+import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.security.password.PasswordUtils;
@@ -33,6 +35,7 @@ import xiaozhi.modules.sys.enums.SuperAdminEnum;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserService;
 import xiaozhi.modules.sys.vo.AdminPageUserVO;
+import xiaozhi.modules.sys.vo.UserProfileVO;
 
 /**
  * 系统用户
@@ -47,6 +50,8 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
     private final AgentService agentService;
 
     private final SysParamsService sysParamsService;
+
+    private final AgentDao agentDao;
 
     @Override
     public SysUserDTO getByUsername(String username) {
@@ -80,6 +85,11 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
         // 密码加密
         String password = PasswordUtils.encode(entity.getPassword());
         entity.setPassword(password);
+
+        // 新用户昵称默认取登录账号，与数据库迁移的老用户回填口径一致
+        if (StringUtils.isBlank(entity.getNickname())) {
+            entity.setNickname(entity.getUsername());
+        }
 
         // 保存用户
         Long userCount = getUserCount();
@@ -163,13 +173,19 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
         params.put(Constant.LIMIT, dto.getLimit());
         IPage<SysUserEntity> page = baseDao.selectPage(
                 getPage(params, "id", true),
-                new QueryWrapper<SysUserEntity>().like(StringUtils.isNotBlank(dto.getMobile()), "username",
-                        dto.getMobile()));
+                new QueryWrapper<SysUserEntity>()
+                        // 搜索框同时匹配登录账号和用户昵称，方便管理员按昵称找人
+                        .and(StringUtils.isNotBlank(dto.getMobile()), wrapper -> wrapper
+                                .like("username", dto.getMobile())
+                                .or()
+                                .like("nickname", dto.getMobile())));
         // 循环处理page获取回来的数据，返回需要的字段
         List<AdminPageUserVO> list = page.getRecords().stream().map(user -> {
             AdminPageUserVO adminPageUserVO = new AdminPageUserVO();
             adminPageUserVO.setUserid(user.getId().toString());
             adminPageUserVO.setMobile(user.getUsername());
+            adminPageUserVO.setNickname(StringUtils.isNotBlank(user.getNickname())
+                    ? user.getNickname() : user.getUsername());
             String deviceCount = deviceService.selectCountByUserId(user.getId()).toString();
             adminPageUserVO.setDeviceCount(deviceCount);
             adminPageUserVO.setStatus(user.getStatus());
@@ -177,6 +193,43 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
             return adminPageUserVO;
         }).toList();
         return new PageData<>(list, page.getTotal());
+    }
+
+    @Override
+    public UserProfileVO getProfile(Long userId) {
+        SysUserEntity user = sysUserDao.selectById(userId);
+        if (user == null) {
+            throw new RenException(ErrorCode.TOKEN_INVALID);
+        }
+        UserProfileVO vo = new UserProfileVO();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setNickname(user.getNickname());
+        vo.setDisplayName(StringUtils.isNotBlank(user.getNickname())
+                ? user.getNickname() : user.getUsername());
+        vo.setSuperAdmin(user.getSuperAdmin());
+        vo.setStatus(user.getStatus());
+        vo.setCreateDate(user.getCreateDate());
+        vo.setUpdateDate(user.getUpdateDate());
+        vo.setDeviceCount(deviceService.selectCountByUserId(userId));
+        vo.setAgentCount(agentDao.selectCount(
+                new QueryWrapper<AgentEntity>().eq("user_id", userId)));
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateNickname(Long userId, String nickname) {
+        // 统一 trim；空串表示清空昵称，展示时回退为登录账号。仅写入昵称，
+        // 不触碰 password / superAdmin / status，避免越权提权。
+        String value = nickname == null ? "" : nickname.trim();
+        if (value.length() > 64) {
+            throw new RenException(ErrorCode.PARAMS_GET_ERROR);
+        }
+        SysUserEntity entity = new SysUserEntity();
+        entity.setId(userId);
+        entity.setNickname(value);
+        updateById(entity);
     }
 
     private boolean isStrongPassword(String password) {

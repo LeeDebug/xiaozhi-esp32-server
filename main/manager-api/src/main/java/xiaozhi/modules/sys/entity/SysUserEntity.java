@@ -22,6 +22,10 @@ public class SysUserEntity extends BaseEntity {
      */
     private String username;
     /**
+     * 用户昵称（仅用于展示，可为空、可重复，不参与登录鉴权）
+     */
+    private String nickname;
+    /**
      * 密码
      */
     private String password;

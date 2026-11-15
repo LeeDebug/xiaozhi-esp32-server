@@ -37,12 +37,15 @@ import xiaozhi.modules.security.service.CaptchaService;
 import xiaozhi.modules.security.service.SysUserTokenService;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.dto.PasswordDTO;
+import xiaozhi.modules.sys.dto.NicknameDTO;
 import xiaozhi.modules.sys.dto.RetrievePasswordDTO;
 import xiaozhi.modules.sys.dto.SysUserDTO;
 import xiaozhi.modules.sys.service.SysDictDataService;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserService;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 import xiaozhi.modules.sys.vo.SysDictDataItem;
+import xiaozhi.modules.sys.vo.UserProfileVO;
 
 /**
  * 登录控制层
@@ -58,6 +61,7 @@ public class LoginController {
     private final CaptchaService captchaService;
     private final SysParamsService sysParamsService;
     private final SysDictDataService sysDictDataService;
+    private final UserDataScopeService userDataScopeService;
 
     @GetMapping("/captcha")
     @Operation(summary = "验证码")
@@ -173,6 +177,26 @@ public class LoginController {
         Result<UserDetail> result = new Result<>();
         result.setData(user);
         return result;
+    }
+
+    @GetMapping("/profile")
+    @Operation(summary = "获取当前用户完整资料")
+    public Result<UserProfileVO> profile() {
+        UserProfileVO vo = sysUserService.getProfile(SecurityUser.getUserId());
+        vo.setCanViewAllUserData(userDataScopeService.canViewAllUserData());
+        return new Result<UserProfileVO>().ok(vo);
+    }
+
+    @PutMapping("/profile")
+    @Operation(summary = "修改当前用户昵称")
+    public Result<UserProfileVO> updateProfile(@RequestBody NicknameDTO dto) {
+        String nickname = dto == null ? null : dto.getNickname();
+        if (nickname != null && nickname.trim().length() > 64) {
+            return new Result<UserProfileVO>().error("昵称最长64个字符");
+        }
+        sysUserService.updateNickname(SecurityUser.getUserId(), nickname);
+        // 返回最新资料，前端可直接同步 Vuex，右上角展示即时刷新
+        return profile();
     }
 
     @PutMapping("/change-password")

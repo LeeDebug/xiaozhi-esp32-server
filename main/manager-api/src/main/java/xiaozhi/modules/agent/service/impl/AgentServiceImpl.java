@@ -265,15 +265,18 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         // 批量取归属用户名，超管查看全库时能区分自己的与其他用户的智能体
         Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(
                 agentEntities.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
+        Map<Long, String> nicknameMap = userDataScopeService.getNicknameMap(
+                agentEntities.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
         return agentEntities.stream()
-                .map(agent -> buildAgentDTO(agent, usernameMap))
+                .map(agent -> buildAgentDTO(agent, usernameMap, nicknameMap))
                 .collect(Collectors.toList());
     }
 
     /**
      * 将AgentEntity转换为AgentDTO
      */
-    private AgentDTO buildAgentDTO(AgentEntity agent, Map<Long, String> usernameMap) {
+    private AgentDTO buildAgentDTO(AgentEntity agent, Map<Long, String> usernameMap,
+            Map<Long, String> nicknameMap) {
         AgentDTO dto = new AgentDTO();
         dto.setId(agent.getId());
         dto.setAgentName(agent.getAgentName());
@@ -308,6 +311,7 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
 
         // 数据归属标注：超管开启全库可见后，前端据此显示「我的 / 其他用户 · 用户名」
         dto.setOwnerUsername(usernameMap.get(agent.getUserId()));
+        dto.setOwnerNickname(nicknameMap.get(agent.getUserId()));
         dto.setIsOwn(userDataScopeService.isOwn(agent.getUserId()));
         return dto;
     }
