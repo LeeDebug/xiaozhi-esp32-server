@@ -9,24 +9,64 @@
         custom-class="chat-history-dialog">
         <template v-slot:title>
             <span style="font-size: 18px;">
-                {{ $t('chatHistory.with') + agentName + $t('chatHistory.dialogTitle') }}
-                <template v-if="currentMacAddress">
-                    [<MacAddressMask :macAddress="currentMacAddress" />]
+                <template v-if="recordsMode">
+                    {{ $t('chatRecords.sessionDialogTitle') }}
+                    <template v-if="deviceAlias"> · {{ deviceAlias }}</template>
+                    <template v-if="macAddress">
+                        [<MacAddressMask :macAddress="macAddress" />]
+                    </template>
+                </template>
+                <template v-else>
+                    {{ $t('chatHistory.with') + agentName + $t('chatHistory.dialogTitle') }}
+                    <template v-if="currentMacAddress">
+                        [<MacAddressMask :macAddress="currentMacAddress" />]
+                    </template>
                 </template>
             </span>
         </template>
         <div class="chat-container">
-            <div class="session-list" @scroll="handleScroll">
-                <div v-for="session in sessions" :key="session.sessionId" class="session-item"
-                    :class="{ active: currentSessionId === session.sessionId }" @click="selectSession(session)">
-                    <img :src="getUserAvatar(session.sessionId)" class="avatar" />
-                    <div class="session-info">
-                        <div class="session-time">{{ session.title || formatTime(session.createdAt) }}</div>
-                        <div class="message-count">{{ session.chatCount > 99 ? '99' : session.chatCount }}</div>
-                    </div>
+            <div class="session-list" :class="{ 'session-list--records': recordsMode }" @scroll="handleScroll">
+                <div v-if="recordsMode" class="record-filter-hint">
+                    {{ $t('chatRecords.dialogOnlyDevice') }}
                 </div>
+                <!-- 记录驱动模式：左侧列表与「聊天记录」页当前查询条件完全一致，并强制限定当前设备 -->
+                <template v-if="recordsMode">
+                    <div v-for="(record, index) in records" :key="'record-' + index" class="session-item record-item"
+                        :class="{ active: currentRecordIndex === index }" @click="selectRecord(record, index)">
+                        <div class="record-body">
+                            <div class="record-head">
+                                <span class="record-time">{{ record.createdAtText }}</span>
+                                <el-tag size="mini" :type="recordRoleType(record.chatType)" class="record-role">
+                                    {{ recordRoleText(record.chatType) }}
+                                </el-tag>
+                            </div>
+                            <div class="record-content">{{ displayText(record.content) }}</div>
+                            <div class="record-sub">
+                                <span class="record-agent">{{ record.agentName || record.agentId }}</span>
+                                <span class="record-session">{{ shortSession(record.sessionId) }}</span>
+                                <i v-if="record.hasAudio" class="el-icon-headset"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="!loading && records.length === 0" class="no-more">
+                        {{ $t('chatRecords.noRecords') }}
+                    </div>
+                </template>
+                <!-- 兼容旧模式：按智能体聚合的会话列表 -->
+                <template v-else>
+                    <div v-for="session in sessions" :key="session.sessionId" class="session-item"
+                        :class="{ active: currentSessionId === session.sessionId }" @click="selectSession(session)">
+                        <img :src="getUserAvatar(session.sessionId)" class="avatar" />
+                        <div class="session-info">
+                            <div class="session-time">{{ session.title || formatTime(session.createdAt) }}</div>
+                            <div class="message-count">{{ session.chatCount > 99 ? '99' : session.chatCount }}</div>
+                        </div>
+                    </div>
+                </template>
                 <div v-if="loading" class="loading">{{ $t('chatHistory.loading') }}</div>
-                <div v-if="!hasMore" class="no-more">{{ $t('chatHistory.noMoreRecords') }}</div>
+                <div v-if="!hasMore && (recordsMode ? records.length > 0 : sessions.length > 0)" class="no-more">
+                    {{ $t('chatHistory.noMoreRecords') }}
+                </div>
             </div>
             <div class="chat-content">
                 <div v-if="currentSessionId" class="messages">
@@ -98,7 +138,8 @@
             </div>
         </div>
         <div v-if="currentSessionId" class="download-buttons">
-            <el-button type="primary" plain size="small" @click="downloadCurrentSessionWithPrevious">
+            <!-- 「前20条会话」下载接口按 agent 取全量会话，会串入其他设备，记录驱动模式下不提供 -->
+            <el-button v-if="!recordsMode" type="primary" plain size="small" @click="downloadCurrentSessionWithPrevious">
                 {{ $t('chatHistory.downloadCurrentWithPreviousSessions') }}
             </el-button>
             <el-button type="primary" plain size="small" @click="downloadCurrentSession">
@@ -133,19 +174,46 @@ export default {
         },
         agentId: {
             type: String,
-            required: true
+            default: ''
         },
         agentName: {
             type: String,
-            required: true
+            default: ''
+        },
+        // recordsMode：由「聊天记录」页面驱动，左侧列表直接使用该页的查询条件 + 当前设备
+        recordsMode: {
+            type: Boolean,
+            default: false
+        },
+        // 聊天记录页 buildParams() 的副本（不含分页），保证弹窗列表与页面结果同条件、同排序
+        query: {
+            type: Object,
+            default: () => ({})
+        },
+        // 强制限定的设备，弹窗内只能看到这个设备
+        macAddress: {
+            type: String,
+            default: ''
+        },
+        deviceAlias: {
+            type: String,
+            default: ''
+        },
+        // 打开弹窗时默认选中的那条记录所属会话
+        initialSessionId: {
+            type: String,
+            default: ''
         }
     },
     data() {
         return {
             dialogVisible: false,
             sessions: [],
+            records: [],
             messages: [],
             currentSessionId: '',
+            currentAgentId: '',
+            currentRecordIndex: -1,
             currentMacAddress: '',
             page: 1,
             limit: 20,
@@ -162,6 +230,15 @@ export default {
     components: {
         CustomDialog,
         MacAddressMask,
+    },
+    created() {
+        // 聊天记录页用 v-if 挂载本组件，挂载时 visible 恒为 true，watch 不会触发首次加载，
+        // 因此这里主动初始化；旧模式（组件常驻、visible 由 false -> true）仍由 watch 负责。
+        this.dialogVisible = this.visible;
+        if (this.dialogVisible) {
+            this.resetData();
+            this.loadSessions();
+        }
     },
     watch: {
         visible(val) {
@@ -291,9 +368,12 @@ export default {
         },
         resetData() {
             this.sessions = [];
+            this.records = [];
             this.messages = [];
             this.currentSessionId = '';
-            this.currentMacAddress = '';
+            this.currentAgentId = this.agentId;
+            this.currentRecordIndex = -1;
+            this.currentMacAddress = this.macAddress || '';
             this.page = 1;
             this.loading = false;
             this.hasMore = true;
@@ -307,6 +387,11 @@ export default {
             }
 
             this.loading = true;
+            if (this.recordsMode) {
+                this.loadRecords();
+                return;
+            }
+
             const params = {
                 page: this.page,
                 limit: this.limit
@@ -328,8 +413,47 @@ export default {
                 this.isFirstLoad = false;
             });
         },
+        /**
+         * 记录驱动模式：用聊天记录页当前的筛选条件重新拉取列表（同条件、同时间口径、同排序），
+         * 并强制把 macAddress 覆盖成当前点击行所属设备，保证弹窗内不会混入其他设备。
+         */
+        loadRecords() {
+            const params = { ...this.query, page: this.page, limit: this.limit };
+            if (this.macAddress) {
+                params.macAddress = this.macAddress;
+            } else {
+                delete params.macAddress;
+            }
+
+            Api.chatHistory.getRecords(params, (res) => {
+                if (res && res.data && res.data.code === 0 && res.data.data && Array.isArray(res.data.data.list)) {
+                    const list = res.data.data.list;
+                    this.hasMore = list.length === this.limit;
+                    this.records = [...this.records, ...list];
+                    this.page++;
+
+                    if (!this.currentSessionId && this.records.length > 0) {
+                        let index = 0;
+                        if (this.initialSessionId) {
+                            const found = this.records.findIndex(item => item.sessionId === this.initialSessionId);
+                            if (found >= 0) index = found;
+                        }
+                        this.selectRecord(this.records[index], index);
+                    }
+                } else {
+                    this.hasMore = false;
+                }
+                this.loading = false;
+                this.isFirstLoad = false;
+            }, () => {
+                this.loading = false;
+                this.isFirstLoad = false;
+                this.hasMore = false;
+            });
+        },
         selectSession(session) {
             this.currentSessionId = session.sessionId;
+            this.currentAgentId = this.agentId;
             Api.agent.getAgentChatHistory(this.agentId, session.sessionId, (res) => {
                 if (res.data && res.data.data) {
                     this.messages = res.data.data;
@@ -345,6 +469,52 @@ export default {
                     })
                 }
             });
+        },
+        /** 点击左侧某条记录，右侧展示它所在会话的完整对话（气泡 / 音频 / 耗时面板） */
+        selectRecord(record, index) {
+            if (!record || !record.sessionId) return;
+            this.currentRecordIndex = index;
+            this.currentSessionId = record.sessionId;
+            this.currentAgentId = record.agentId || this.agentId;
+            this.currentMacAddress = this.macAddress || record.macAddress || '';
+            this.expandedToolResults = {};
+            this.expandedMetrics = {};
+
+            Api.agent.getAgentChatHistory(this.currentAgentId, record.sessionId, (res) => {
+                if (res && res.data && Array.isArray(res.data.data)) {
+                    const all = res.data.data;
+                    // session_id 每次连接生成，天然只属于一台设备；这里按设备再兜底过滤一次
+                    this.messages = this.macAddress
+                        ? all.filter(item => !item.macAddress || item.macAddress === this.macAddress)
+                        : all;
+                    if (this.messages.length > 0 && this.messages[0].macAddress) {
+                        this.currentMacAddress = this.messages[0].macAddress;
+                    }
+                } else {
+                    this.messages = [];
+                }
+            });
+        },
+        /** 左侧列表的内容摘要：兼容 JSON 数组 / {"content": ...} / 纯文本三种 content 形态 */
+        displayText(content) {
+            const value = this.extractContentFromString(content);
+            const text = Array.isArray(value)
+                ? value.map(item => (item && (item.text || item.content)) || '').filter(Boolean).join(' ')
+                : String(value || '');
+            return text.length > 90 ? `${text.slice(0, 90)}...` : text;
+        },
+        recordRoleText(type) {
+            if (Number(type) === 1) return this.$t('chatRecords.roleUser');
+            if (Number(type) === 3) return this.$t('chatRecords.roleTool');
+            return this.$t('chatRecords.roleAgent');
+        },
+        recordRoleType(type) {
+            if (Number(type) === 1) return '';
+            if (Number(type) === 3) return 'info';
+            return 'success';
+        },
+        shortSession(sessionId) {
+            return sessionId ? `${String(sessionId).slice(0, 8)}...` : '';
         },
         handleScroll(e) {
             if (this.scrollTimer) {
@@ -462,7 +632,7 @@ export default {
 
         // 下载本会话聊天记录
         downloadCurrentSession() {
-            Api.agent.getDownloadUrl(this.agentId, this.currentSessionId, (res) => {
+            Api.agent.getDownloadUrl(this.currentAgentId || this.agentId, this.currentSessionId, (res) => {
                 if (res && res.data && res.data.code === 0 && res.data.data) {
                     const uuid = res.data.data;
                     window.open(`${Api.getServiceUrl()}/agent/chat-history/download/${uuid}/current`, '_blank');
@@ -499,6 +669,85 @@ export default {
     border-right: 1px solid #eee;
     overflow-y: auto;
     padding: 10px;
+}
+
+.session-list--records {
+    width: 320px;
+}
+
+.record-filter-hint {
+    font-size: 12px;
+    color: #8a94a6;
+    background: var(--sys-primary-bg-soft);
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.record-item {
+    display: block;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border: 1px solid #f0f1f3;
+}
+
+.record-item.active {
+    background-color: var(--sys-primary-bg-soft);
+    border-color: var(--sys-primary-border);
+}
+
+.record-body {
+    width: 100%;
+}
+
+.record-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.record-time {
+    font-size: 12px;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+
+.record-role {
+    flex-shrink: 0;
+}
+
+.record-content {
+    font-size: 13px;
+    color: #272727;
+    line-height: 1.45;
+    word-break: break-all;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+
+.record-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+    font-size: 11px;
+    color: #a4a7ad;
+}
+
+.record-agent {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.record-session {
+    font-family: monospace;
 }
 
 .session-item {

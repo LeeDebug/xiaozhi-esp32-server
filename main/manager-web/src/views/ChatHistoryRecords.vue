@@ -144,29 +144,19 @@
       </div>
     </div>
 
-    <el-dialog :title="sessionDialogTitle" :visible.sync="sessionVisible" width="760px" append-to-body
-      custom-class="session-dialog" top="6vh">
-      <div v-loading="sessionLoading" class="session-messages">
-        <div v-if="!sessionLoading && sessionMessages.length === 0" class="session-empty">
-          {{ $t('chatRecords.sessionEmpty') }}
-        </div>
-        <div v-for="(message, index) in sessionMessages" :key="message.id || index"
-          class="session-message" :class="messageClass(message)">
-          <div class="session-message-meta">
-            <span>{{ roleText(message.chatType) }}</span>
-            <span>{{ message.createdAt }}</span>
-          </div>
-          <div class="session-message-body">{{ extractDisplayText(message.content) }}</div>
-        </div>
-      </div>
-      <span slot="footer">
-        <el-button size="small" type="primary" plain :disabled="!sessionRow || sessionLoading"
-          @click="downloadCurrentSession">
-          {{ $t('chatHistory.downloadCurrentSession') }}
-        </el-button>
-        <el-button size="small" @click="sessionVisible = false">{{ $t('button.cancel') }}</el-button>
-      </span>
-    </el-dialog>
+    <!-- 沿用旧聊天记录弹窗的左右布局；左侧列表改为当前查询结果 + 当前设备 -->
+    <chat-history-dialog
+      v-if="dialogVisible"
+      :visible="dialogVisible"
+      records-mode
+      :query="dialogQuery"
+      :mac-address="dialogMacAddress"
+      :device-alias="dialogDeviceAlias"
+      :initial-session-id="dialogInitialSessionId"
+      :agent-id="dialogAgentId"
+      :agent-name="dialogAgentName"
+      @update:visible="dialogVisible = $event"
+    />
 
     <el-footer><version-footer /></el-footer>
   </div>
@@ -179,6 +169,7 @@ import VersionFooter from '@/components/VersionFooter.vue';
 import CustomButton from '@/components/CustomButton.vue';
 import CustomTable from '@/components/CustomTable.vue';
 import MacAddressMask from '@/components/MacAddressMask.vue';
+import ChatHistoryDialog from '@/components/ChatHistoryDialog.vue';
 
 const CN_OFFSET_MS = 8 * 60 * 60 * 1000;
 
@@ -208,7 +199,7 @@ function chinaStartOfToday() {
 
 export default {
   name: 'ChatHistoryRecords',
-  components: { HeaderBar, VersionFooter, CustomButton, CustomTable, MacAddressMask },
+  components: { HeaderBar, VersionFooter, CustomButton, CustomTable, MacAddressMask, ChatHistoryDialog },
   data() {
     return {
       filters: {
@@ -226,10 +217,14 @@ export default {
       currentPage: 1,
       pageSize: 10,
       pageSizeOptions: [10, 20, 50, 100],
-      sessionVisible: false,
-      sessionLoading: false,
-      sessionMessages: [],
-      sessionRow: null
+      // 弹窗入参：查询条件快照 + 当前设备，保证弹窗里只出现这个设备在本次筛选下的记录
+      dialogVisible: false,
+      dialogQuery: {},
+      dialogMacAddress: '',
+      dialogDeviceAlias: '',
+      dialogInitialSessionId: '',
+      dialogAgentId: '',
+      dialogAgentName: ''
     };
   },
   computed: {
@@ -243,10 +238,6 @@ export default {
         { prop: 'content', label: this.$t('chatRecords.colContent'), minWidth: 260, align: 'left' },
         { prop: 'extra', label: this.$t('chatRecords.colExtra'), width: 110, align: 'center' }
       ];
-    },
-    sessionDialogTitle() {
-      if (!this.sessionRow) return this.$t('chatRecords.sessionDialogTitle');
-      return `${this.$t('chatRecords.sessionDialogTitle')} · ${this.sessionLabel(this.sessionRow)}`;
     }
   },
   watch: {
@@ -353,30 +344,18 @@ export default {
     },
 
     openSession(row) {
-      this.sessionRow = row;
-      this.sessionMessages = [];
-      this.sessionVisible = true;
-      this.sessionLoading = true;
-      Api.agent.getAgentChatHistory(row.agentId, row.sessionId, (res) => {
-        this.sessionLoading = false;
-        if (res && res.data && res.data.code === 0 && Array.isArray(res.data.data)) {
-          this.sessionMessages = res.data.data;
-        } else {
-          this.$message.error(this.$t('chatRecords.sessionLoadFailed'));
-        }
-      });
-    },
-
-    downloadCurrentSession() {
-      if (!this.sessionRow) return;
-      Api.agent.getDownloadUrl(this.sessionRow.agentId, this.sessionRow.sessionId, (res) => {
-        if (res && res.data && res.data.code === 0 && res.data.data) {
-          const uuid = res.data.data;
-          window.open(`${Api.getServiceUrl()}/agent/chat-history/download/${uuid}/current`, '_blank');
-        } else {
-          this.$message.error(this.$t('chatHistory.downloadLinkFailed'));
-        }
-      });
+      // 快照当前筛选条件（去掉分页，弹窗自己滚动加载），并强制锁定为当前行所属设备
+      const query = this.buildParams();
+      delete query.page;
+      delete query.limit;
+      if (row.macAddress) query.macAddress = row.macAddress;
+      this.dialogQuery = query;
+      this.dialogMacAddress = row.macAddress || this.filters.macAddress || '';
+      this.dialogDeviceAlias = row.deviceAlias || '';
+      this.dialogInitialSessionId = row.sessionId || '';
+      this.dialogAgentId = row.agentId || '';
+      this.dialogAgentName = row.agentName || row.agentId || '';
+      this.dialogVisible = true;
     },
 
     deviceLabel(item) {
@@ -398,12 +377,6 @@ export default {
       if (Number(type) === 1) return '';
       if (Number(type) === 3) return 'info';
       return 'success';
-    },
-
-    messageClass(message) {
-      if (Number(message.chatType) === 1) return 'is-user';
-      if (Number(message.chatType) === 3) return 'is-tool';
-      return 'is-agent';
     },
 
     formatDuration(ms) {
@@ -590,40 +563,4 @@ export default {
 }
 
 .duration-text { font-size: 12px; }
-
-.session-messages {
-  max-height: 62vh;
-  overflow-y: auto;
-  padding: 4px 8px;
-}
-
-.session-empty {
-  text-align: center;
-  color: #909399;
-  padding: 40px 0;
-}
-
-.session-message {
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: #f6f7f9;
-  &.is-user { background: var(--sys-primary-bg-soft); }
-  &.is-tool { background: #f2f3f5; font-family: monospace; }
-}
-
-.session-message-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #909399;
-  margin-bottom: 4px;
-}
-
-.session-message-body {
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
 </style>

@@ -594,6 +594,8 @@ export default {
   'chatRecords.sessionLoadFailed': 'Failed to load session messages',
   'chatRecords.deviceEntry': 'Chat history',
   'chatRecords.timeHint': 'Times are in China Standard Time; combine a time range with content search for faster queries',
+  'chatRecords.dialogOnlyDevice': 'Only showing this device chat records under the current filters',
+  'chatRecords.noRecords': 'No chat records under the current filters',
 
   'cache.status': 'Cache Status',
   'cache.cdnEnabled': 'CDN Mode Enabled',

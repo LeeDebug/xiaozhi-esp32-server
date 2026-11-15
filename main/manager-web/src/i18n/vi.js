@@ -594,6 +594,8 @@ export default {
   'chatRecords.sessionLoadFailed': 'Tải tin nhắn phiên thất bại',
   'chatRecords.deviceEntry': 'Lịch sử trò chuyện',
   'chatRecords.timeHint': 'Thời gian theo giờ Trung Quốc; nên kết hợp khoảng thời gian khi tìm theo nội dung',
+  'chatRecords.dialogOnlyDevice': 'Chỉ hiển thị bản ghi chat của thiết bị này với bộ lọc hiện tại',
+  'chatRecords.noRecords': 'Không có bản ghi chat với bộ lọc hiện tại',
 
   'cache.status': 'Trạng thái cache',
   'cache.cdnEnabled': 'Đã bật chế độ CDN',

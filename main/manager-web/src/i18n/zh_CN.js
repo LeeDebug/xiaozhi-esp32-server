@@ -594,6 +594,8 @@ export default {
   'chatRecords.sessionLoadFailed': '获取会话消息失败',
   'chatRecords.deviceEntry': '聊天记录',
   'chatRecords.timeHint': '时间输入与展示均按北京时间；内容搜索建议配合时间范围以加快查询',
+  'chatRecords.dialogOnlyDevice': '仅显示当前设备在本次筛选条件下的聊天记录',
+  'chatRecords.noRecords': '当前筛选条件下没有聊天记录',
 
   'cache.status': '缓存状态',
   'cache.cdnEnabled': 'CDN模式已启用',

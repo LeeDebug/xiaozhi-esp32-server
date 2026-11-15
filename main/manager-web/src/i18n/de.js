@@ -594,6 +594,8 @@ export default {
   'chatRecords.sessionLoadFailed': 'Sitzungsnachrichten konnten nicht geladen werden',
   'chatRecords.deviceEntry': 'Chat-Verlauf',
   'chatRecords.timeHint': 'Zeiten in China Standard Time; fuer schnellere Suchen Zeitraum mit Inhaltssuche kombinieren',
+  'chatRecords.dialogOnlyDevice': 'Nur Chatverlaeufe dieses Geraets mit den aktuellen Filtern',
+  'chatRecords.noRecords': 'Keine Chatverlaeufe mit den aktuellen Filtern',
 
   'cache.status': 'Cache-Status',
   'cache.cdnEnabled': 'CDN-Modus aktiviert',
