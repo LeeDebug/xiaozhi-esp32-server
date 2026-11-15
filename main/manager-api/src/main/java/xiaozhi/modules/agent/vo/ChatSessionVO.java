@@ -51,4 +51,10 @@ public class ChatSessionVO {
 
     @Schema(description = "会话内是否包含语音")
     private Boolean hasAudio;
+
+    @Schema(description = "所属用户名（会话所属智能体的归属账号）")
+    private String ownerUsername;
+
+    @Schema(description = "是否属于当前登录用户")
+    private Boolean isOwn;
 }

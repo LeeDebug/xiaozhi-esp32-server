@@ -29,7 +29,7 @@
                 <el-select v-model="filters.agentId" filterable clearable class="control-agent"
                   :placeholder="$t('chatRecords.allAgents')" @change="handleSearch">
                   <el-option v-for="item in agentOptions" :key="item.agentId"
-                    :label="item.agentName || item.agentId" :value="item.agentId" />
+                    :label="agentLabel(item)" :value="item.agentId" />
                 </el-select>
               </div>
 
@@ -115,7 +115,14 @@
               </template>
 
               <template slot="agentName" slot-scope="scope">
-                {{ scope.row.agentName || scope.row.agentId || $t('chatRecords.unnamedAgent') }}
+                <div class="agent-cell">
+                  <span>{{ scope.row.agentName || scope.row.agentId || $t('chatRecords.unnamedAgent') }}</span>
+                  <!-- 超管开启全库可见后，标注该会话属于自己还是其他用户 -->
+                  <el-tag v-if="showOwnerTags && scope.row.ownerUsername" size="mini"
+                    :type="scope.row.isOwn === false ? 'warning' : 'success'">
+                    {{ scope.row.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ scope.row.ownerUsername }}
+                  </el-tag>
+                </div>
               </template>
 
               <template slot="chatCount" slot-scope="scope">
@@ -229,6 +236,12 @@ export default {
     };
   },
   computed: {
+    // 只有出现其他用户的数据时才展示归属标签，默认「只看自己」时保持界面简洁
+    showOwnerTags() {
+      return this.records.some(row => row.isOwn === false)
+        || this.deviceOptions.some(item => item.isOwn === false)
+        || this.agentOptions.some(item => item.isOwn === false);
+    },
     tableColumns() {
       return [
         // 列宽总量控制在略大于容器即可：过大会把操作列挤出视口，短内容列还会留出大片空白
@@ -362,7 +375,19 @@ export default {
     },
 
     deviceLabel(item) {
-      return item.alias ? `${item.alias} · ${item.macAddress}` : item.macAddress;
+      const base = item.alias ? `${item.alias} · ${item.macAddress}` : item.macAddress;
+      return `${base}${this.ownerSuffix(item)}`;
+    },
+
+    agentLabel(item) {
+      const base = item.agentName || item.agentId;
+      return `${base}${this.ownerSuffix(item)}`;
+    },
+
+    ownerSuffix(item) {
+      if (!this.showOwnerTags || !item.ownerUsername) return '';
+      const tag = item.isOwn === false ? this.$t('common.ownerOther') : this.$t('common.ownerMine');
+      return `（${tag} · ${item.ownerUsername}）`;
     },
 
     sessionLabel(row) {
@@ -504,6 +529,13 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.agent-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 .device-alias {

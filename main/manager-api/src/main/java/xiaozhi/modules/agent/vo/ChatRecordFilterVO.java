@@ -28,6 +28,10 @@ public class ChatRecordFilterVO {
     public static class AgentOption {
         private String agentId;
         private String agentName;
+        @Schema(description = "所属用户名")
+        private String ownerUsername;
+        @Schema(description = "是否属于当前登录用户")
+        private Boolean isOwn;
     }
 
     @Data
@@ -38,5 +42,9 @@ public class ChatRecordFilterVO {
         private String macAddress;
         private String alias;
         private String agentId;
+        @Schema(description = "所属用户名")
+        private String ownerUsername;
+        @Schema(description = "是否属于当前登录用户")
+        private Boolean isOwn;
     }
 }

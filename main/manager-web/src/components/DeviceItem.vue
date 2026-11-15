@@ -15,6 +15,10 @@
         </el-tooltip>
       </div>
     </div>
+    <!-- 超管开启「查看所有用户数据」后，标注该智能体属于自己还是其他用户 -->
+    <div v-if="device.ownerUsername" class="owner-badge" :class="{ 'owner-other': device.isOwn === false }">
+      {{ device.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ device.ownerUsername }}
+    </div>
     <div class="device-name">
       {{ $t('home.languageModel') }}：{{ device.llmModelName }}
     </div>
@@ -134,6 +138,22 @@ export default {
     white-space: nowrap;
     overflow: hidden;
   }
+}
+
+.owner-badge {
+  display: inline-block;
+  margin: 8px 0 2px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 18px;
+  color: #2f8f5b;
+  background: #e7f6ee;
+}
+
+.owner-badge.owner-other {
+  color: #b26a00;
+  background: #fff1dc;
 }
 
 .device-name {

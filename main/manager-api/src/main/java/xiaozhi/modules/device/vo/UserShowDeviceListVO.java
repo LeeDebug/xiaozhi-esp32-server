@@ -48,4 +48,10 @@ public class UserShowDeviceListVO {
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "UTC")
     private Date createDate;
 
+    @Schema(description = "所属用户名，用于区分自己的与其他用户的设备")
+    private String ownerUsername;
+
+    @Schema(description = "是否属于当前登录用户")
+    private Boolean isOwn;
+
 }

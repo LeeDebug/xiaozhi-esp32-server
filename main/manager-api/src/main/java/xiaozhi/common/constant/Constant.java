@@ -117,6 +117,11 @@ public interface Constant {
     String SERVER_ALLOW_USER_REGISTER = "server.allow_user_register";
 
     /**
+     * 是否允许超级管理员查看所有用户的智能体/设备/会话记录数据
+     */
+    String SERVER_ALLOW_SUPER_ADMIN_VIEW_ALL = "server.allow_super_admin_view_all";
+
+    /**
      * 下发六位验证码时显示的控制面板地址
      */
     String SERVER_FRONTED_URL = "server.fronted_url";

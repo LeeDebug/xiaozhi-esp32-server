@@ -60,6 +60,7 @@ import xiaozhi.modules.model.service.ModelConfigService;
 import xiaozhi.modules.model.service.ModelProviderService;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.enums.SuperAdminEnum;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 import xiaozhi.modules.timbre.service.TimbreService;
 
 @Service
@@ -79,6 +80,7 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
     private final AgentTagService agentTagService;
     private final CorrectWordFileService correctWordFileService;
     private final AgentSnapshotService agentSnapshotService;
+    private final UserDataScopeService userDataScopeService;
 
     @Override
     public PageData<AgentEntity> adminAgentList(Map<String, Object> params) {
@@ -228,7 +230,11 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
     @Override
     public List<AgentDTO> getUserAgents(Long userId, String keyword, String searchType) {
         QueryWrapper<AgentEntity> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_id", userId).orderByDesc("created_at");
+        // 默认只看自己的智能体；仅超管且参数开启时才放行全库
+        if (!userDataScopeService.canViewAllUserData()) {
+            queryWrapper.eq("user_id", userId);
+        }
+        queryWrapper.orderByDesc("created_at");
 
         if (StringUtils.isNotBlank(keyword)) {
             queryWrapper.and(w -> {
@@ -256,13 +262,18 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         }
 
         List<AgentEntity> agentEntities = baseDao.selectList(queryWrapper);
-        return agentEntities.stream().map(this::buildAgentDTO).collect(Collectors.toList());
+        // 批量取归属用户名，超管查看全库时能区分自己的与其他用户的智能体
+        Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(
+                agentEntities.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
+        return agentEntities.stream()
+                .map(agent -> buildAgentDTO(agent, usernameMap))
+                .collect(Collectors.toList());
     }
 
     /**
      * 将AgentEntity转换为AgentDTO
      */
-    private AgentDTO buildAgentDTO(AgentEntity agent) {
+    private AgentDTO buildAgentDTO(AgentEntity agent, Map<Long, String> usernameMap) {
         AgentDTO dto = new AgentDTO();
         dto.setId(agent.getId());
         dto.setAgentName(agent.getAgentName());
@@ -295,6 +306,9 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
             dto.setTags(tags.stream().map(this::convertTagToDTO).collect(Collectors.toList()));
         }
 
+        // 数据归属标注：超管开启全库可见后，前端据此显示「我的 / 其他用户 · 用户名」
+        dto.setOwnerUsername(usernameMap.get(agent.getUserId()));
+        dto.setIsOwn(userDataScopeService.isOwn(agent.getUserId()));
         return dto;
     }
 

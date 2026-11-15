@@ -55,6 +55,13 @@
                 <el-switch v-model="scope.row.otaSwitch" size="mini" active-color="#13ce66" inactive-color="#ff4949"
                   @change="handleOtaSwitchChange(scope.row)"></el-switch>
               </template>
+              <template slot="ownerUsername" slot-scope="scope">
+                <el-tag v-if="scope.row.ownerUsername" size="mini"
+                  :type="scope.row.isOwn === false ? 'warning' : 'success'">
+                  {{ scope.row.isOwn === false ? $t('common.ownerOther') : $t('common.ownerMine') }} · {{ scope.row.ownerUsername }}
+                </el-tag>
+                <span v-else>-</span>
+              </template>
               <template slot="operations" slot-scope="scope">
                 <el-button size="mini" type="text" @click="handleUnbind(scope.row.device_id)">
                   {{ $t('device.unbind') }}
@@ -163,6 +170,10 @@ export default {
       return this.paginatedDeviceList.length > 0 &&
         this.paginatedDeviceList.every(device => device.selected);
     },
+    // 只有超管开启「查看所有用户数据」并出现其他用户的设备时，才显示归属列
+    hasOtherOwnerData() {
+      return this.deviceList.some(device => device.isOwn === false);
+    },
     tableColumns() {
       const columns = [
         { prop: 'model', label: this.$t('device.model'), align: 'center' },
@@ -176,6 +187,9 @@ export default {
       }
       columns.push({ prop: 'alias', label: this.$t('device.alias'), align: 'center' });
       columns.push({ prop: 'otaSwitch', label: this.$t('device.autoUpdate'), align: 'center' });
+      if (this.hasOtherOwnerData) {
+        columns.push({ prop: 'ownerUsername', label: this.$t('common.ownerColumn'), minWidth: 130, align: 'center' });
+      }
       return columns;
     },
   },
@@ -359,6 +373,8 @@ export default {
               isEdit: false,
               _submitting: false,
               otaSwitch: device.autoUpdate === 1,
+              ownerUsername: device.ownerUsername || '',
+              isOwn: device.isOwn !== false,
               rawBindTime,
               selected: false,
               deviceStatus: 'offline'

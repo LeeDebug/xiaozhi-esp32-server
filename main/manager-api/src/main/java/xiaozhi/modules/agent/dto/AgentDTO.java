@@ -50,4 +50,10 @@ public class AgentDTO {
 
     @Schema(description = "标签列表")
     private List<AgentTagDTO> tags;
+
+    @Schema(description = "所属用户名，用于区分自己的与其他用户的智能体")
+    private String ownerUsername;
+
+    @Schema(description = "是否属于当前登录用户")
+    private Boolean isOwn;
 }

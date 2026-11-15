@@ -66,6 +66,7 @@ import xiaozhi.modules.device.vo.UserShowDeviceListVO;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserUtilService;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 
 @Slf4j
 @Service
@@ -78,6 +79,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     private final RedisUtils redisUtils;
     private final OtaService otaService;
     private final DeviceAddressBookService deviceAddressBookService;
+    private final UserDataScopeService userDataScopeService;
 
     @Async
     public void updateDeviceConnectionInfo(String agentId, String deviceId, String appVersion) {
@@ -291,17 +293,30 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
     @Override
     public List<UserShowDeviceListVO> getUserDeviceList(Long userId, String agentId) {
-        List<DeviceEntity> devices = getUserDevices(userId, agentId);
-        return devices.stream().map(this::toUserShowDeviceListVO).toList();
+        QueryWrapper<DeviceEntity> wrapper = new QueryWrapper<>();
+        // 默认只看自己的设备；仅超管且参数开启时放行（仍限定在当前智能体下）
+        if (!userDataScopeService.canViewAllUserData()) {
+            wrapper.eq("user_id", userId);
+        }
+        wrapper.eq("agent_id", agentId);
+        List<DeviceEntity> devices = baseDao.selectList(wrapper);
+        Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(
+                devices.stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
+        return devices.stream()
+                .map(device -> toUserShowDeviceListVO(device, usernameMap))
+                .collect(Collectors.toList());
     }
 
-    private UserShowDeviceListVO toUserShowDeviceListVO(DeviceEntity device) {
+    private UserShowDeviceListVO toUserShowDeviceListVO(DeviceEntity device, Map<Long, String> usernameMap) {
         UserShowDeviceListVO vo = ConvertUtils.sourceToTarget(device, UserShowDeviceListVO.class);
         vo.setDeviceType(device.getBoard());
         vo.setBoard(device.getBoard());
         vo.setAutoUpdate(device.getAutoUpdate());
         vo.setCreateDateTimestamp(toTimestamp(device.getCreateDate()));
         vo.setLastConnectedAtTimestamp(toTimestamp(device.getLastConnectedAt()));
+        // 数据归属标注：超管开启全库可见后，前端据此显示「我的 / 其他用户 · 用户名」
+        vo.setOwnerUsername(usernameMap.get(device.getUserId()));
+        vo.setIsOwn(userDataScopeService.isOwn(device.getUserId()));
         return vo;
     }
 
@@ -384,8 +399,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                         // 必须设备关键词查找
                         .like(StringUtils.isNotBlank(dto.getKeywords()), "alias", dto.getKeywords()));
         // 循环处理page获取回来的数据，返回需要的字段
+        Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(
+                page.getRecords().stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
         List<UserShowDeviceListVO> list = page.getRecords().stream().map(device -> {
-            UserShowDeviceListVO vo = toUserShowDeviceListVO(device);
+            UserShowDeviceListVO vo = toUserShowDeviceListVO(device, usernameMap);
             // 把最后修改的时间，改为简短描述的时间
             vo.setRecentChatTime(DateUtils.getShortTime(device.getUpdateDate()));
             sysUserUtilService.assignUsername(device.getUserId(),

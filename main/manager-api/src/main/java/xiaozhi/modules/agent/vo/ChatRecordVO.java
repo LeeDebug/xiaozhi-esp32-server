@@ -61,4 +61,10 @@ public class ChatRecordVO {
 
     @Schema(description = "本轮耗时指标，单位毫秒")
     private Map<String, Object> metrics;
+
+    @Schema(description = "所属用户名（记录所属智能体的归属账号）")
+    private String ownerUsername;
+
+    @Schema(description = "是否属于当前登录用户")
+    private Boolean isOwn;
 }

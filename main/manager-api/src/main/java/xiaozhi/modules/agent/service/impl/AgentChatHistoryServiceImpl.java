@@ -53,6 +53,7 @@ import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.entity.DeviceEntity;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 
 /**
  * 智能体会话记录表处理service {@link AgentChatHistoryService} impl
@@ -70,6 +71,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     private final AgentDao agentDao;
     private final AgentChatTitleDao agentChatTitleDao;
     private final DeviceDao deviceDao;
+    private final UserDataScopeService userDataScopeService;
 
     /** 页面展示统一使用中国标准时间，避免依赖浏览器或 JVM 默认时区。 */
     private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
@@ -262,7 +264,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     public PageData<ChatRecordVO> getChatRecordPage(ChatRecordQueryDTO query, Long userId) {
         ChatRecordQueryDTO q = query == null ? new ChatRecordQueryDTO() : query;
         List<String> visibleAgentIds = resolveVisibleAgentIds(userId);
-        if (visibleAgentIds.isEmpty()) {
+        if (visibleAgentIds != null && visibleAgentIds.isEmpty()) {
             return new PageData<>(Collections.emptyList(), 0);
         }
 
@@ -271,12 +273,12 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
 
         QueryWrapper<AgentChatHistoryEntity> wrapper = new QueryWrapper<>();
         if (StringUtils.isNotBlank(q.getAgentId())) {
-            // 指定智能体时仍需校验归属，防止越权查看他人记录
-            if (!visibleAgentIds.contains(q.getAgentId())) {
+            // 指定智能体时仍需校验归属，防止越权查看他人记录（超管开启全库可见时跳过）
+            if (visibleAgentIds != null && !visibleAgentIds.contains(q.getAgentId())) {
                 return new PageData<>(Collections.emptyList(), 0);
             }
             wrapper.eq("agent_id", q.getAgentId());
-        } else {
+        } else if (visibleAgentIds != null) {
             wrapper.in("agent_id", visibleAgentIds);
         }
 
@@ -311,6 +313,9 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         Map<String, String> aliasByMac = loadDeviceAliases(rows);
         Map<String, String> agentNameById = loadAgentNames(rows);
         Map<String, String> titleBySession = loadSessionTitles(rows);
+        Map<String, OwnerInfo> ownerByAgent = loadOwnerInfo(rows.stream()
+                .map(AgentChatHistoryEntity::getAgentId)
+                .filter(StringUtils::isNotBlank).collect(Collectors.toSet()));
 
         List<ChatRecordVO> list = rows.stream().map(entity -> {
             ChatRecordVO vo = new ChatRecordVO();
@@ -323,6 +328,11 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
             vo.setDeviceAlias(aliasByMac.get(entity.getMacAddress()));
             vo.setAgentId(entity.getAgentId());
             vo.setAgentName(agentNameById.get(entity.getAgentId()));
+            OwnerInfo owner = ownerByAgent.get(entity.getAgentId());
+            if (owner != null) {
+                vo.setOwnerUsername(owner.getUsername());
+                vo.setIsOwn(owner.getIsOwn());
+            }
             vo.setSessionId(entity.getSessionId());
             vo.setSessionTitle(titleBySession.get(entity.getSessionId()));
             vo.setChatType(entity.getChatType());
@@ -346,11 +356,11 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     public PageData<ChatSessionVO> getChatSessionPage(ChatRecordQueryDTO query, Long userId) {
         ChatRecordQueryDTO httpQuery = query == null ? new ChatRecordQueryDTO() : query;
         List<String> visibleAgentIds = resolveVisibleAgentIds(userId);
-        if (visibleAgentIds.isEmpty()) {
+        if (visibleAgentIds != null && visibleAgentIds.isEmpty()) {
             return new PageData<>(Collections.emptyList(), 0);
         }
-        // 指定智能体时仍要校验归属，防止越权查看他人会话
-        if (StringUtils.isNotBlank(httpQuery.getAgentId())
+        // 指定智能体时仍要校验归属，防止越权查看他人会话（超管开启全库可见时跳过）
+        if (visibleAgentIds != null && StringUtils.isNotBlank(httpQuery.getAgentId())
                 && !visibleAgentIds.contains(httpQuery.getAgentId())) {
             return new PageData<>(Collections.emptyList(), 0);
         }
@@ -359,7 +369,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         int limit = httpQuery.getLimit() == null ? 10 : Math.min(100, Math.max(1, httpQuery.getLimit()));
 
         ChatSessionQueryDTO q = new ChatSessionQueryDTO();
-        // 会话列表与下拉选项统一按当前用户自己的智能体隔离，超管也不放行全库
+        // 会话列表与下拉选项统一走同一可见范围；null 表示超管已开启全库可见
         q.setVisibleAgentIds(visibleAgentIds);
         q.setMacAddress(trimToNull(httpQuery.getMacAddress()));
         q.setAgentId(trimToNull(httpQuery.getAgentId()));
@@ -398,6 +408,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         Map<String, String> summaryBySession = findFirstContents(sessionIds);
         Map<String, String> aliasByMac = findDeviceAliases(macs);
         Map<String, String> nameByAgent = findAgentNames(agentIds);
+        Map<String, OwnerInfo> ownerByAgent = loadOwnerInfo(agentIds);
 
         List<ChatSessionVO> list = rows.stream().map(row -> {
             ChatSessionVO vo = new ChatSessionVO();
@@ -410,6 +421,11 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
             vo.setDeviceAlias(aliasByMac.get(mac));
             vo.setAgentId(agentId);
             vo.setAgentName(nameByAgent.get(agentId));
+            OwnerInfo owner = ownerByAgent.get(agentId);
+            if (owner != null) {
+                vo.setOwnerUsername(owner.getUsername());
+                vo.setIsOwn(owner.getIsOwn());
+            }
             vo.setChatCount(asInt(row.get("chat_count")));
 
             Long startedMs = toEpochMs(row.get("started_at"));
@@ -430,45 +446,67 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     public ChatRecordFilterVO getChatRecordFilters(Long userId) {
         ChatRecordFilterVO result = new ChatRecordFilterVO();
         List<String> visibleAgentIds = resolveVisibleAgentIds(userId);
-        if (visibleAgentIds.isEmpty()) {
+        boolean viewAll = visibleAgentIds == null;
+        if (!viewAll && visibleAgentIds.isEmpty()) {
             return result;
         }
 
-        // 智能体选项：与智能体管理页 /agent/list 同源，只取当前用户名下的智能体
+        // 智能体选项：与智能体管理页 /agent/list 使用同一可见范围
         QueryWrapper<AgentEntity> agentWrapper = new QueryWrapper<AgentEntity>()
-                .select("id", "agent_name")
-                .in("id", visibleAgentIds)
+                .select("id", "agent_name", "user_id")
                 .orderByDesc("created_at");
+        if (!viewAll) {
+            agentWrapper.in("id", visibleAgentIds);
+        }
         List<AgentEntity> agents = agentDao.selectList(agentWrapper);
-        result.setAgents(agents.stream()
-                .map(item -> new ChatRecordFilterVO.AgentOption(item.getId(), item.getAgentName()))
-                .collect(Collectors.toList()));
+        Map<Long, String> agentUsernameMap = userDataScopeService.getUsernameMap(
+                agents.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
+        List<ChatRecordFilterVO.AgentOption> agentOptions = new ArrayList<>();
+        for (AgentEntity agent : agents) {
+            ChatRecordFilterVO.AgentOption option = new ChatRecordFilterVO.AgentOption();
+            option.setAgentId(agent.getId());
+            option.setAgentName(agent.getAgentName());
+            option.setOwnerUsername(agentUsernameMap.get(agent.getUserId()));
+            option.setIsOwn(userDataScopeService.isOwn(agent.getUserId()));
+            agentOptions.add(option);
+        }
+        result.setAgents(agentOptions);
 
-        // 设备选项：只取绑定在上述智能体上的设备，与 /device/bind/{agentId} 看到的设备一致
+        // 设备选项：按可见智能体过滤；超管开启全库可见时列出全部设备
         QueryWrapper<DeviceEntity> deviceWrapper = new QueryWrapper<DeviceEntity>()
-                .select("mac_address", "alias", "agent_id")
-                .in("agent_id", visibleAgentIds);
+                .select("mac_address", "alias", "agent_id", "user_id");
+        if (!viewAll) {
+            deviceWrapper.in("agent_id", visibleAgentIds);
+        }
+        List<DeviceEntity> devices = deviceDao.selectList(deviceWrapper);
+        Map<Long, String> deviceUsernameMap = userDataScopeService.getUsernameMap(
+                devices.stream().map(DeviceEntity::getUserId).collect(Collectors.toSet()));
         // 同一 MAC 理论上只应有一条设备记录，这里按 MAC 去重，避免下拉出现重复项
         Map<String, ChatRecordFilterVO.DeviceOption> uniqueDevices = new LinkedHashMap<>();
-        for (DeviceEntity device : deviceDao.selectList(deviceWrapper)) {
+        for (DeviceEntity device : devices) {
             if (StringUtils.isBlank(device.getMacAddress())) {
                 continue;
             }
-            uniqueDevices.putIfAbsent(device.getMacAddress(),
-                    new ChatRecordFilterVO.DeviceOption(
-                            device.getMacAddress(), device.getAlias(), device.getAgentId()));
+            ChatRecordFilterVO.DeviceOption option = new ChatRecordFilterVO.DeviceOption();
+            option.setMacAddress(device.getMacAddress());
+            option.setAlias(device.getAlias());
+            option.setAgentId(device.getAgentId());
+            option.setOwnerUsername(deviceUsernameMap.get(device.getUserId()));
+            option.setIsOwn(userDataScopeService.isOwn(device.getUserId()));
+            uniqueDevices.putIfAbsent(device.getMacAddress(), option);
         }
         result.setDevices(new ArrayList<>(uniqueDevices.values()));
         return result;
     }
 
     /**
-     * 当前登录用户拥有的智能体ID列表，会话记录列表与筛选下拉共用这一口径。
-     * ai_agent_chat_history 本身没有 user_id，必须经 ai_agent.user_id 做归属过滤；
-     * 超级管理员也不放宽到全库，否则 /agent/list、/device/bind 只显示自己的 2 个智能体、
-     * 1 台设备，会话记录页的下拉却会混进其他账号的智能体与设备。
+     * 当前登录用户可见的智能体ID列表；返回 null 表示不限制（超管 + 参数开启）。
+     * ai_agent_chat_history 本身没有 user_id，必须经 ai_agent.user_id 做归属过滤。
      */
     private List<String> resolveVisibleAgentIds(Long userId) {
+        if (userDataScopeService.canViewAllUserData()) {
+            return null;
+        }
         if (userId == null) {
             return Collections.emptyList();
         }
@@ -476,6 +514,42 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
                 .select("id").eq("user_id", userId));
         return agents.stream().map(AgentEntity::getId)
                 .filter(Objects::nonNull).collect(Collectors.toList());
+    }
+
+    /** 按智能体批量取归属信息，用于在会话列表/记录上标注「我的 / 其他用户 · 用户名」 */
+    private Map<String, OwnerInfo> loadOwnerInfo(Set<String> agentIds) {
+        if (agentIds == null || agentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<AgentEntity> agents = agentDao.selectList(new QueryWrapper<AgentEntity>()
+                .select("id", "user_id").in("id", agentIds));
+        Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(
+                agents.stream().map(AgentEntity::getUserId).collect(Collectors.toSet()));
+        Map<String, OwnerInfo> map = new HashMap<>();
+        for (AgentEntity agent : agents) {
+            map.putIfAbsent(agent.getId(), new OwnerInfo(
+                    usernameMap.get(agent.getUserId()),
+                    userDataScopeService.isOwn(agent.getUserId())));
+        }
+        return map;
+    }
+
+    private static class OwnerInfo {
+        private final String username;
+        private final Boolean isOwn;
+
+        OwnerInfo(String username, Boolean isOwn) {
+            this.username = username;
+            this.isOwn = isOwn;
+        }
+
+        String getUsername() {
+            return username;
+        }
+
+        Boolean getIsOwn() {
+            return isOwn;
+        }
     }
 
     /**
