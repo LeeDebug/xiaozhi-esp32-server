@@ -869,11 +869,11 @@ export default {
     color: #999;
 }
 
-/* 每条消息自带时间：时间与「头像外侧边缘」对齐，两侧严格镜像。
-   AI/工具消息从左侧头像左边缘开始，用户消息在右侧头像右边缘结束，
-   时间文字横跨气泡上方，和右侧用户对话的排版一致。 */
+/* 每条消息自带时间：左右两侧各留出 60px 间距，保持镜像对称。
+   AI/工具消息左对齐、用户消息右对齐，必须显式声明，否则会继承 #app 的 center。 */
 .message-row .message-time {
-    padding: 0 0 3px;    /* 不再内缩 50px，否则时间会落在头像内侧而非贴着头像 */
+    padding: 0 0 3px;
+    padding-left: 60px;
     text-align: left;    /* 必须显式左对齐，否则会继承 #app 的 center 而漂到中间 */
     font-size: 12px;
     line-height: 1.2;
@@ -882,7 +882,7 @@ export default {
 }
 
 .message-row.is-user .message-time {
-    padding-right: 10px; /* 补偿头像自身的 margin-right，使时间右端与头像右边缘精确对齐 */
+    padding-right: 60px;
     text-align: right;
 }
 
