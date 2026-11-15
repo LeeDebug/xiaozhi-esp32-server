@@ -49,11 +49,11 @@
             </div>
             <div class="chat-content">
                 <div v-if="currentSessionId" class="messages">
-                    <div v-for="(message, index) in messagesWithTime" :key="message.id || ('msg-' + index)">
-                        <div v-if="message.type === 'time'" class="time-divider">
-                            {{ message.content }}
-                        </div>
-                        <div v-else class="message-item" :class="{ 'user-message': message.chatType === 1, 'tool-message': message.chatType === 3 }">
+                    <div v-for="(message, index) in messagesWithMetricsFlag" :key="message.id || ('msg-' + index)"
+                        class="message-row" :class="{ 'is-user': message.chatType === 1 }">
+                        <!-- 每条消息自带时间：后端已按 GMT+8 输出 yyyy-MM-dd HH:mm:ss，直接展示 -->
+                        <div v-if="message.createdAt" class="message-time">{{ formatMessageTime(message.createdAt) }}</div>
+                        <div class="message-item" :class="{ 'user-message': message.chatType === 1, 'tool-message': message.chatType === 3 }">
                             <img :src="message.chatType === 1 ? getUserAvatar(currentSessionId) : require('@/assets/xiaozhi-logo.png')"
                                 class="avatar" />
                             <div class="message-content">
@@ -201,7 +201,7 @@ export default {
             playingAudioId: null,
             audioElement: null,
             expandedToolResults: {}, // 跟踪工具结果的展开状态
-            expandedMetrics: {} // 跟踪耗时面板的展开状态（key 为 messagesWithTime 的 index）
+            expandedMetrics: {} // 跟踪耗时面板的展开状态（key 为 messagesWithMetricsFlag 的 index）
         };
     },
     components: {
@@ -252,44 +252,6 @@ export default {
                 ...message,
                 _showMetrics: visible.has(index)
             }));
-        },
-        messagesWithTime() {
-            const list = this.messagesWithMetricsFlag;
-            if (!list || list.length === 0) return [];
-
-            const result = [];
-            const TIME_INTERVAL = 60 * 1000; // 1分钟的时间间隔（毫秒）
-
-            // 添加第一条消息的时间标记
-            if (list[0]) {
-                result.push({
-                    type: 'time',
-                    content: this.formatTime(list[list.length - 1].createdAt),
-                    id: `time-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-                });
-            }
-
-            // 处理消息列表
-            for (let i = 0; i < list.length; i++) {
-                const currentMessage = list[i];
-                result.push(currentMessage);
-
-                // 检查是否需要添加时间标记
-                if (i < list.length - 1) {
-                    const currentTime = new Date(currentMessage.createdAt).getTime();
-                    const nextTime = new Date(list[i + 1].createdAt).getTime();
-
-                    if (nextTime - currentTime > TIME_INTERVAL) {
-                        result.push({
-                            type: 'time',
-                            content: this.formatTime(list[i + 1].createdAt),
-                            id: `time-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-                        });
-                    }
-                }
-            }
-
-            return result;
         }
     },
     methods: {
@@ -483,6 +445,18 @@ export default {
                     this.loadSessions();
                 }
             }, 200);
+        },
+        /**
+         * 单条消息的时间展示。
+         * 后端 WebMvcConfig 把 java.util.Date 按 GMT+8 序列化成 "yyyy-MM-dd HH:mm:ss"，
+         * 这里只做字符串归一化，避免浏览器本地时区再做一次换算把中国时间改错。
+         */
+        formatMessageTime(value) {
+            if (!value) return '';
+            const text = String(value);
+            const match = text.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::(\d{2}))?/);
+            if (!match) return text;
+            return `${match[1]} ${match[2]}${match[3] ? ':' + match[3] : ''}`;
         },
         formatTime(timestamp) {
             const date = new Date(timestamp);
@@ -895,22 +869,17 @@ export default {
     color: #999;
 }
 
-.time-divider {
-    text-align: center;
-    margin: 10px 0;
-    color: #999;
+/* 每条消息自带时间：时间行紧贴头像/气泡顶部，水平方向与气泡边缘对齐 */
+.message-time {
+    padding: 0 50px 3px; /* 左右各让出 头像40px + 气泡10px */
     font-size: 12px;
+    line-height: 1.2;
+    color: #a4a7ad;
+    font-variant-numeric: tabular-nums;
 }
 
-.time-divider::before,
-.time-divider::after {
-    content: '';
-    display: inline-block;
-    width: 30%;
-    height: 1px;
-    background-color: #eee;
-    vertical-align: middle;
-    margin: 0 10px;
+.message-row.is-user .message-time {
+    text-align: right;
 }
 
 .download-buttons {
