@@ -2,7 +2,9 @@ package xiaozhi.modules.dataanalysis.service.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -11,7 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.TimeZone;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,7 +56,15 @@ import xiaozhi.modules.model.service.ModelConfigService;
 public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecordDao, DataReportRecordEntity>
         implements DataReportRecordService {
 
-    private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    /** 统一按中国时间格式化，避免受服务器 JVM 默认时区影响 */
+    private static final DateTimeFormatter CHINA_TIME_FORMATTER = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("Asia/Shanghai"));
+
+    /** 中国时间相对 UTC 的固定偏移 */
+    private static final long CHINA_OFFSET_MILLIS = 8L * 60 * 60 * 1000;
+
+    /** 允许的设备时钟偏差；超过该值才认为设备上报的是「本地墙上时间当 UTC 戳」 */
+    private static final long CLOCK_SKEW_TOLERANCE_MILLIS = 60L * 60 * 1000;
 
     /** 字段目录（data_report_metric 表）在进程内缓存，避免每次上报都查库 */
     private volatile Map<String, DataReportMetricEntity> metricCatalogCache;
@@ -85,8 +94,17 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
                 || dto.getData().isEmpty()) {
             return;
         }
-        Date reportTime = dto.getTimestamp() != null ? new Date(dto.getTimestamp()) : new Date();
         Date now = new Date();
+        Date reportTime = now;
+        if (dto.getTimestamp() != null) {
+            long ts = dto.getTimestamp();
+            // 终端拿到 OTA 下发的 server_time.timestamp 后会加上 timezone_offset 再当时戳上报，
+            // 导致比真实时刻快 8 小时。只有明显晚于服务器当前时间才回拨，避免误伤正常时钟或历史补传。
+            if (ts > now.getTime() + CLOCK_SKEW_TOLERANCE_MILLIS) {
+                ts -= CHINA_OFFSET_MILLIS;
+            }
+            reportTime = new Date(ts);
+        }
         List<DataReportRecordEntity> entities = new ArrayList<>();
         for (Map.Entry<String, Object> entry : dto.getData().entrySet()) {
             String key = entry.getKey();
@@ -165,8 +183,8 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
     @Override
     public DataPreviewDashboardVO dashboard() {
         DataPreviewDashboardVO vo = new DataPreviewDashboardVO();
-        // DB 以 UTC 存储 report_time，看板按 JVM 本地时区归集，保证「哪天上传」与列表显示的时间一致
-        int offsetHours = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (60 * 60 * 1000);
+        // DB 统一以 UTC 存储 report_time，看板固定按中国时间 (+8) 归集，与列表展示口径一致
+        int offsetHours = (int) (CHINA_OFFSET_MILLIS / (60 * 60 * 1000));
 
         Map<String, Object> stat = dataReportRecordDao.selectDashboardSummary();
         DataPreviewDashboardVO.Summary summary = new DataPreviewDashboardVO.Summary();
@@ -226,7 +244,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
     }
 
     private String formatTime(Date date) {
-        return date != null ? SDF.format(date) : "";
+        return date != null ? CHINA_TIME_FORMATTER.format(Instant.ofEpochMilli(date.getTime())) : "";
     }
 
     @Override
@@ -371,7 +389,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         vo.setValueRange(e.getValueRange());
         vo.setValue(e.getValue());
         vo.setStatus(e.getStatus() != null && e.getStatus() == 1 ? "normal" : "abnormal");
-        vo.setTime(e.getReportTime() != null ? SDF.format(e.getReportTime()) : "");
+        vo.setTime(formatTime(e.getReportTime()));
         vo.setReportTime(e.getReportTime());
         return vo;
     }
@@ -412,7 +430,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
                     + (sxx > 0 ? (xf - meanX) * (xf - meanX) / sxx : 1));
             double band = 1.96 * se;
             DataPredictionPointVO p = new DataPredictionPointVO();
-            p.setTime(SDF.format(new Date(latest.getTime() + h * step)));
+            p.setTime(formatTime(new Date(latest.getTime() + h * step)));
             p.setPredicted(round(yhat));
             p.setLower(round(Math.max(0, yhat - band)));
             p.setUpper(round(yhat + band));
@@ -495,7 +513,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
             int len = Math.min(pred.size(), horizon);
             for (int h = 1; h <= len; h++) {
                 DataPredictionPointVO p = new DataPredictionPointVO();
-                p.setTime(SDF.format(new Date(latest.getTime() + h * step)));
+                p.setTime(formatTime(new Date(latest.getTime() + h * step)));
                 p.setPredicted(toBD(pred.get(h - 1)));
                 p.setLower(low != null ? toBD(low.get(h - 1)) : null);
                 p.setUpper(up != null ? toBD(up.get(h - 1)) : null);
