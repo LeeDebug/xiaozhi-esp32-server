@@ -47,6 +47,25 @@ export default {
   },
 
   /**
+   * 数据预览看板聚合统计
+   */
+  dashboard(callback) {
+    RequestService.sendRequest()
+      .url(`${getServiceUrl()}/data-analysis/dashboard`)
+      .method('GET')
+      .success((res) => {
+        RequestService.clearRequestTime();
+        callback(res);
+      })
+      .networkFail((err) => {
+        console.error('请求失败:', err);
+        RequestService.reAjaxFun(() => {
+          this.dashboard(callback);
+        });
+      }).send();
+  },
+
+  /**
    * 指标列表
    */
   metrics(callback) {

@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.TimeZone;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,7 @@ import xiaozhi.modules.dataanalysis.entity.DataReportMetricEntity;
 import xiaozhi.modules.dataanalysis.entity.DataReportRecordEntity;
 import xiaozhi.modules.dataanalysis.service.DataReportRecordService;
 import xiaozhi.modules.dataanalysis.vo.DataAnalysisStatisticsVO;
+import xiaozhi.modules.dataanalysis.vo.DataPreviewDashboardVO;
 import xiaozhi.modules.dataanalysis.vo.DataPredictionPointVO;
 import xiaozhi.modules.dataanalysis.vo.DataReportRecordVO;
 import xiaozhi.modules.dataanalysis.vo.MetricDistributionVO;
@@ -154,6 +156,73 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         vo.setDistribution(distVO);
         vo.setMetrics(metrics());
         return vo;
+    }
+
+    @Override
+    public DataPreviewDashboardVO dashboard() {
+        DataPreviewDashboardVO vo = new DataPreviewDashboardVO();
+        // DB 以 UTC 存储 report_time，看板按 JVM 本地时区归集，保证「哪天上传」与列表显示的时间一致
+        int offsetHours = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (60 * 60 * 1000);
+
+        Map<String, Object> stat = dataReportRecordDao.selectDashboardSummary();
+        DataPreviewDashboardVO.Summary summary = new DataPreviewDashboardVO.Summary();
+        summary.setRecordCount(toLong(stat.get("total")));
+        summary.setDeviceCount(toLong(stat.get("deviceCount")));
+        summary.setAbnormalCount(toLong(stat.get("abnormal")));
+        summary.setFirstReportTime(formatTime((Date) stat.get("firstTime")));
+        summary.setLastReportTime(formatTime((Date) stat.get("lastTime")));
+        vo.setSummary(summary);
+
+        List<DataPreviewDashboardVO.DailyUpload> daily = new ArrayList<>();
+        for (Map<String, Object> m : dataReportRecordDao.selectDailyUploads(offsetHours)) {
+            DataPreviewDashboardVO.DailyUpload d = new DataPreviewDashboardVO.DailyUpload();
+            Object day = m.get("statDate");
+            d.setDate(day != null ? day.toString() : "");
+            d.setCount(toLong(m.get("cnt")));
+            d.setDeviceCount(toLong(m.get("deviceCount")));
+            daily.add(d);
+        }
+        summary.setActiveDays((long) daily.size());
+        vo.setDailyUploads(daily);
+
+        List<DataPreviewDashboardVO.DeviceUpload> devices = new ArrayList<>();
+        for (Map<String, Object> m : dataReportRecordDao.selectDeviceUploads(offsetHours)) {
+            DataPreviewDashboardVO.DeviceUpload d = new DataPreviewDashboardVO.DeviceUpload();
+            Object id = m.get("deviceId");
+            d.setDeviceId(id != null ? id.toString() : "");
+            d.setCount(toLong(m.get("cnt")));
+            Object last = m.get("lastTime");
+            d.setLastReportTime(last != null ? last.toString() : "");
+            devices.add(d);
+        }
+        vo.setDeviceUploads(devices);
+
+        List<MetricDistributionVO> distVO = new ArrayList<>();
+        for (Map<String, Object> m : dataReportRecordDao.selectMetricDistribution()) {
+            MetricDistributionVO d = new MetricDistributionVO();
+            d.setMetric((String) m.get("metricName"));
+            d.setCount(toLong(m.get("cnt")));
+            d.setAvg(toBigDecimal(m.get("avgVal")));
+            d.setMax(toBigDecimal(m.get("maxVal")));
+            d.setMin(toBigDecimal(m.get("minVal")));
+            distVO.add(d);
+        }
+        vo.setMetricDistribution(distVO);
+
+        List<DataPreviewDashboardVO.HourlyUpload> hourly = new ArrayList<>();
+        for (Map<String, Object> m : dataReportRecordDao.selectHourlyDistribution(offsetHours)) {
+            DataPreviewDashboardVO.HourlyUpload h = new DataPreviewDashboardVO.HourlyUpload();
+            h.setDayOfWeek(toLong(m.get("dow")).intValue());
+            h.setHour(toLong(m.get("hr")).intValue());
+            h.setCount(toLong(m.get("cnt")));
+            hourly.add(h);
+        }
+        vo.setHourlyDistribution(hourly);
+        return vo;
+    }
+
+    private String formatTime(Date date) {
+        return date != null ? SDF.format(date) : "";
     }
 
     @Override

@@ -21,6 +21,7 @@ import xiaozhi.modules.dataanalysis.dto.DataPredictionDTO;
 import xiaozhi.modules.dataanalysis.dto.DataReportUploadDTO;
 import xiaozhi.modules.dataanalysis.service.DataReportRecordService;
 import xiaozhi.modules.dataanalysis.vo.DataAnalysisStatisticsVO;
+import xiaozhi.modules.dataanalysis.vo.DataPreviewDashboardVO;
 import xiaozhi.modules.dataanalysis.vo.DataPredictionPointVO;
 import xiaozhi.modules.dataanalysis.vo.DataReportRecordVO;
 import xiaozhi.modules.dataanalysis.vo.MetricMetaVO;
@@ -50,6 +51,12 @@ public class DataReportRecordController {
     @Operation(summary = "数据分析统计")
     public Result<DataAnalysisStatisticsVO> statistics() {
         return new Result<DataAnalysisStatisticsVO>().ok(dataReportRecordService.statistics());
+    }
+
+    @GetMapping("/dashboard")
+    @Operation(summary = "数据预览看板聚合统计")
+    public Result<DataPreviewDashboardVO> dashboard() {
+        return new Result<DataPreviewDashboardVO>().ok(dataReportRecordService.dashboard());
     }
 
     @GetMapping("/metrics")

@@ -167,6 +167,7 @@
           'active-tab':
             $route.path === '/data-push-config' ||
             $route.path === '/data-preview' ||
+            $route.path === '/data-preview-dashboard' ||
             $route.path === '/data-analysis' ||
             $route.path === '/data-prediction'
         }" @visible-change="handleAiDataAnalysisDropdownVisibleChange">
@@ -175,6 +176,7 @@
               filter:
                 $route.path === '/data-push-config' ||
                   $route.path === '/data-preview' ||
+                  $route.path === '/data-preview-dashboard' ||
                   $route.path === '/data-analysis' ||
                   $route.path === '/data-prediction'
                   ? 'brightness(0) invert(1)' : 'None',
@@ -188,6 +190,9 @@
             </el-dropdown-item>
             <el-dropdown-item @click.native="handleRouter('dataPreview')">
               {{ $t("header.dataPreview") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('dataPreviewDashboard')">
+              {{ $t("header.dataPreviewDashboard") }}
             </el-dropdown-item>
             <el-dropdown-item @click.native="handleRouter('dataAnalysis')">
               {{ $t("header.dataAnalysis") }}
@@ -270,6 +275,7 @@ export default {
         featureManagement: "/feature-management",
         dataPushConfig: "/data-push-config",
         dataPreview: "/data-preview",
+        dataPreviewDashboard: "/data-preview-dashboard",
         dataAnalysis: "/data-analysis",
         dataPrediction: "/data-prediction",
       }

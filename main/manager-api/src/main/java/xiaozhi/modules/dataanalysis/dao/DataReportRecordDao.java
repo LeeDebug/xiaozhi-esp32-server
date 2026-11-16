@@ -32,4 +32,24 @@ public interface DataReportRecordDao extends BaseDao<DataReportRecordEntity> {
 
     @Select("SELECT report_time FROM data_report_record WHERE metric_key = #{metricKey} ORDER BY report_time DESC LIMIT 1")
     Date selectLatestReportTime(@Param("metricKey") String metricKey);
+
+    @Select("SELECT COUNT(*) AS total, COUNT(DISTINCT device_id) AS deviceCount, "
+            + "SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) AS abnormal, "
+            + "MIN(report_time) AS firstTime, MAX(report_time) AS lastTime FROM data_report_record")
+    Map<String, Object> selectDashboardSummary();
+
+    @Select("SELECT DATE_FORMAT(DATE_ADD(report_time, INTERVAL #{offsetHours} HOUR), '%Y-%m-%d') AS statDate, "
+            + "COUNT(*) AS cnt, COUNT(DISTINCT device_id) AS deviceCount FROM data_report_record "
+            + "WHERE report_time IS NOT NULL GROUP BY statDate ORDER BY statDate ASC")
+    List<Map<String, Object>> selectDailyUploads(@Param("offsetHours") int offsetHours);
+
+    @Select("SELECT device_id AS deviceId, COUNT(*) AS cnt, "
+            + "DATE_FORMAT(DATE_ADD(MAX(report_time), INTERVAL #{offsetHours} HOUR), '%Y-%m-%d %H:%i:%s') AS lastTime "
+            + "FROM data_report_record GROUP BY device_id ORDER BY cnt DESC LIMIT 20")
+    List<Map<String, Object>> selectDeviceUploads(@Param("offsetHours") int offsetHours);
+
+    @Select("SELECT DAYOFWEEK(DATE_ADD(report_time, INTERVAL #{offsetHours} HOUR)) AS dow, "
+            + "HOUR(DATE_ADD(report_time, INTERVAL #{offsetHours} HOUR)) AS hr, COUNT(*) AS cnt "
+            + "FROM data_report_record WHERE report_time IS NOT NULL GROUP BY dow, hr")
+    List<Map<String, Object>> selectHourlyDistribution(@Param("offsetHours") int offsetHours);
 }

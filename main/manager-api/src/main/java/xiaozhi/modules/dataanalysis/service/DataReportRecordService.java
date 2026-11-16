@@ -7,6 +7,7 @@ import xiaozhi.common.page.PageData;
 import xiaozhi.modules.dataanalysis.dto.DataPredictionDTO;
 import xiaozhi.modules.dataanalysis.dto.DataReportUploadDTO;
 import xiaozhi.modules.dataanalysis.vo.DataAnalysisStatisticsVO;
+import xiaozhi.modules.dataanalysis.vo.DataPreviewDashboardVO;
 import xiaozhi.modules.dataanalysis.vo.DataPredictionPointVO;
 import xiaozhi.modules.dataanalysis.vo.DataReportRecordVO;
 import xiaozhi.modules.dataanalysis.vo.MetricMetaVO;
@@ -27,6 +28,11 @@ public interface DataReportRecordService {
      * 数据分析统计
      */
     DataAnalysisStatisticsVO statistics();
+
+    /**
+     * 数据预览看板聚合统计
+     */
+    DataPreviewDashboardVO dashboard();
 
     /**
      * 指标列表

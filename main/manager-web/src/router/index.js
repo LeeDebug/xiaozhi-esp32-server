@@ -204,6 +204,14 @@ const routes = [
       return import('../views/DataPreview.vue')
     }
   },
+  // AI数据分析 - 数据预览看板
+  {
+    path: '/data-preview-dashboard',
+    name: 'DataPreviewDashboard',
+    component: function () {
+      return import('../views/DataPreviewDashboard.vue')
+    }
+  },
   // AI数据分析 - 数据分析
   {
     path: '/data-analysis',
