@@ -27,6 +27,10 @@ public interface DataReportRecordDao extends BaseDao<DataReportRecordEntity> {
     @Select("SELECT DISTINCT metric_key AS metricKey, metric_name AS metricName FROM data_report_record ORDER BY metric_key")
     List<Map<String, Object>> selectMetricList();
 
+    @Select("SELECT device_id AS deviceId, COUNT(*) AS cnt FROM data_report_record "
+            + "WHERE device_id IS NOT NULL AND device_id <> '' GROUP BY device_id ORDER BY device_id")
+    List<Map<String, Object>> selectDeviceList();
+
     @Select("SELECT value FROM data_report_record WHERE metric_key = #{metricKey} ORDER BY report_time ASC LIMIT #{limit}")
     List<BigDecimal> selectHistoryValues(@Param("metricKey") String metricKey, @Param("limit") int limit);
 

@@ -126,6 +126,10 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         if (StringUtils.isNotBlank(metric)) {
             wrapper.eq(DataReportRecordEntity::getMetricKey, metric);
         }
+        String deviceId = (String) params.get("deviceId");
+        if (StringUtils.isNotBlank(deviceId)) {
+            wrapper.eq(DataReportRecordEntity::getDeviceId, deviceId);
+        }
         dataReportRecordDao.selectPage(page, wrapper);
         List<DataReportRecordVO> voList = page.getRecords().stream()
                 .map(this::toVO)
@@ -260,6 +264,11 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
             result.put(key, meta);
         }
         return new ArrayList<>(result.values());
+    }
+
+    @Override
+    public List<Map<String, Object>> devices() {
+        return dataReportRecordDao.selectDeviceList();
     }
 
     /** 加载并缓存字段目录；目录表未就绪时返回空 Map，保证上报接口不受影响 */

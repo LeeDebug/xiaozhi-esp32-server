@@ -20,34 +20,51 @@
             <div class="divider"></div>
 
             <div class="filter-bar">
-              <el-input
-                v-model="keyword"
-                :placeholder="$t('aiDataAnalysis.dataPreview.searchPlaceholder')"
-                clearable
-                class="filter-input"
-                @clear="loadData"
-                @keyup.enter.native="loadData"
-              />
-              <el-select v-model="metricFilter" :placeholder="$t('aiDataAnalysis.dataPreview.metric')" clearable filterable class="filter-select" @change="loadData">
-                <el-option v-for="m in metricOptions" :key="m.value" :label="m.label" :value="m.value" />
-              </el-select>
+              <div class="filter-item">
+                <span class="filter-label">{{ $t('aiDataAnalysis.dataPreview.device') }}</span>
+                <el-select
+                  v-model="deviceFilter"
+                  filterable
+                  clearable
+                  class="filter-select"
+                  :placeholder="$t('aiDataAnalysis.dataPreview.allDevices')"
+                  @change="handleFilterChange"
+                >
+                  <el-option v-for="d in deviceOptions" :key="d.deviceId" :label="d.deviceId" :value="d.deviceId" />
+                </el-select>
+              </div>
+              <div class="filter-item">
+                <span class="filter-label">{{ $t('aiDataAnalysis.dataPreview.metric') }}</span>
+                <el-select
+                  v-model="metricFilter"
+                  filterable
+                  clearable
+                  class="filter-select"
+                  :placeholder="$t('aiDataAnalysis.dataPreview.allMetrics')"
+                  @change="handleFilterChange"
+                >
+                  <el-option v-for="m in metricOptions" :key="m.value" :label="m.label" :value="m.value" />
+                </el-select>
+              </div>
             </div>
 
-            <el-table :data="pagedData" size="small" class="ai-table" border v-loading="loading">
-              <el-table-column prop="deviceId" :label="$t('aiDataAnalysis.dataPreview.deviceId')" min-width="160" />
-              <el-table-column prop="time" :label="$t('aiDataAnalysis.dataPreview.time')" min-width="170" />
-              <el-table-column prop="metric" :label="$t('aiDataAnalysis.dataPreview.metric')" min-width="120" />
-              <el-table-column prop="metricKey" label="metric_key" min-width="220" show-overflow-tooltip />
-              <el-table-column prop="valueRange" label="取值范围" min-width="240" show-overflow-tooltip />
-              <el-table-column prop="value" :label="$t('aiDataAnalysis.dataPreview.value')" min-width="100" />
-              <el-table-column prop="status" :label="$t('aiDataAnalysis.dataPreview.status')" min-width="100">
-                <template slot-scope="scope">
-                  <el-tag :type="scope.row.status === 'normal' ? 'success' : 'danger'" size="mini">
-                    {{ scope.row.status === 'normal' ? $t('aiDataAnalysis.dataPreview.statusNormal') : $t('aiDataAnalysis.dataPreview.statusAbnormal') }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-            </el-table>
+            <div class="table-container">
+              <el-table :data="pagedData" size="small" class="ai-table" border height="100%" v-loading="loading">
+                <el-table-column prop="deviceId" :label="$t('aiDataAnalysis.dataPreview.deviceId')" min-width="160" />
+                <el-table-column prop="time" :label="$t('aiDataAnalysis.dataPreview.time')" min-width="170" />
+                <el-table-column prop="metric" :label="$t('aiDataAnalysis.dataPreview.metric')" min-width="120" />
+                <el-table-column prop="metricKey" label="metric_key" min-width="220" show-overflow-tooltip />
+                <el-table-column prop="valueRange" label="取值范围" min-width="240" show-overflow-tooltip />
+                <el-table-column prop="value" :label="$t('aiDataAnalysis.dataPreview.value')" min-width="100" />
+                <el-table-column prop="status" :label="$t('aiDataAnalysis.dataPreview.status')" min-width="100">
+                  <template slot-scope="scope">
+                    <el-tag :type="scope.row.status === 'normal' ? 'success' : 'danger'" size="mini">
+                      {{ scope.row.status === 'normal' ? $t('aiDataAnalysis.dataPreview.statusNormal') : $t('aiDataAnalysis.dataPreview.statusAbnormal') }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
 
             <div class="empty-hint" v-if="!loading && pagedData.length === 0">
               {{ $t('aiDataAnalysis.dataPreview.emptyHint') }}
@@ -90,7 +107,8 @@ export default {
     return {
       loading: false,
       seeding: false,
-      keyword: '',
+      deviceFilter: '',
+      deviceOptions: [],
       metricFilter: '',
       metricOptions: FALLBACK_METRICS,
       pagedData: [],
@@ -100,10 +118,25 @@ export default {
     }
   },
   created() {
+    this.loadDevices()
     this.loadMetrics()
     this.loadData()
   },
   methods: {
+    loadDevices() {
+      dataAnalysis.devices((res) => {
+        const body = res && res.data
+        if (body && body.code === 0 && Array.isArray(body.data)) {
+          this.deviceOptions = body.data
+            .map((d) => ({ deviceId: d.deviceId, cnt: d.cnt }))
+            .filter((d) => d.deviceId)
+        }
+      })
+    },
+    handleFilterChange() {
+      this.currentPage = 1
+      this.loadData()
+    },
     loadMetrics() {
       dataAnalysis.metrics((res) => {
         const body = res && res.data
@@ -119,7 +152,7 @@ export default {
     loadData() {
       this.loading = true
       dataAnalysis.preview(
-        { keyword: this.keyword, metric: this.metricFilter, page: this.currentPage, limit: this.pageSize },
+        { deviceId: this.deviceFilter, metric: this.metricFilter, page: this.currentPage, limit: this.pageSize },
         (res) => {
           this.loading = false
           const body = res && res.data
@@ -153,6 +186,9 @@ export default {
             this.$message.success(this.$t('aiDataAnalysis.dataPreview.demoSuccess'))
           }
           this.currentPage = 1
+          this.deviceFilter = ''
+          this.metricFilter = ''
+          this.loadDevices()
           this.loadMetrics()
           this.loadData()
         } else {
@@ -185,6 +221,8 @@ export default {
   position: relative;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -202,6 +240,7 @@ export default {
   flex: 1;
   height: 100%;
   min-width: 600px;
+  min-height: 0;
   overflow: auto;
   background-color: white;
   display: flex;
@@ -213,6 +252,7 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border: none;
   box-shadow: none;
   overflow: hidden;
@@ -223,6 +263,8 @@ export default {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .page-header {
@@ -257,21 +299,51 @@ export default {
 
 .filter-bar {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
-.filter-input {
-  width: 280px;
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 13px;
+  color: #606266;
+  white-space: nowrap;
 }
 
 .filter-select {
-  width: 180px;
+  width: 200px;
+}
+
+.table-container {
+  flex: 1;
+  min-height: 0;
 }
 
 .ai-table {
   width: 100%;
+
+  ::v-deep .el-table__body-wrapper {
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: var(--sys-scrollbar-thumb);
+      border-radius: 3px;
+    }
+    &::-webkit-scrollbar-track {
+      background: var(--sys-scrollbar-track);
+      border-radius: 3px;
+    }
+  }
 }
 
 .empty-hint {
@@ -286,6 +358,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   margin-top: 16px;
+  flex-shrink: 0;
   flex-wrap: wrap;
   gap: 8px;
 }

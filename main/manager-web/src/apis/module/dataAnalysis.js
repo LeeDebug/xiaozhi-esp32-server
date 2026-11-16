@@ -7,7 +7,7 @@ export default {
    */
   preview(params, callback) {
     const queryParams = new URLSearchParams({
-      keyword: params.keyword || '',
+      deviceId: params.deviceId || '',
       metric: params.metric || '',
       page: params.page || 1,
       limit: params.limit || 12,
@@ -61,6 +61,25 @@ export default {
         console.error('请求失败:', err);
         RequestService.reAjaxFun(() => {
           this.dashboard(callback);
+        });
+      }).send();
+  },
+
+  /**
+   * 上报设备列表
+   */
+  devices(callback) {
+    RequestService.sendRequest()
+      .url(`${getServiceUrl()}/data-analysis/devices`)
+      .method('GET')
+      .success((res) => {
+        RequestService.clearRequestTime();
+        callback(res);
+      })
+      .networkFail((err) => {
+        console.error('请求失败:', err);
+        RequestService.reAjaxFun(() => {
+          this.devices(callback);
         });
       }).send();
   },

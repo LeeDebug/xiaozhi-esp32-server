@@ -40,6 +40,11 @@ public interface DataReportRecordService {
     List<MetricMetaVO> metrics();
 
     /**
+     * 上报设备列表（供数据预览设备下拉筛选）
+     */
+    List<Map<String, Object>> devices();
+
+    /**
      * 数据预测（默认统计，可切换大模型）
      */
     List<DataPredictionPointVO> predict(DataPredictionDTO dto);

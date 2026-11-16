@@ -65,6 +65,12 @@ public class DataReportRecordController {
         return new Result<List<MetricMetaVO>>().ok(dataReportRecordService.metrics());
     }
 
+    @GetMapping("/devices")
+    @Operation(summary = "上报设备列表")
+    public Result<List<Map<String, Object>>> devices() {
+        return new Result<List<Map<String, Object>>>().ok(dataReportRecordService.devices());
+    }
+
     @PostMapping("/predict")
     @Operation(summary = "数据预测")
     public Result<List<DataPredictionPointVO>> predict(@Valid @RequestBody DataPredictionDTO dto) {
