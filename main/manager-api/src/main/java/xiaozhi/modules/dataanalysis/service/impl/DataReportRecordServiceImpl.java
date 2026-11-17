@@ -110,12 +110,15 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
                 || dto.getData().isEmpty()) {
             return;
         }
-        // 固件上报的 deviceId 是 Client-Id(UUID)；用随包携带的 MAC 建立与 ai_device 的归属映射。
-        Object mac = dto.getDeviceInfo() == null ? null : dto.getDeviceInfo().get("mac");
-        if (mac != null && StringUtils.isNotBlank(mac.toString())
-                && !mac.toString().equalsIgnoreCase(dto.getDeviceId())) {
-            dataReportRecordDao.bindClientId(mac.toString().trim(), dto.getDeviceId());
+        // 固件上报的 deviceId 是 Client-Id(UUID)；随包 MAC 用于建立 ai_device 归属映射，
+        // 同时冗余写入每条上报记录，使数据预览可以复用会话记录按 MAC 筛选的设备下拉。
+        Object reportedMac = dto.getDeviceInfo() == null ? null : dto.getDeviceInfo().get("mac");
+        String reportedMacText = reportedMac == null ? null : reportedMac.toString().trim();
+        if (StringUtils.isNotBlank(reportedMacText) && !reportedMacText.equalsIgnoreCase(dto.getDeviceId())) {
+            dataReportRecordDao.bindClientId(reportedMacText, dto.getDeviceId());
         }
+        // 绑定完成后再解析，优先取 ai_device 中规范化的 MAC，保证下拉选项与记录值大小写一致。
+        String macAddress = resolveMacAddress(reportedMacText, dto.getDeviceId());
         Date now = new Date();
         Date reportTime = now;
         if (dto.getTimestamp() != null) {
@@ -137,6 +140,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
             DataReportMetricEntity meta = metricCatalog().get(key);
             DataReportRecordEntity e = new DataReportRecordEntity();
             e.setDeviceId(dto.getDeviceId());
+            e.setMacAddress(macAddress);
             e.setMetricKey(key);
             e.setMetricName(meta != null ? meta.getMetricName() : key);
             e.setValueRange(meta != null ? meta.getValueRange() : null);
@@ -149,6 +153,15 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         if (!entities.isEmpty()) {
             insertBatch(entities);
         }
+    }
+
+    /** 优先取 ai_device 中的规范 MAC；尚未绑定时才回退到上报包携带的 MAC。 */
+    private String resolveMacAddress(String reportedMac, String deviceId) {
+        String bound = dataReportRecordDao.selectMacAddressByDeviceId(deviceId);
+        if (StringUtils.isNotBlank(bound)) {
+            return bound.trim();
+        }
+        return StringUtils.isBlank(reportedMac) ? null : reportedMac.trim();
     }
 
     @Override
@@ -169,6 +182,10 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         String deviceId = (String) params.get("deviceId");
         if (StringUtils.isNotBlank(deviceId)) {
             wrapper.eq(DataReportRecordEntity::getDeviceId, deviceId);
+        }
+        String macAddress = (String) params.get("macAddress");
+        if (StringUtils.isNotBlank(macAddress)) {
+            wrapper.eq(DataReportRecordEntity::getMacAddress, macAddress.trim());
         }
         if (!viewAllUserData()) {
             wrapper.apply("EXISTS (SELECT 1 FROM ai_device d WHERE d.user_id = {0} "
@@ -405,11 +422,10 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
             return -1;
         }
         // 演示数据只能落在当前可见的设备上，否则生成后用户仍然看不到
-        List<String> visibleDevices = dataReportRecordDao.selectScopeDeviceIds(userId, viewAll);
+        List<Map<String, Object>> visibleDevices = dataReportRecordDao.selectScopeDeviceMacs(userId, viewAll);
         if (visibleDevices.isEmpty()) {
             return -2;
         }
-        String[] devices = visibleDevices.toArray(new String[0]);
         // 演示数据使用字段目录中的真实 mb-mcp_ 指标
         Object[][] metricDefs = {
                 {"mb-mcp_waterTemperature", "水温", 10.0, 30.0},
@@ -422,7 +438,9 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         Date createTime = new Date();
         List<DataReportRecordEntity> entities = new ArrayList<>();
         Random rnd = new Random(20261104L);
-        for (String dev : devices) {
+        for (Map<String, Object> dev : visibleDevices) {
+            String deviceId = (String) dev.get("deviceId");
+            String macAddress = (String) dev.get("macAddress");
             for (Object[] md : metricDefs) {
                 String key = (String) md[0];
                 String name = (String) md[1];
@@ -434,7 +452,8 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
                             + Math.sin(i / 6.0) * (hi - lo) * 0.15;
                     v = Math.max(lo, Math.min(hi, v));
                     DataReportRecordEntity e = new DataReportRecordEntity();
-                    e.setDeviceId(dev);
+                    e.setDeviceId(deviceId);
+                    e.setMacAddress(macAddress);
                     e.setMetricKey(key);
                     e.setMetricName(name);
                     DataReportMetricEntity meta = metricCatalog().get(key);
@@ -457,6 +476,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         }
         DataReportRecordVO vo = new DataReportRecordVO();
         vo.setDeviceId(e.getDeviceId());
+        vo.setMacAddress(e.getMacAddress());
         vo.setMetricKey(e.getMetricKey());
         vo.setMetric(e.getMetricName());
         vo.setValueRange(e.getValueRange());

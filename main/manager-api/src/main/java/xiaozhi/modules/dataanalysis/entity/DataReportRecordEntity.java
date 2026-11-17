@@ -18,8 +18,11 @@ public class DataReportRecordEntity {
     @Schema(description = "记录ID")
     private String id;
 
-    @Schema(description = "设备唯一ID")
+    @Schema(description = "设备唯一ID(固件上报的Client-Id)")
     private String deviceId;
+
+    @Schema(description = "设备MAC地址(ai_device.mac_address)")
+    private String macAddress;
 
     @Schema(description = "指标英文key")
     private String metricKey;

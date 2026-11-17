@@ -30,7 +30,8 @@
                   :placeholder="$t('aiDataAnalysis.dataPreview.allDevices')"
                   @change="handleFilterChange"
                 >
-                  <el-option v-for="d in deviceOptions" :key="d.deviceId" :label="d.deviceId" :value="d.deviceId" />
+                  <el-option v-for="item in deviceOptions" :key="item.macAddress"
+                    :label="deviceLabel(item)" :value="item.macAddress" />
                 </el-select>
               </div>
               <div class="filter-item">
@@ -50,6 +51,7 @@
 
             <div class="table-container">
               <el-table :data="pagedData" size="small" class="ai-table" border height="100%" v-loading="loading">
+                <el-table-column prop="macAddress" label="MAC地址" min-width="160" />
                 <el-table-column prop="deviceId" :label="$t('aiDataAnalysis.dataPreview.deviceId')" min-width="160" />
                 <el-table-column prop="time" :label="$t('aiDataAnalysis.dataPreview.time')" min-width="170" />
                 <el-table-column prop="metric" :label="$t('aiDataAnalysis.dataPreview.metric')" min-width="120" />
@@ -91,7 +93,9 @@
 <script>
 import HeaderBar from '@/components/HeaderBar.vue'
 import CustomButton from '@/components/CustomButton.vue'
+import Api from '@/apis/api'
 import dataAnalysis from '@/apis/module/dataAnalysis.js'
+import { ownerDisplayName, hasOwner } from '@/utils/ownerDisplay'
 import { REPORT_METRICS, getMetric, metricSeqText } from '@/constants/reportMetrics.js'
 
 // 后端字段目录接口不可用时的兜底：直接使用 Excel 全量字段目录
@@ -123,15 +127,21 @@ export default {
     this.loadData()
   },
   methods: {
+    // 与会话记录页共用同一设备下拉接口，统一按 MAC 作为设备口径
     loadDevices() {
-      dataAnalysis.devices((res) => {
-        const body = res && res.data
-        if (body && body.code === 0 && Array.isArray(body.data)) {
-          this.deviceOptions = body.data
-            .map((d) => ({ deviceId: d.deviceId, cnt: d.cnt }))
-            .filter((d) => d.deviceId)
+      Api.chatHistory.getFilterOptions(({ data }) => {
+        if (data && data.code === 0 && data.data) {
+          this.deviceOptions = (data.data.devices || []).filter((item) => item.macAddress)
         }
+      }, () => {
+        this.$message.error(this.$t('chatRecords.filterFailed'))
       })
+    },
+    deviceLabel(item) {
+      const base = item.alias ? `${item.alias} · ${item.macAddress}` : item.macAddress
+      if (!hasOwner(item)) return base
+      const tag = item.isOwn === false ? this.$t('common.ownerOther') : this.$t('common.ownerMine')
+      return `${base}（${tag} · ${ownerDisplayName(item)}）`
     },
     handleFilterChange() {
       this.currentPage = 1
@@ -152,7 +162,7 @@ export default {
     loadData() {
       this.loading = true
       dataAnalysis.preview(
-        { deviceId: this.deviceFilter, metric: this.metricFilter, page: this.currentPage, limit: this.pageSize },
+        { macAddress: this.deviceFilter, metric: this.metricFilter, page: this.currentPage, limit: this.pageSize },
         (res) => {
           this.loading = false
           const body = res && res.data

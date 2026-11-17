@@ -8,6 +8,7 @@ export default {
   preview(params, callback) {
     const queryParams = new URLSearchParams({
       deviceId: params.deviceId || '',
+      macAddress: params.macAddress || '',
       metric: params.metric || '',
       page: params.page || 1,
       limit: params.limit || 12,

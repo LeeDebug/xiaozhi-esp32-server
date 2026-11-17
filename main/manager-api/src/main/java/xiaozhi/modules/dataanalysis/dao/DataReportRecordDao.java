@@ -19,11 +19,12 @@ public interface DataReportRecordDao extends BaseDao<DataReportRecordEntity> {
     /**
      * 数据可见范围：超管参数开启时看全库；否则只统计归属当前用户的设备。
      * 固件上报的 device_id 是 Client-Id(UUID)，保存在 ai_device.client_id；
-     * 同时兼容早期直接上报 MAC / ai_device.id 的设备。
+     * 同时兼容早期直接上报 MAC / ai_device.id 的设备，以及已回填 mac_address 的记录。
      */
     String SCOPE_CONDITION = "(#{viewAll} = 1 OR EXISTS ("
             + "SELECT 1 FROM ai_device d WHERE d.user_id = #{userId} "
-            + "AND (d.client_id = r.device_id OR d.id = r.device_id OR d.mac_address = r.device_id)))";
+            + "AND (d.client_id = r.device_id OR d.id = r.device_id OR d.mac_address = r.device_id "
+            + "OR d.mac_address = r.mac_address)))";
 
     @Select("SELECT COUNT(*) AS total, COUNT(DISTINCT r.device_id) AS deviceCount, AVG(r.value) AS avgValue, "
             + "SUM(CASE WHEN r.status = 0 THEN 1 ELSE 0 END) AS abnormal FROM data_report_record r "
@@ -51,9 +52,24 @@ public interface DataReportRecordDao extends BaseDao<DataReportRecordEntity> {
     List<String> selectScopeDeviceIds(@Param("userId") Long userId, @Param("viewAll") boolean viewAll);
 
     /** 用上报携带的 MAC 建立 Client-Id 与设备归属的映射，便于历史数据也能按用户过滤。 */
-    @Update("UPDATE ai_device SET client_id = #{clientId} WHERE mac_address = #{mac} "
+    @Update("UPDATE ai_device SET client_id = #{clientId} WHERE LOWER(mac_address) = LOWER(#{mac}) "
             + "AND (client_id IS NULL OR client_id = '' OR client_id <> #{clientId})")
     int bindClientId(@Param("mac") String mac, @Param("clientId") String clientId);
+
+    /** 上报包未携带 MAC 时，从已绑定的 Client-Id / 设备主键反查 ai_device 中的 MAC。 */
+    @Select("SELECT mac_address FROM ai_device "
+            + "WHERE (mac_address = #{deviceId} OR client_id = #{deviceId} OR id = #{deviceId}) "
+            + "AND mac_address IS NOT NULL AND mac_address <> '' "
+            + "ORDER BY CASE WHEN mac_address = #{deviceId} THEN 0 "
+            + "WHEN client_id = #{deviceId} THEN 1 ELSE 2 END LIMIT 1")
+    String selectMacAddressByDeviceId(@Param("deviceId") String deviceId);
+
+    /** 演示数据需要与真实上报一样同时写入 device_id 与 mac_address。 */
+    @Select("SELECT COALESCE(NULLIF(client_id, ''), id) AS deviceId, mac_address AS macAddress FROM ai_device "
+            + "WHERE (#{viewAll} = 1 OR user_id = #{userId}) "
+            + "AND mac_address IS NOT NULL AND mac_address <> '' ORDER BY id LIMIT 20")
+    List<Map<String, Object>> selectScopeDeviceMacs(@Param("userId") Long userId,
+            @Param("viewAll") boolean viewAll);
 
     @Select("SELECT r.value FROM data_report_record r WHERE r.metric_key = #{metricKey} AND " + SCOPE_CONDITION
             + " ORDER BY r.report_time ASC LIMIT #{limit}")

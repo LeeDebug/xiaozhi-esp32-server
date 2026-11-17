@@ -10,8 +10,11 @@ import lombok.Data;
 @Schema(description = "数据记录VO")
 public class DataReportRecordVO {
 
-    @Schema(description = "设备ID")
+    @Schema(description = "设备ID(固件上报的Client-Id)")
     private String deviceId;
+
+    @Schema(description = "设备MAC地址")
+    private String macAddress;
 
     @Schema(description = "指标key")
     private String metricKey;
