@@ -16,10 +16,11 @@ public interface ConfigService {
      * 获取智能体模型配置
      *
      * @param macAddress     MAC地址
+     * @param clientId       固件Client-Id(UUID)，用于绑定设备归属
      * @param selectedModule 客户端已实例化的模型
      * @return 模型配置信息
      */
-    Map<String, Object> getAgentModels(String macAddress, Map<String, String> selectedModule);
+    Map<String, Object> getAgentModels(String macAddress, String clientId, Map<String, String> selectedModule);
 
     /**
      * 获取智能体替换词

@@ -120,6 +120,11 @@ public interface DeviceService extends BaseService<DeviceEntity> {
     void updateDeviceConnectionInfo(String agentId, String deviceId, String appVersion);
 
     /**
+     * 将固件 Client-Id(UUID) 绑定到 MAC 对应的设备，供数据上报按归属过滤。
+     */
+    void bindClientId(String macAddress, String clientId);
+
+    /**
      * 生成WebSocket认证token
      *
      * @param clientId 客户端ID

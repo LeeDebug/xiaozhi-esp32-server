@@ -182,6 +182,8 @@ export default {
         if (body && body.code === 0) {
           if (body.data === -1) {
             this.$message.info(this.$t('aiDataAnalysis.dataPreview.demoExists'))
+          } else if (body.data === -2) {
+            this.$message.warning(this.$t('aiDataAnalysis.dataPreview.demoNoDevice'))
           } else {
             this.$message.success(this.$t('aiDataAnalysis.dataPreview.demoSuccess'))
           }

@@ -50,6 +50,7 @@ import xiaozhi.modules.dataanalysis.vo.MetricDistributionVO;
 import xiaozhi.modules.dataanalysis.vo.MetricMetaVO;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 
 @Slf4j
 @Service
@@ -78,6 +79,9 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
     @Autowired
     private ModelConfigService modelConfigService;
 
+    @Autowired
+    private UserDataScopeService userDataScopeService;
+
     private final RestTemplate restTemplate = buildRestTemplate();
 
     private static RestTemplate buildRestTemplate() {
@@ -87,12 +91,27 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         return new RestTemplate(factory);
     }
 
+    /** 与智能体/设备管理一致：普通用户只看自己的数据，超管需参数开启才看全库。 */
+    private boolean viewAllUserData() {
+        return userDataScopeService.canViewAllUserData();
+    }
+
+    private Long scopedUserId() {
+        return userDataScopeService.currentUserId();
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void upload(DataReportUploadDTO dto) {
         if (dto == null || StringUtils.isBlank(dto.getDeviceId()) || dto.getData() == null
                 || dto.getData().isEmpty()) {
             return;
+        }
+        // 固件上报的 deviceId 是 Client-Id(UUID)；用随包携带的 MAC 建立与 ai_device 的归属映射。
+        Object mac = dto.getDeviceInfo() == null ? null : dto.getDeviceInfo().get("mac");
+        if (mac != null && StringUtils.isNotBlank(mac.toString())
+                && !mac.toString().equalsIgnoreCase(dto.getDeviceId())) {
+            dataReportRecordDao.bindClientId(mac.toString().trim(), dto.getDeviceId());
         }
         Date now = new Date();
         Date reportTime = now;
@@ -148,6 +167,11 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         if (StringUtils.isNotBlank(deviceId)) {
             wrapper.eq(DataReportRecordEntity::getDeviceId, deviceId);
         }
+        if (!viewAllUserData()) {
+            wrapper.apply("EXISTS (SELECT 1 FROM ai_device d WHERE d.user_id = {0} "
+                    + "AND (d.client_id = device_id OR d.id = device_id OR d.mac_address = device_id))",
+                    scopedUserId());
+        }
         dataReportRecordDao.selectPage(page, wrapper);
         List<DataReportRecordVO> voList = page.getRecords().stream()
                 .map(this::toVO)
@@ -157,14 +181,16 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
 
     @Override
     public DataAnalysisStatisticsVO statistics() {
+        boolean viewAll = viewAllUserData();
+        Long userId = scopedUserId();
         DataAnalysisStatisticsVO vo = new DataAnalysisStatisticsVO();
-        Map<String, Object> stat = dataReportRecordDao.selectStatistics();
+        Map<String, Object> stat = dataReportRecordDao.selectStatistics(userId, viewAll);
         vo.setRecordCount(toLong(stat.get("total")));
         vo.setDeviceCount(toLong(stat.get("deviceCount")));
         vo.setAvgValue(toBigDecimal(stat.get("avgValue")));
         vo.setAbnormal(toLong(stat.get("abnormal")));
 
-        List<Map<String, Object>> dist = dataReportRecordDao.selectMetricDistribution();
+        List<Map<String, Object>> dist = dataReportRecordDao.selectMetricDistribution(userId, viewAll);
         List<MetricDistributionVO> distVO = new ArrayList<>();
         for (Map<String, Object> m : dist) {
             MetricDistributionVO d = new MetricDistributionVO();
@@ -185,8 +211,10 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         DataPreviewDashboardVO vo = new DataPreviewDashboardVO();
         // DB 统一以 UTC 存储 report_time，看板固定按中国时间 (+8) 归集，与列表展示口径一致
         int offsetHours = (int) (CHINA_OFFSET_MILLIS / (60 * 60 * 1000));
+        boolean viewAll = viewAllUserData();
+        Long userId = scopedUserId();
 
-        Map<String, Object> stat = dataReportRecordDao.selectDashboardSummary();
+        Map<String, Object> stat = dataReportRecordDao.selectDashboardSummary(userId, viewAll);
         DataPreviewDashboardVO.Summary summary = new DataPreviewDashboardVO.Summary();
         summary.setRecordCount(toLong(stat.get("total")));
         summary.setDeviceCount(toLong(stat.get("deviceCount")));
@@ -196,7 +224,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         vo.setSummary(summary);
 
         List<DataPreviewDashboardVO.DailyUpload> daily = new ArrayList<>();
-        for (Map<String, Object> m : dataReportRecordDao.selectDailyUploads(offsetHours)) {
+        for (Map<String, Object> m : dataReportRecordDao.selectDailyUploads(offsetHours, userId, viewAll)) {
             DataPreviewDashboardVO.DailyUpload d = new DataPreviewDashboardVO.DailyUpload();
             Object day = m.get("statDate");
             d.setDate(day != null ? day.toString() : "");
@@ -208,7 +236,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         vo.setDailyUploads(daily);
 
         List<DataPreviewDashboardVO.DeviceUpload> devices = new ArrayList<>();
-        for (Map<String, Object> m : dataReportRecordDao.selectDeviceUploads(offsetHours)) {
+        for (Map<String, Object> m : dataReportRecordDao.selectDeviceUploads(offsetHours, userId, viewAll)) {
             DataPreviewDashboardVO.DeviceUpload d = new DataPreviewDashboardVO.DeviceUpload();
             Object id = m.get("deviceId");
             d.setDeviceId(id != null ? id.toString() : "");
@@ -220,7 +248,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         vo.setDeviceUploads(devices);
 
         List<MetricDistributionVO> distVO = new ArrayList<>();
-        for (Map<String, Object> m : dataReportRecordDao.selectMetricDistribution()) {
+        for (Map<String, Object> m : dataReportRecordDao.selectMetricDistribution(userId, viewAll)) {
             MetricDistributionVO d = new MetricDistributionVO();
             d.setMetric((String) m.get("metricName"));
             d.setCount(toLong(m.get("cnt")));
@@ -232,7 +260,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         vo.setMetricDistribution(distVO);
 
         List<DataPreviewDashboardVO.HourlyUpload> hourly = new ArrayList<>();
-        for (Map<String, Object> m : dataReportRecordDao.selectHourlyDistribution(offsetHours)) {
+        for (Map<String, Object> m : dataReportRecordDao.selectHourlyDistribution(offsetHours, userId, viewAll)) {
             DataPreviewDashboardVO.HourlyUpload h = new DataPreviewDashboardVO.HourlyUpload();
             h.setDayOfWeek(toLong(m.get("dow")).intValue());
             h.setHour(toLong(m.get("hr")).intValue());
@@ -270,7 +298,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
             meta.setValueRange(e.getValueRange());
             result.put(e.getMetricKey(), meta);
         }
-        for (Map<String, Object> m : dataReportRecordDao.selectMetricList()) {
+        for (Map<String, Object> m : dataReportRecordDao.selectMetricList(scopedUserId(), viewAllUserData())) {
             String key = (String) m.get("metricKey");
             if (StringUtils.isBlank(key) || result.containsKey(key)) {
                 continue;
@@ -286,7 +314,7 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
 
     @Override
     public List<Map<String, Object>> devices() {
-        return dataReportRecordDao.selectDeviceList();
+        return dataReportRecordDao.selectDeviceList(scopedUserId(), viewAllUserData());
     }
 
     /** 加载并缓存字段目录；目录表未就绪时返回空 Map，保证上报接口不受影响 */
@@ -313,8 +341,10 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
     public List<DataPredictionPointVO> predict(DataPredictionDTO dto) {
         int horizon = dto.getHorizon() != null ? dto.getHorizon() : 12;
         horizon = Math.max(1, Math.min(horizon, 72));
-        List<BigDecimal> history = dataReportRecordDao.selectHistoryValues(dto.getMetric(), 168);
-        Date latest = dataReportRecordDao.selectLatestReportTime(dto.getMetric());
+        boolean viewAll = viewAllUserData();
+        Long userId = scopedUserId();
+        List<BigDecimal> history = dataReportRecordDao.selectHistoryValues(dto.getMetric(), 168, userId, viewAll);
+        Date latest = dataReportRecordDao.selectLatestReportTime(dto.getMetric(), userId, viewAll);
         if (history == null || history.isEmpty() || latest == null) {
             return Collections.emptyList();
         }
@@ -331,12 +361,18 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int seedDemoData() {
-        Long count = baseDao.selectCount(null);
-        if (count != null && count > 0) {
+        boolean viewAll = viewAllUserData();
+        Long userId = scopedUserId();
+        Long count = toLong(dataReportRecordDao.selectStatistics(userId, viewAll).get("total"));
+        if (count > 0) {
             return -1;
         }
-        String[] devices = {"livingroom-speaker-001", "bedroom-speaker-002",
-                "workshop-gateway-003", "frontdesk-speaker-004"};
+        // 演示数据只能落在当前可见的设备上，否则生成后用户仍然看不到
+        List<String> visibleDevices = dataReportRecordDao.selectScopeDeviceIds(userId, viewAll);
+        if (visibleDevices.isEmpty()) {
+            return -2;
+        }
+        String[] devices = visibleDevices.toArray(new String[0]);
         // 演示数据使用字段目录中的真实 mb-mcp_ 指标
         Object[][] metricDefs = {
                 {"mb-mcp_waterTemperature", "水温", 10.0, 30.0},

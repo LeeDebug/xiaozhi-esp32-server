@@ -1870,6 +1870,7 @@ export default {
   'aiDataAnalysis.dataPreview.generateDemo': '生成演示数据',
   'aiDataAnalysis.dataPreview.demoSuccess': '演示数据已生成',
   'aiDataAnalysis.dataPreview.demoExists': '已存在数据，无需重复生成',
+  'aiDataAnalysis.dataPreview.demoNoDevice': '当前没有可见设备，请先绑定设备',
   'aiDataAnalysis.dataPreview.emptyHint': '暂无数据，请点击「生成演示数据」初始化，或等待设备上报。',
   'aiDataAnalysis.dataPreview.loadError': '数据加载失败',
   'aiDataAnalysis.dataAnalysis.loadError': '统计加载失败',

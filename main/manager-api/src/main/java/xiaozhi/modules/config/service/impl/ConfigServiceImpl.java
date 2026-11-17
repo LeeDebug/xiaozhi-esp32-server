@@ -115,7 +115,8 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     @Override
-    public Map<String, Object> getAgentModels(String macAddress, Map<String, String> selectedModule) {
+    public Map<String, Object> getAgentModels(String macAddress, String clientId,
+            Map<String, String> selectedModule) {
         // 检查是否为管理控制台请求
         String redisKey = RedisKeys.getTmpRegisterMacKey(macAddress);
         Object isAdminRequest = redisUtils.get(redisKey);
@@ -135,6 +136,10 @@ public class ConfigServiceImpl implements ConfigService {
             }
             throw new RenException(ErrorCode.OTA_DEVICE_NOT_FOUND);
         }
+
+        // 设备每次连 WebSocket 都会同时带 MAC 和 Client-Id，在这里建立归属映射，
+        // 数据上报的 deviceId(UUID) 才能关联到具体设备和用户。
+        deviceService.bindClientId(macAddress, clientId);
 
         // 获取智能体信息
         AgentEntity agent = agentService.getAgentById(device.getAgentId());

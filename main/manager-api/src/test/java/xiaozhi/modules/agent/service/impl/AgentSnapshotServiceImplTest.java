@@ -66,6 +66,7 @@ import xiaozhi.modules.agent.vo.AgentSnapshotVO;
 import xiaozhi.modules.agent.vo.AgentInfoVO;
 import xiaozhi.modules.correctword.service.CorrectWordFileService;
 import xiaozhi.modules.model.service.ModelProviderService;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 import xiaozhi.modules.timbre.service.TimbreService;
 
 class AgentSnapshotServiceImplTest {
@@ -1080,7 +1081,8 @@ class AgentSnapshotServiceImplTest {
         CorrectWordFileService correctWordFileService = mock(CorrectWordFileService.class);
         AgentSnapshotService snapshotService = mock(AgentSnapshotService.class);
         AgentServiceImpl service = new AgentServiceImpl(agentDao, null, null, null, null, null, null, null,
-                null, null, contextProviderService, null, correctWordFileService, snapshotService);
+                null, null, contextProviderService, null, correctWordFileService, snapshotService,
+                mock(UserDataScopeService.class));
         ReflectionTestUtils.setField(service, "baseDao", agentDao);
 
         String agentId = "agent-id";
@@ -1114,7 +1116,8 @@ class AgentSnapshotServiceImplTest {
         CorrectWordFileService correctWordFileService = mock(CorrectWordFileService.class);
         AgentSnapshotService snapshotService = mock(AgentSnapshotService.class);
         AgentServiceImpl service = new AgentServiceImpl(agentDao, null, null, null, null, null, null, null,
-                null, null, contextProviderService, null, correctWordFileService, snapshotService);
+                null, null, contextProviderService, null, correctWordFileService, snapshotService,
+                mock(UserDataScopeService.class));
         ReflectionTestUtils.setField(service, "baseDao", agentDao);
 
         String agentId = "agent-id";
@@ -1150,7 +1153,8 @@ class AgentSnapshotServiceImplTest {
         ModelProviderService providerService = mock(ModelProviderService.class);
         AgentSnapshotService snapshotService = mock(AgentSnapshotService.class);
         AgentServiceImpl service = new AgentServiceImpl(agentDao, null, timbreService, null, null, null,
-                pluginMappingService, null, templateService, providerService, null, null, null, snapshotService);
+                pluginMappingService, null, templateService, providerService, null, null, null, snapshotService,
+                mock(UserDataScopeService.class));
         ReflectionTestUtils.setField(service, "baseDao", agentDao);
 
         AgentTemplateEntity template = new AgentTemplateEntity();

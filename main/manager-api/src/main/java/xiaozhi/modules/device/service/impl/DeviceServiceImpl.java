@@ -120,6 +120,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         if (!activationCode.equals(cachedCode)) {
             throw new RenException(ErrorCode.ACTIVATION_CODE_ERROR);
         }
+        String clientId = (String) cacheMap.get("client_id");
         // 检查设备有没有被激活
         if (selectById(deviceId) != null) {
             throw new RenException(ErrorCode.DEVICE_ALREADY_ACTIVATED);
@@ -138,6 +139,9 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         deviceEntity.setId(deviceId);
         deviceEntity.setBoard(board);
         deviceEntity.setAgentId(agentId);
+        if (StringUtils.isNotBlank(clientId)) {
+            deviceEntity.setClientId(clientId);
+        }
         deviceEntity.setAppVersion(appVersion);
         deviceEntity.setMacAddress(macAddress);
         deviceEntity.setUserId(user.getId());
@@ -191,11 +195,34 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     }
 
     @Override
+    public void bindClientId(String macAddress, String clientId) {
+        if (StringUtils.isAnyBlank(macAddress, clientId) || clientId.equalsIgnoreCase(macAddress)) {
+            return;
+        }
+        try {
+            DeviceEntity device = getDeviceByMacAddress(macAddress);
+            if (device == null || clientId.equals(device.getClientId())) {
+                return;
+            }
+            DeviceEntity update = new DeviceEntity();
+            update.setId(device.getId());
+            update.setClientId(clientId);
+            deviceDao.updateById(update);
+            device.setClientId(clientId);
+        } catch (Exception e) {
+            log.warn("绑定设备Client-Id失败: mac={}, clientId={}", macAddress, clientId, e);
+        }
+    }
+
+    @Override
     public DeviceReportRespDTO checkDeviceActive(String macAddress, String clientId, DeviceReportReqDTO deviceReport) {
         DeviceReportRespDTO response = new DeviceReportRespDTO();
         response.setServer_time(buildServerTime());
 
         DeviceEntity deviceById = getDeviceByMacAddress(macAddress);
+
+        // 固件 OTA 请求同时带 Device-Id(MAC) 和 Client-Id(UUID)，保存映射供数据上报识别归属。
+        bindClientId(macAddress, clientId);
 
         // 设备未绑定，则返回当前上传的固件信息（不更新）以此兼容旧固件版本
         if (deviceById == null) {
@@ -276,7 +303,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                     deviceById.getId(), appVersion);
         } else {
             // 如果设备不存在，则生成激活码
-            DeviceReportRespDTO.Activation code = buildActivation(macAddress, deviceReport);
+            DeviceReportRespDTO.Activation code = buildActivation(macAddress, clientId, deviceReport);
             response.setActivation(code);
         }
 
@@ -492,7 +519,8 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         return RedisKeys.getOtaDeviceActivationInfo(safeDeviceId);
     }
 
-    public DeviceReportRespDTO.Activation buildActivation(String deviceId, DeviceReportReqDTO deviceReport) {
+    public DeviceReportRespDTO.Activation buildActivation(String deviceId, String clientId,
+            DeviceReportReqDTO deviceReport) {
         DeviceReportRespDTO.Activation code = new DeviceReportRespDTO.Activation();
 
         String cachedCode = geCodeByDeviceId(deviceId);
@@ -512,6 +540,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             Map<String, Object> dataMap = new HashMap<>();
             dataMap.put("id", deviceId);
             dataMap.put("mac_address", deviceId);
+            // OTA 的 Client-Id(UUID) 与 Device-Id(MAC) 一起缓存，绑定时直接写入 ai_device.client_id
+            if (StringUtils.isNotBlank(clientId) && !clientId.equalsIgnoreCase(deviceId)) {
+                dataMap.put("client_id", clientId);
+            }
 
             dataMap.put("board", (deviceReport.getBoard() != null && deviceReport.getBoard().getType() != null)
                     ? deviceReport.getBoard().getType()

@@ -1870,6 +1870,7 @@ export default {
   'aiDataAnalysis.dataPreview.generateDemo': 'Generate Demo Data',
   'aiDataAnalysis.dataPreview.demoSuccess': 'Demo data generated',
   'aiDataAnalysis.dataPreview.demoExists': 'Data already exists, no need to regenerate',
+  'aiDataAnalysis.dataPreview.demoNoDevice': 'Không có thiết bị hiển thị. Vui lòng liên kết thiết bị trước.',
   'aiDataAnalysis.dataPreview.emptyHint': 'No data yet. Click "Generate Demo Data" to initialize, or wait for device reports.',
   'aiDataAnalysis.dataPreview.loadError': 'Failed to load data',
   'aiDataAnalysis.dataAnalysis.loadError': 'Failed to load statistics',

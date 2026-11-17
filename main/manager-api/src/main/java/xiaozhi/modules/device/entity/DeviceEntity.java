@@ -28,6 +28,9 @@ public class DeviceEntity {
     @Schema(description = "MAC地址")
     private String macAddress;
 
+    @Schema(description = "固件Client-Id(UUID)，数据上报 device_id 与之对应")
+    private String clientId;
+
     @Schema(description = "最后连接时间")
     private Date lastConnectedAt;
 

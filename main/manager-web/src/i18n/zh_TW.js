@@ -1870,6 +1870,7 @@ export default {
   'aiDataAnalysis.dataPreview.generateDemo': '產生示範資料',
   'aiDataAnalysis.dataPreview.demoSuccess': '示範資料已產生',
   'aiDataAnalysis.dataPreview.demoExists': '已有資料，無需重複產生',
+  'aiDataAnalysis.dataPreview.demoNoDevice': '目前沒有可見設備，請先綁定設備',
   'aiDataAnalysis.dataPreview.emptyHint': '尚無資料，請點擊「產生示範資料」初始化，或等待設備上報。',
   'aiDataAnalysis.dataPreview.loadError': '資料載入失敗',
   'aiDataAnalysis.dataAnalysis.loadError': '統計載入失敗',

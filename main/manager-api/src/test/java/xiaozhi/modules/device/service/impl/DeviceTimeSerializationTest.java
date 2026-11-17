@@ -3,10 +3,15 @@ package xiaozhi.modules.device.service.impl;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -17,9 +22,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.vo.UserShowDeviceListVO;
 import xiaozhi.modules.security.config.WebMvcConfig;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 
 @DisplayName("设备时间序列化回归测试")
 class DeviceTimeSerializationTest {
@@ -96,10 +103,14 @@ class DeviceTimeSerializationTest {
     }
 
     private DeviceServiceImpl serviceReturning(DeviceEntity entity) {
-        return new DeviceServiceImpl(null, null, null, null, null, null) {
-            @Override
-            public List<DeviceEntity> getUserDevices(Long userId, String agentId) {
-                return List.of(entity);
+        DeviceDao deviceDao = mock(DeviceDao.class);
+        when(deviceDao.selectList(any())).thenReturn(List.of(entity));
+        UserDataScopeService userDataScopeService = mock(UserDataScopeService.class);
+        when(userDataScopeService.getUsernameMap(anyCollection())).thenReturn(new HashMap<>());
+        when(userDataScopeService.getNicknameMap(anyCollection())).thenReturn(new HashMap<>());
+        return new DeviceServiceImpl(null, null, null, null, null, null, userDataScopeService) {
+            {
+                this.baseDao = deviceDao;
             }
         };
     }

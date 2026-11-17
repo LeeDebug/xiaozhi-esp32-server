@@ -27,6 +27,7 @@ import xiaozhi.modules.device.service.OtaService;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserUtilService;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 
 @DisplayName("设备归属校验回归测试")
 class DeviceServiceImplTest {
@@ -143,7 +144,8 @@ class DeviceServiceImplTest {
         // baseDao 由父类持有，子类内部赋给 this，测试类自己碰不到它
         return new DeviceServiceImpl(
                 dao, mock(SysUserUtilService.class), mock(SysParamsService.class),
-                mock(RedisUtils.class), mock(OtaService.class), addressBookService) {
+                mock(RedisUtils.class), mock(OtaService.class), addressBookService,
+                mock(UserDataScopeService.class)) {
             {
                 this.baseDao = dao;
             }

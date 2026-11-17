@@ -18,6 +18,7 @@ import xiaozhi.modules.device.dto.DeviceReportRespDTO;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.OtaService;
 import xiaozhi.modules.sys.service.SysParamsService;
+import xiaozhi.modules.sys.service.UserDataScopeService;
 
 @DisplayName("设备自动升级回归测试")
 class DeviceAutoUpdateTest {
@@ -63,7 +64,7 @@ class DeviceAutoUpdateTest {
         when(sysParamsService.getValue(Constant.SERVER_MQTT_GATEWAY, true)).thenReturn(null);
 
         DeviceServiceImpl target = new DeviceServiceImpl(
-                null, null, sysParamsService, null, otaService, null) {
+                null, null, sysParamsService, null, otaService, null, mock(UserDataScopeService.class)) {
             @Override
             public DeviceEntity getDeviceByMacAddress(String macAddress) {
                 return device;
