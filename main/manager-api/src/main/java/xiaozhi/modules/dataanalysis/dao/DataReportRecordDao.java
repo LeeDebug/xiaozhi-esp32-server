@@ -78,7 +78,11 @@ public interface DataReportRecordDao extends BaseDao<DataReportRecordEntity> {
             @Param("userId") Long userId, @Param("viewAll") boolean viewAll);
 
     @Select("SELECT r.device_id AS deviceId, COUNT(*) AS cnt, "
-            + "DATE_FORMAT(DATE_ADD(MAX(r.report_time), INTERVAL #{offsetHours} HOUR), '%Y-%m-%d %H:%i:%s') AS lastTime "
+            + "DATE_FORMAT(DATE_ADD(MAX(r.report_time), INTERVAL #{offsetHours} HOUR), '%Y-%m-%d %H:%i:%s') AS lastTime, "
+            + "(SELECT COALESCE(NULLIF(d2.alias, ''), NULLIF(d2.mac_address, ''), d2.id) FROM ai_device d2 "
+            + "WHERE d2.client_id = r.device_id OR d2.id = r.device_id OR d2.mac_address = r.device_id LIMIT 1) AS deviceName, "
+            + "(SELECT d3.mac_address FROM ai_device d3 "
+            + "WHERE d3.client_id = r.device_id OR d3.id = r.device_id OR d3.mac_address = r.device_id LIMIT 1) AS macAddress "
             + "FROM data_report_record r WHERE r.device_id IS NOT NULL AND r.device_id <> '' AND "
             + SCOPE_CONDITION + " GROUP BY r.device_id ORDER BY cnt DESC LIMIT 20")
     List<Map<String, Object>> selectDeviceUploads(@Param("offsetHours") int offsetHours,

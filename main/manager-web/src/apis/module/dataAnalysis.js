@@ -48,8 +48,11 @@ export default {
 
   /**
    * 数据预览看板聚合统计
+   * 注意：无论成功、业务失败还是网络失败都要回调，否则页面 loading 会永远为 true，
+   * 图表区既不渲染图表也不渲染空状态，表现为整块空白。
    */
   dashboard(callback) {
+    const failResult = (msg) => ({ data: { code: -1, msg: msg || '' } })
     RequestService.sendRequest()
       .url(`${getServiceUrl()}/data-analysis/dashboard`)
       .method('GET')
@@ -57,8 +60,13 @@ export default {
         RequestService.clearRequestTime();
         callback(res);
       })
+      .fail((res) => {
+        RequestService.clearRequestTime();
+        callback(res);
+      })
       .networkFail((err) => {
         console.error('请求失败:', err);
+        callback(failResult());
         RequestService.reAjaxFun(() => {
           this.dashboard(callback);
         });
@@ -124,9 +132,11 @@ export default {
   },
 
   /**
-   * 一键生成演示数据
+   * 一键生成演示数据（管理员）
+   * 同样保证失败也回调，避免调用方按钮永久 loading。
    */
   seed(callback) {
+    const failResult = (msg) => ({ data: { code: -1, msg: msg || '' } })
     RequestService.sendRequest()
       .url(`${getServiceUrl()}/data-analysis/demo/seed`)
       .method('POST')
@@ -134,8 +144,13 @@ export default {
         RequestService.clearRequestTime();
         callback(res);
       })
+      .fail((res) => {
+        RequestService.clearRequestTime();
+        callback(res);
+      })
       .networkFail((err) => {
         console.error('请求失败:', err);
+        callback(failResult());
         RequestService.reAjaxFun(() => {
           this.seed(callback);
         });

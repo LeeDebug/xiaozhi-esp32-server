@@ -45,6 +45,9 @@ public class DataPreviewDashboardVO {
 
         @Schema(description = "最近上传时间")
         private String lastReportTime;
+
+        @Schema(description = "可见设备数（当前账号可见的已绑定设备），用于诊断数据为 0 的原因")
+        private Long visibleDeviceCount;
     }
 
     @Data
@@ -65,8 +68,14 @@ public class DataPreviewDashboardVO {
     @Schema(description = "设备上传统计")
     public static class DeviceUpload {
 
-        @Schema(description = "设备ID")
+        @Schema(description = "设备ID（固件 Client-Id UUID）")
         private String deviceId;
+
+        @Schema(description = "设备可读名称（别名/MAC/设备ID，优先别名）")
+        private String deviceName;
+
+        @Schema(description = "设备MAC地址")
+        private String macAddress;
 
         @Schema(description = "上传条数")
         private Long count;

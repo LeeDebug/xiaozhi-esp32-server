@@ -221,6 +221,8 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         summary.setAbnormalCount(toLong(stat.get("abnormal")));
         summary.setFirstReportTime(formatTime((Date) stat.get("firstTime")));
         summary.setLastReportTime(formatTime((Date) stat.get("lastTime")));
+        // 看板为 0 时，用可见设备数区分「没有数据」与「Client-Id 未映射」两种情况
+        summary.setVisibleDeviceCount((long) dataReportRecordDao.selectScopeDeviceIds(userId, viewAll).size());
         vo.setSummary(summary);
 
         List<DataPreviewDashboardVO.DailyUpload> daily = new ArrayList<>();
@@ -240,6 +242,10 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
             DataPreviewDashboardVO.DeviceUpload d = new DataPreviewDashboardVO.DeviceUpload();
             Object id = m.get("deviceId");
             d.setDeviceId(id != null ? id.toString() : "");
+            Object name = m.get("deviceName");
+            d.setDeviceName(name != null && !name.toString().isEmpty() ? name.toString() : d.getDeviceId());
+            Object mac = m.get("macAddress");
+            d.setMacAddress(mac != null ? mac.toString() : "");
             d.setCount(toLong(m.get("cnt")));
             Object last = m.get("lastTime");
             d.setLastReportTime(last != null ? last.toString() : "");
