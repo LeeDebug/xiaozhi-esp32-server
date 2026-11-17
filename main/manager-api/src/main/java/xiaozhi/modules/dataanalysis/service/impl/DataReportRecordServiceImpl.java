@@ -3,7 +3,10 @@ package xiaozhi.modules.dataanalysis.service.impl;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -219,10 +222,16 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         summary.setRecordCount(toLong(stat.get("total")));
         summary.setDeviceCount(toLong(stat.get("deviceCount")));
         summary.setAbnormalCount(toLong(stat.get("abnormal")));
-        summary.setFirstReportTime(formatTime((Date) stat.get("firstTime")));
-        summary.setLastReportTime(formatTime((Date) stat.get("lastTime")));
+        // MyBatis 对 @Select 返回的 Map 会按 JDBC 类型推断：DATETIME/TIMESTAMP 常被映射为
+        // java.time.LocalDateTime，而实体字段是 java.util.Date。不能强转，统一走 formatTime 兼容处理。
+        summary.setFirstReportTime(formatTime(stat.get("firstTime")));
+        summary.setLastReportTime(formatTime(stat.get("lastTime")));
         // 看板为 0 时，用可见设备数区分「没有数据」与「Client-Id 未映射」两种情况
         summary.setVisibleDeviceCount((long) dataReportRecordDao.selectScopeDeviceIds(userId, viewAll).size());
+        // 数值为 0 / 非 0 的分布，用于数据质量占比分析
+        Map<String, Object> zeroDist = dataReportRecordDao.selectValueZeroDistribution(userId, viewAll);
+        summary.setZeroValueCount(toLong(zeroDist.get("zeroCount")));
+        summary.setNonZeroValueCount(toLong(zeroDist.get("nonZeroCount")));
         vo.setSummary(summary);
 
         List<DataPreviewDashboardVO.DailyUpload> daily = new ArrayList<>();
@@ -277,8 +286,30 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         return vo;
     }
 
-    private String formatTime(Date date) {
-        return date != null ? CHINA_TIME_FORMATTER.format(Instant.ofEpochMilli(date.getTime())) : "";
+    /**
+     * 统一按中国时间格式化。入参可能是 java.util.Date（实体字段 / 显式 DAO 返回），
+     * 也可能是 java.time.LocalDateTime（@Select 返回 Map 时 MyBatis 按 JDBC TIMESTAMP 推断），
+     * 必须兼容两者，否则看板聚合接口会抛 ClassCastException。
+     */
+    private String formatTime(Object value) {
+        if (value == null) {
+            return "";
+        }
+        if (value instanceof Date) {
+            return CHINA_TIME_FORMATTER.format(Instant.ofEpochMilli(((Date) value).getTime()));
+        }
+        if (value instanceof LocalDateTime) {
+            // 项目口径：DB 的 datetime 列存的是 UTC 墙上值。LocalDateTime 不含时区，
+            // 按 UTC 解释后再格式化到中国时间，结果与 java.util.Date 路径一致。
+            return CHINA_TIME_FORMATTER.format(((LocalDateTime) value).toInstant(ZoneOffset.UTC));
+        }
+        if (value instanceof Instant) {
+            return CHINA_TIME_FORMATTER.format((Instant) value);
+        }
+        if (value instanceof LocalDate) {
+            return CHINA_TIME_FORMATTER.format(((LocalDate) value).atStartOfDay(ZoneOffset.UTC).toInstant());
+        }
+        return String.valueOf(value);
     }
 
     @Override

@@ -77,6 +77,12 @@
                 </div>
 
                 <div class="chart-card">
+                  <h3 class="section-title">{{ $t('aiDataAnalysis.dataPreviewDashboard.zeroValueTitle') }}</h3>
+                  <p class="chart-hint">{{ $t('aiDataAnalysis.dataPreviewDashboard.zeroValueHint', { zero: zeroValueCount, nonzero: nonZeroValueCount, percent: zeroValuePercent }) }}</p>
+                  <div ref="zeroValueChart" class="chart-box"></div>
+                </div>
+
+                <div class="chart-card">
                   <h3 class="section-title">{{ $t('aiDataAnalysis.dataPreviewDashboard.metricDistTitle') }}</h3>
                   <p class="chart-hint">{{ $t('aiDataAnalysis.dataPreviewDashboard.metricDistHint') }}</p>
                   <div ref="metricChart" class="chart-box chart-box-tall"></div>
@@ -117,6 +123,8 @@ const EMPTY_SUMMARY = {
   activeDays: 0,
   abnormalCount: 0,
   visibleDeviceCount: 0,
+  zeroValueCount: 0,
+  nonZeroValueCount: 0,
   firstReportTime: '',
   lastReportTime: '',
 }
@@ -152,6 +160,17 @@ export default {
         return this.$t('aiDataAnalysis.dataPreviewDashboard.emptyNoDevice')
       }
       return this.$t('aiDataAnalysis.dataPreviewDashboard.emptyNoMapping')
+    },
+    zeroValueCount() {
+      return this.summary.zeroValueCount || 0
+    },
+    nonZeroValueCount() {
+      return this.summary.nonZeroValueCount || 0
+    },
+    zeroValuePercent() {
+      const total = this.zeroValueCount + this.nonZeroValueCount
+      if (!total) return '0.0'
+      return (this.zeroValueCount * 100 / total).toFixed(1)
     },
   },
   created() {
@@ -259,6 +278,7 @@ export default {
       this.renderDailyChart()
       this.renderDeviceChart()
       this.renderStatusChart()
+      this.renderZeroValueChart()
       this.renderMetricChart()
       this.renderHeatmapChart()
       this.charts.forEach((c) => c.resize())
@@ -405,6 +425,51 @@ export default {
         ],
       }, true)
     },
+    renderZeroValueChart() {
+      const chart = this.initChart('zeroValueChart')
+      if (!chart) return
+      const c = this.themeColors()
+      const zero = this.zeroValueCount
+      const nonzero = this.nonZeroValueCount
+      const total = zero + nonzero
+      chart.setOption({
+        tooltip: {
+          trigger: 'item',
+          backgroundColor: '#fff',
+          borderColor: c.line,
+          textStyle: { color: c.text, fontSize: 12 },
+          formatter: (p) => `${p.name}: <b>${p.value}</b> (${p.percent}%)`,
+        },
+        legend: { bottom: 0, textStyle: { color: c.muted } },
+        color: [c.danger, c.primary],
+        graphic: total ? [{
+          type: 'text',
+          left: 'center',
+          top: '40%',
+          style: {
+            text: `${this.zeroValuePercent}%`,
+            textAlign: 'center',
+            fill: c.danger,
+            fontSize: 22,
+            fontWeight: 600,
+          },
+        }] : [],
+        series: [
+          {
+            type: 'pie',
+            radius: ['46%', '70%'],
+            center: ['50%', '44%'],
+            avoidLabelOverlap: true,
+            itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 4 },
+            label: { show: false },
+            data: [
+              { name: this.$t('aiDataAnalysis.dataPreviewDashboard.zeroValue'), value: zero },
+              { name: this.$t('aiDataAnalysis.dataPreviewDashboard.nonZeroValue'), value: nonzero },
+            ],
+          },
+        ],
+      }, true)
+    },
     renderMetricChart() {
       const chart = this.initChart('metricChart')
       if (!chart) return
@@ -531,46 +596,33 @@ export default {
   margin: 20px 22px 0;
   border-radius: 15px;
   position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
+  display: block;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .content-panel {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  height: 100%;
   border-radius: 15px;
   background: transparent;
   border: 1px solid #fff;
 }
 
 .content-area {
-  flex: 1;
-  height: 100%;
+  min-height: 100%;
   min-width: 600px;
-  overflow: auto;
   background-color: white;
-  display: flex;
-  flex-direction: column;
+  border-radius: 15px;
 }
 
 .ai-card {
   background: white;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   border: none;
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .ai-card ::v-deep .el-card__body {
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+  padding: 22px 26px 28px;
 }
 
 .page-header {
@@ -614,16 +666,16 @@ export default {
 
 .stat-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
 }
 
 .stat-card {
   background: linear-gradient(135deg, var(--sys-primary-bg-soft), var(--sys-primary-bg-soft));
   border: 1px solid var(--sys-primary-bg-soft);
   border-radius: 12px;
-  padding: 18px 20px;
+  padding: 20px 22px;
 }
 
 .stat-card.stat-danger {
@@ -651,14 +703,14 @@ export default {
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 22px;
 }
 
 .chart-card {
   background: #fff;
   border: 1px solid #f3f1f1;
   border-radius: 12px;
-  padding: 14px 16px 10px;
+  padding: 18px 20px 14px;
   min-width: 0;
 }
 
@@ -671,17 +723,18 @@ export default {
 }
 
 .section-title {
-  font-size: 15px;
-  font-weight: 500;
-  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 6px;
   color: #2c3354;
+  line-height: 1.5;
 }
 
 .chart-hint {
-  font-size: 12px;
+  font-size: 13px;
   color: #8a93b8;
-  margin: 0 0 6px;
-  line-height: 1.5;
+  margin: 0 0 14px;
+  line-height: 1.7;
 }
 
 .empty-state {

@@ -48,6 +48,12 @@ public class DataPreviewDashboardVO {
 
         @Schema(description = "可见设备数（当前账号可见的已绑定设备），用于诊断数据为 0 的原因")
         private Long visibleDeviceCount;
+
+        @Schema(description = "数值为 0（或空）的记录数")
+        private Long zeroValueCount;
+
+        @Schema(description = "数值非 0 的记录数")
+        private Long nonZeroValueCount;
     }
 
     @Data
