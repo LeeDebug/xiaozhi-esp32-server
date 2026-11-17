@@ -82,17 +82,19 @@
                   <div ref="zeroValueChart" class="chart-box"></div>
                 </div>
 
-                <div class="chart-card">
-                  <h3 class="section-title">{{ $t('aiDataAnalysis.dataPreviewDashboard.metricDistTitle') }}</h3>
-                  <p class="chart-hint">{{ $t('aiDataAnalysis.dataPreviewDashboard.metricDistHint') }}</p>
-                  <div ref="metricChart" class="chart-box chart-box-tall"></div>
-                </div>
 
                 <div class="chart-card">
                   <h3 class="section-title">{{ $t('aiDataAnalysis.dataPreviewDashboard.heatmapTitle') }}</h3>
                   <p class="chart-hint">{{ $t('aiDataAnalysis.dataPreviewDashboard.heatmapHint') }}</p>
                   <div ref="heatmapChart" class="chart-box chart-box-tall"></div>
                 </div>
+              </div>
+
+              <!-- 全部指标上传条数分布：横向条形图 + dataZoom，固定在页面最下方 -->
+              <div class="chart-card metric-bar-card">
+                <h3 class="section-title">{{ $t('aiDataAnalysis.dataPreviewDashboard.metricBarTitle') }}</h3>
+                <p class="chart-hint">{{ $t('aiDataAnalysis.dataPreviewDashboard.metricBarHint', { total: metricDistribution.length }) }}</p>
+                <div ref="metricBarChart" class="chart-box chart-box-metric-bar" :style="{ height: metricBarHeight + 'px' }"></div>
               </div>
             </template>
 
@@ -171,6 +173,11 @@ export default {
       const total = this.zeroValueCount + this.nonZeroValueCount
       if (!total) return '0.0'
       return (this.zeroValueCount * 100 / total).toFixed(1)
+    },
+    // 全部指标条形图：容器高度按指标总数自动撑开，默认一屏展示全部指标（每条约 26px）
+    metricBarHeight() {
+      const total = this.metricDistribution.length || 0
+      return Math.max(360, total * 26 + 84)
     },
   },
   created() {
@@ -279,8 +286,8 @@ export default {
       this.renderDeviceChart()
       this.renderStatusChart()
       this.renderZeroValueChart()
-      this.renderMetricChart()
       this.renderHeatmapChart()
+      this.renderMetricBarChart()
       this.charts.forEach((c) => c.resize())
     },
     renderDailyChart() {
@@ -297,7 +304,7 @@ export default {
             this.$t('aiDataAnalysis.dataPreviewDashboard.devicesPerDay'),
           ],
           textStyle: { color: c.muted },
-          right: 0,
+          right: 12,
           top: 0,
         },
         grid: { left: 12, right: 12, bottom: 8, top: 40, containLabel: true },
@@ -317,8 +324,7 @@ export default {
           },
           {
             type: 'value',
-            name: this.$t('aiDataAnalysis.dataPreviewDashboard.statDevices'),
-            nameTextStyle: { color: c.muted, fontSize: 11 },
+            // 不设 name：右轴标题会落在右上角与图例重叠，折线含义由图例说明
             axisLabel: { color: c.muted },
             splitLine: { show: false },
           },
@@ -470,43 +476,94 @@ export default {
         ],
       }, true)
     },
-    renderMetricChart() {
-      const chart = this.initChart('metricChart')
+    // 全部指标上传条数分布：ECharts 横向条形图 + dataZoom（slider + inside）
+    // 数据取 dashboard 接口的 metricDistribution（全部有上报的指标，已按条数倒序）
+    renderMetricBarChart() {
+      const chart = this.initChart('metricBarChart')
       if (!chart) return
       const c = this.themeColors()
-      const all = this.metricDistribution.slice().sort((a, b) => b.count - a.count)
-      const top = all.slice(0, 8)
-      const rest = all.slice(8).reduce((sum, m) => sum + (m.count || 0), 0)
-      if (rest > 0) {
-        top.push({ metric: this.$t('aiDataAnalysis.dataPreviewDashboard.others'), count: rest })
-      }
+      // 再次按条数降序，配合 yAxis.inverse 让上传最多的指标排在最上方
+      const rows = this.metricDistribution.slice().sort((a, b) => (b.count || 0) - (a.count || 0))
+      const names = rows.map((m) => m.metric)
+      const values = rows.map((m) => m.count || 0)
+      // 容器高度按指标总数自动撑开，默认一屏展示全部指标；dataZoom 仍保留，
+      // 便于在超长列表里拖动/缩放定位（类目轴用百分比 start/end 最稳定）。
       chart.setOption({
-        tooltip: {
-          trigger: 'item',
-          backgroundColor: '#fff',
-          borderColor: c.line,
-          textStyle: { color: c.text, fontSize: 12 },
-          formatter: (p) => `${p.name}<br/>${this.$t('aiDataAnalysis.dataPreviewDashboard.uploads')}: <b>${p.value}</b> (${p.percent}%)`,
+        tooltip: Object.assign(this.baseTooltip(), {
+          formatter: (params) => {
+            const p = params[0]
+            return `${p.name}<br/>${this.$t('aiDataAnalysis.dataPreviewDashboard.uploads')}: <b>${p.value}</b>`
+          },
+        }),
+        grid: { left: 12, right: 46, top: 12, bottom: 16, containLabel: true },
+        xAxis: {
+          type: 'value',
+          name: this.$t('aiDataAnalysis.dataPreviewDashboard.uploads'),
+          nameTextStyle: { color: c.muted, fontSize: 11 },
+          axisLabel: { color: c.muted },
+          splitLine: { lineStyle: { color: c.line, type: 'dashed' } },
         },
-        legend: {
-          type: 'scroll',
-          orient: 'vertical',
-          right: 0,
-          top: 'middle',
-          textStyle: { color: c.muted, fontSize: 11 },
+        yAxis: {
+          type: 'category',
+          data: names,
+          inverse: true,
+          axisTick: { show: false },
+          axisLine: { lineStyle: { color: c.line } },
+          axisLabel: { color: c.muted, fontSize: 11 },
         },
-        color: c.palette,
+        dataZoom: [
+          {
+            type: 'slider',
+            orient: 'vertical',
+            yAxisIndex: 0,
+            right: 4,
+            width: 18,
+            top: 12,
+            bottom: 16,
+            start: 0,
+            end: 100,
+            borderColor: c.line,
+            fillerColor: 'rgba(235,104,0,.12)',
+            handleStyle: { color: c.primary, borderColor: c.primary },
+            moveHandleStyle: { color: c.primary },
+            dataBackground: {
+              lineStyle: { color: c.lighter },
+              areaStyle: { color: '#fef7f2' },
+            },
+            selectedDataBackground: {
+              lineStyle: { color: c.primary },
+              areaStyle: { color: '#f7c69e' },
+            },
+            textStyle: { color: c.muted, fontSize: 10 },
+          },
+          {
+            type: 'inside',
+            yAxisIndex: 0,
+            start: 0,
+            end: 100,
+            // 图表很高，禁用滚轮缩放以免劫持页面滚动；仍可通过右键拖动平移
+            zoomOnMouseWheel: false,
+            moveOnMouseMove: true,
+          },
+        ],
         series: [
           {
-            type: 'pie',
-            radius: ['35%', '62%'],
-            center: ['34%', '50%'],
-            itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 4 },
-            label: { show: false },
-            data: top.map((m) => ({ name: m.metric, value: m.count })),
+            type: 'bar',
+            data: values,
+            barMaxWidth: 16,
+            itemStyle: {
+              borderRadius: [0, 4, 4, 0],
+              color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                { offset: 0, color: c.lighter },
+                { offset: 1, color: c.primary },
+              ]),
+            },
+            label: { show: true, position: 'right', color: c.muted, fontSize: 11 },
           },
         ],
       }, true)
+      // 容器高度由 computed 动态撑高，DOM 更新后同步一次尺寸
+      chart.resize()
     },
     renderHeatmapChart() {
       const chart = this.initChart('heatmapChart')
@@ -772,5 +829,13 @@ export default {
 
 .chart-box-tall {
   height: 320px;
+}
+
+.metric-bar-card {
+  margin-top: 22px;
+}
+
+.chart-box-metric-bar {
+  min-height: 360px;
 }
 </style>
