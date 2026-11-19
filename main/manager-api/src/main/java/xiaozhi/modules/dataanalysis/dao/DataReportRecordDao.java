@@ -81,8 +81,8 @@ public interface DataReportRecordDao extends BaseDao<DataReportRecordEntity> {
     Date selectLatestReportTime(@Param("metricKey") String metricKey, @Param("userId") Long userId,
             @Param("viewAll") boolean viewAll);
 
-    @Select("SELECT SUM(CASE WHEN r.value = 0 OR r.value IS NULL THEN 1 ELSE 0 END) AS zeroCount, "
-            + "SUM(CASE WHEN r.value <> 0 AND r.value IS NOT NULL THEN 1 ELSE 0 END) AS nonZeroCount "
+    @Select("SELECT COALESCE(SUM(CASE WHEN r.value = 0 OR r.value IS NULL THEN 1 ELSE 0 END), 0) AS zeroCount, "
+            + "COALESCE(SUM(CASE WHEN r.value <> 0 AND r.value IS NOT NULL THEN 1 ELSE 0 END), 0) AS nonZeroCount "
             + "FROM data_report_record r WHERE " + SCOPE_CONDITION)
     Map<String, Object> selectValueZeroDistribution(@Param("userId") Long userId, @Param("viewAll") boolean viewAll);
 

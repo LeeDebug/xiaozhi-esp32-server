@@ -247,6 +247,11 @@ public class DataReportRecordServiceImpl extends BaseServiceImpl<DataReportRecor
         summary.setVisibleDeviceCount((long) dataReportRecordDao.selectScopeDeviceIds(userId, viewAll).size());
         // 数值为 0 / 非 0 的分布，用于数据质量占比分析
         Map<String, Object> zeroDist = dataReportRecordDao.selectValueZeroDistribution(userId, viewAll);
+        // 无可见数据时两个 SUM 列均为 NULL，MyBatis 默认会把整行映射为 null（returnInstanceForEmptyRow=false），
+        // 这里兜底成 emptyMap，与 DAO 的 COALESCE 一起保证空数据下看板返回 0 而不是抛 NPE。
+        if (zeroDist == null) {
+            zeroDist = java.util.Collections.emptyMap();
+        }
         summary.setZeroValueCount(toLong(zeroDist.get("zeroCount")));
         summary.setNonZeroValueCount(toLong(zeroDist.get("nonZeroCount")));
         vo.setSummary(summary);
