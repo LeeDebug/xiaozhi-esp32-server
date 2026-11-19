@@ -264,6 +264,11 @@ function goUserProfile() {
   uni.navigateTo({ url: '/pages/user-profile/index' })
 }
 
+// 进入跨智能体会话记录页
+function goChatRecords() {
+  uni.navigateTo({ url: '/pages/chat-records/index' })
+}
+
 // 关于我们
 function showAbout() {
   uni.showModal({
@@ -318,6 +323,21 @@ onMounted(async () => {
               </text>
               <text class="mt-[4rpx] block text-[24rpx] text-[#9d9ea3]">
                 {{ t('settings.userProfileDesc') }}
+              </text>
+            </view>
+            <wd-icon name="arrow-right" custom-class="text-[32rpx] text-[#9d9ea3]" />
+          </view>
+
+          <view
+            class="mt-[16rpx] flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] p-[24rpx] transition-all active:bg-[#eef3ff]"
+            @click="goChatRecords"
+          >
+            <view>
+              <text class="text-[28rpx] text-[#232338] font-medium">
+                {{ t('settings.chatRecords') }}
+              </text>
+              <text class="mt-[4rpx] block text-[24rpx] text-[#9d9ea3]">
+                {{ t('settings.chatRecordsDesc') }}
               </text>
             </view>
             <wd-icon name="arrow-right" custom-class="text-[32rpx] text-[#9d9ea3]" />

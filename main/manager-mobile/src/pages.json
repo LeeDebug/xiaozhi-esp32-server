@@ -115,6 +115,15 @@
       "type": "page"
     },
     {
+      "path": "pages/chat-records/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "会话记录"
+      }
+    },
+    {
       "path": "pages/device/index",
       "type": "page"
     },

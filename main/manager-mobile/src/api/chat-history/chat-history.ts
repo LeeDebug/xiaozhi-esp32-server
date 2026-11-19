@@ -1,5 +1,8 @@
 import type {
   ChatMessage,
+  ChatRecordFilterOptions,
+  ChatRecordQuery,
+  ChatSessionRecordPage,
   ChatSessionsResponse,
   GetSessionsParams,
 } from './types'
@@ -13,6 +16,38 @@ import { http } from '@/http/request/alova'
 export function getChatSessions(agentId: string, params: GetSessionsParams) {
   return http.Get<ChatSessionsResponse>(`/agent/${agentId}/sessions`, {
     params,
+    meta: {
+      ignoreAuth: false,
+      toast: false,
+    },
+    cacheFor: {
+      expire: 0,
+    },
+  })
+}
+
+/**
+ * 跨智能体多条件分页查询会话（按设备/智能体/角色/时间/关键词筛选）
+ * @param params 查询参数，时间为 epoch 毫秒
+ */
+export function getChatSessionRecords(params: ChatRecordQuery) {
+  return http.Get<ChatSessionRecordPage>('/agent/chat-history/sessions', {
+    params,
+    meta: {
+      ignoreAuth: false,
+      toast: false,
+    },
+    cacheFor: {
+      expire: 0,
+    },
+  })
+}
+
+/**
+ * 获取会话记录筛选下拉选项（智能体 + 设备）
+ */
+export function getChatRecordFilterOptions() {
+  return http.Get<ChatRecordFilterOptions>('/agent/chat-history/filter-options', {
     meta: {
       ignoreAuth: false,
       toast: false,
