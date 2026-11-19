@@ -1,4 +1,4 @@
-import type { PublicConfig } from '@/api/auth'
+import type { FeatureKey, PublicConfig, SystemWebMenu } from '@/api/auth'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getPublicConfig } from '@/api/auth'
@@ -47,11 +47,40 @@ export const useConfigStore = defineStore(
       config.value = { ...initialConfigState }
     }
 
+    // 解析服务端功能开关（systemWebMenu 可能是对象，也可能是 JSON 字符串）
+    function parseSystemWebMenu(): SystemWebMenu | null {
+      const raw = config.value?.systemWebMenu
+      if (!raw)
+        return null
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw) as SystemWebMenu
+        }
+        catch {
+          return null
+        }
+      }
+      return raw
+    }
+
+    /**
+     * 某个功能是否对当前用户可见。
+     * 关键约定：服务端没有下发配置、配置里没有该功能、或 enabled 未明确为 false 时，一律视为「启用」，
+     * 这样老版本服务端或配置缺失时，手机端已有入口不会丢失（不同于 web 的「默认关闭」，避免回归）。
+     */
+    const isFeatureEnabled = (key: FeatureKey): boolean => {
+      const feature = parseSystemWebMenu()?.features?.[key]
+      if (!feature)
+        return true
+      return feature.enabled !== false
+    }
+
     return {
       config,
       setConfig,
       fetchPublicConfig,
       resetConfig,
+      isFeatureEnabled,
     }
   },
   {

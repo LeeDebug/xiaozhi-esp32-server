@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useMessage } from 'wot-design-uni/components/wd-message-box'
 import { bindDevice, bindDeviceManual, getBindDevices, getFirmwareTypes, unbindDevice, updateDeviceAutoUpdate } from '@/api/device'
 import { t } from '@/i18n'
+import { hasOwner, ownerDisplayName } from '@/utils/ownerDisplay'
 import { toast } from '@/utils/toast'
 import { parseDeviceLastConnectedAtTimestamp } from './deviceTimeUtils.mjs'
 
@@ -124,6 +125,9 @@ async function loadDeviceList() {
 async function refresh() {
   await loadDeviceList()
 }
+
+// 只有列表中出现其他用户的设备时才展示归属标签，默认「只看自己」时保持界面简洁（与 web 端一致）
+const showOwnerBadges = computed(() => deviceList.value.some(item => item.isOwn === false))
 
 // 获取设备类型名称
 function getDeviceTypeName(boardKey: string): string {
@@ -401,6 +405,14 @@ defineExpose({
                     <text class="max-w-[60%] break-all text-[32rpx] text-[#232338] font-semibold">
                       {{ getDeviceTypeName(device.board) }}
                     </text>
+                    <!-- 只有后端返回归属信息时才展示（超管开启全库可见后用于区分自己/他人的设备） -->
+                    <text
+                      v-if="showOwnerBadges && hasOwner(device)"
+                      class="owner-badge"
+                      :class="device.isOwn === false ? 'owner-badge-other' : 'owner-badge-mine'"
+                    >
+                      {{ device.isOwn === false ? t('common.ownerOther') : t('common.ownerMine') }} · {{ ownerDisplayName(device) }}
+                    </text>
                   </view>
 
                   <view class="mb-[20rpx]">
@@ -545,6 +557,23 @@ defineExpose({
 </template>
 
 <style scoped>
+.owner-badge {
+  padding: 2rpx 14rpx;
+  margin-left: 12rpx;
+  font-size: 20rpx;
+  border-radius: 8rpx;
+}
+
+.owner-badge-mine {
+  color: #2f9e44;
+  background: #ebfbee;
+}
+
+.owner-badge-other {
+  color: #e8590c;
+  background: #fff4e6;
+}
+
 .device-container {
   position: relative;
 }

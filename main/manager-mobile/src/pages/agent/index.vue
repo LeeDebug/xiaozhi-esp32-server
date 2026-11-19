@@ -10,12 +10,13 @@
 
 <script lang="ts" setup>
 import { onLoad } from '@dcloudio/uni-app'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import CustomTabs from '@/components/custom-tabs/index.vue'
 import { t } from '@/i18n'
 import ChatHistory from '@/pages/chat-history/index.vue'
 import DeviceManagement from '@/pages/device/index.vue'
 import VoiceprintManagement from '@/pages/voiceprint/index.vue'
+import { useConfigStore } from '@/store'
 import AgentEdit from './edit.vue'
 
 defineOptions({
@@ -63,33 +64,41 @@ function updateRefresherEnabled(value: boolean) {
   refresherEnabled.value = value
 }
 
+const configStore = useConfigStore()
+
 // Tab 配置
-const tabList = [
-  {
-    label: t('agent.roleConfig'),
-    value: 'agent-config',
-    icon: '/static/tabbar/robot.png',
-    activeIcon: '/static/tabbar/robot_activate.png',
-  },
-  {
-    label: t('agent.deviceManagement'),
-    value: 'device-management',
-    icon: '/static/tabbar/device.png',
-    activeIcon: '/static/tabbar/device_activate.png',
-  },
-  {
-    label: t('agent.chatHistory'),
-    value: 'chat-history',
-    icon: '/static/tabbar/chat.png',
-    activeIcon: '/static/tabbar/chat_activate.png',
-  },
-  {
-    label: t('agent.voiceprintManagement'),
-    value: 'voiceprint-management',
-    icon: '/static/tabbar/microphone.png',
-    activeIcon: '/static/tabbar/microphone_activate.png',
-  },
-]
+// 声纹识别被服务端「功能管理」明确关闭时隐藏该 tab；未下发配置时默认显示，保持原有行为。
+const tabList = computed(() => {
+  const tabs = [
+    {
+      label: t('agent.roleConfig'),
+      value: 'agent-config',
+      icon: '/static/tabbar/robot.png',
+      activeIcon: '/static/tabbar/robot_activate.png',
+    },
+    {
+      label: t('agent.deviceManagement'),
+      value: 'device-management',
+      icon: '/static/tabbar/device.png',
+      activeIcon: '/static/tabbar/device_activate.png',
+    },
+    {
+      label: t('agent.chatHistory'),
+      value: 'chat-history',
+      icon: '/static/tabbar/chat.png',
+      activeIcon: '/static/tabbar/chat_activate.png',
+    },
+  ]
+  if (configStore.isFeatureEnabled('voiceprintRecognition')) {
+    tabs.push({
+      label: t('agent.voiceprintManagement'),
+      value: 'voiceprint-management',
+      icon: '/static/tabbar/microphone.png',
+      activeIcon: '/static/tabbar/microphone_activate.png',
+    })
+  }
+  return tabs
+})
 
 // 返回上一页
 function goBack() {
@@ -147,6 +156,13 @@ async function onLoadMore() {
 
 watch(() => currentTab.value, (newTab) => {
   updateRefresherEnabled(newTab !== 'agent-config')
+})
+
+// 当前 tab 被隐藏（例如功能开关被关闭）时回到第一个 tab，避免显示空白面板
+watch(tabList, (list) => {
+  if (!list.some(item => item.value === currentTab.value)) {
+    currentTab.value = list[0].value
+  }
 })
 
 // 接收页面参数

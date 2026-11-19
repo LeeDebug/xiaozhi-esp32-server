@@ -70,6 +70,27 @@ export interface UserProfile {
   canViewAllUserData: boolean
 }
 
+// 服务端功能开关（对应 pub-config 里 systemWebMenu.features，与 manager-web 的 featureManager 一致）
+export type FeatureKey
+  = | 'voiceprintRecognition'
+    | 'voiceClone'
+    | 'knowledgeBase'
+    | 'mcpAccessPoint'
+    | 'vad'
+    | 'asr'
+    | 'addressBook'
+
+export interface FeatureItem {
+  name?: string
+  enabled?: boolean
+  description?: string
+}
+
+export interface SystemWebMenu {
+  features?: Partial<Record<FeatureKey, FeatureItem>>
+  groups?: Record<string, string[]>
+}
+
 // 公共配置响应数据类型
 export interface PublicConfig {
   enableMobileRegister: boolean
@@ -84,6 +105,8 @@ export interface PublicConfig {
   beianGaNum: string
   name: string
   sm2PublicKey: string
+  // 服务端未配置该参数时不会返回此字段
+  systemWebMenu?: SystemWebMenu | string | null
 }
 
 // 获取用户信息
