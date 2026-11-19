@@ -52,6 +52,22 @@ export interface UserInfo {
   mobile: string
   status: number
   superAdmin: number
+  nickname?: string | null
+}
+
+// 个人资料响应数据类型（对应后端 UserProfileVO）
+export interface UserProfile {
+  id: number
+  username: string
+  nickname: string | null
+  displayName: string
+  superAdmin: number
+  status: number
+  createDate: string | null
+  updateDate: string | null
+  deviceCount: number | null
+  agentCount: number | null
+  canViewAllUserData: boolean
 }
 
 // 公共配置响应数据类型
@@ -76,6 +92,39 @@ export function getUserInfo() {
     meta: {
       ignoreAuth: false,
       toast: false,
+    },
+  })
+}
+
+// 获取当前用户完整资料
+export function getUserProfile() {
+  return http.Get<UserProfile>('/user/profile', {
+    meta: {
+      ignoreAuth: false,
+      toast: false,
+    },
+    cacheFor: {
+      expire: 0,
+    },
+  })
+}
+
+// 修改当前用户昵称，返回最新资料
+export function updateUserNickname(nickname: string) {
+  return http.Put<UserProfile>('/user/profile', { nickname }, {
+    meta: {
+      ignoreAuth: false,
+      toast: true,
+    },
+  })
+}
+
+// 修改当前用户密码（后端修改成功后会使 token 失效，需重新登录）
+export function changePassword(data: { password: string, newPassword: string }) {
+  return http.Put('/user/change-password', data, {
+    meta: {
+      ignoreAuth: false,
+      toast: true,
     },
   })
 }

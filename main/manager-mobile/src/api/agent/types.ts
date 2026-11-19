@@ -12,6 +12,10 @@ export interface Agent {
   lastConnectedAt: string | null
   deviceCount: number
   tags: Record<string, string>[]
+  // 归属信息（仅在后端允许超管查看全部数据时有意义）
+  ownerUsername?: string | null
+  ownerNickname?: string | null
+  isOwn?: boolean | null
 }
 
 // 智能体创建数据类型

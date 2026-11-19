@@ -14,6 +14,7 @@ const userInfoState: UserInfo & { avatar?: string, token?: string } = {
   mobile: '',
   status: 0,
   superAdmin: 0,
+  nickname: '',
   avatar: '/static/images/default-avatar.png',
   token: '',
 }

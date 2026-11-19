@@ -259,6 +259,11 @@ async function clearCache() {
   }
 }
 
+// 进入个人信息页
+function goUserProfile() {
+  uni.navigateTo({ url: '/pages/user-profile/index' })
+}
+
 // 关于我们
 function showAbout() {
   uni.showModal({
@@ -291,6 +296,35 @@ onMounted(async () => {
     <wd-navbar :title="t('settings.title')" placeholder safe-area-inset-top fixed />
 
     <view class="p-[24rpx]">
+      <!-- 账号设置：个人信息 / 昵称 / 修改密码 -->
+      <view class="mb-[32rpx]">
+        <view class="mb-[24rpx] flex items-center">
+          <text class="text-[32rpx] text-[#232338] font-bold">
+            {{ t('settings.accountSettings') }}
+          </text>
+        </view>
+
+        <view
+          class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]"
+          style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);"
+        >
+          <view
+            class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] p-[24rpx] transition-all active:bg-[#eef3ff]"
+            @click="goUserProfile"
+          >
+            <view>
+              <text class="text-[28rpx] text-[#232338] font-medium">
+                {{ t('settings.userProfile') }}
+              </text>
+              <text class="mt-[4rpx] block text-[24rpx] text-[#9d9ea3]">
+                {{ t('settings.userProfileDesc') }}
+              </text>
+            </view>
+            <wd-icon name="arrow-right" custom-class="text-[32rpx] text-[#9d9ea3]" />
+          </view>
+        </view>
+      </view>
+
       <!-- 网络设置 - 仅在非小程序环境显示 -->
       <view v-if="!isMp" class="mb-[32rpx]">
         <view class="mb-[24rpx] flex items-center">

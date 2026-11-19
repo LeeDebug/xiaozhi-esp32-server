@@ -18,4 +18,8 @@ export interface Device {
   updateDate: string
   creator: string
   createDate: string
+  // 归属信息（仅在后端允许超管查看全部数据时有意义）
+  ownerUsername?: string | null
+  ownerNickname?: string | null
+  isOwn?: boolean | null
 }

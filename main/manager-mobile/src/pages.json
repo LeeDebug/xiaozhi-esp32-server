@@ -199,6 +199,15 @@
       }
     },
     {
+      "path": "pages/user-profile/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "个人信息"
+      }
+    },
+    {
       "path": "pages/voiceprint/index",
       "type": "page"
     }
