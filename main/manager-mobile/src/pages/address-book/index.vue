@@ -126,10 +126,9 @@ async function togglePermission(row: { key: string, device: Device, hasPermissio
       targetMac: row.device.macAddress,
       hasPermission: checked,
     })
-    // 从服务端重新读取，首次开启权限时服务端会自动创建条目并分配别名
-    await loadAddressBook()
   }
   catch (error) {
+    // 保存本身失败：回滚到修改前的状态
     console.error('保存权限失败:', error)
     const next = { ...bookMap.value }
     if (previous)
@@ -138,6 +137,17 @@ async function togglePermission(row: { key: string, device: Device, hasPermissio
       delete next[row.key]
     bookMap.value = next
     toast.error(t('addressBook.saveFailed'))
+    savingMacs.value = savingMacs.value.filter(key => key !== row.key)
+    return
+  }
+
+  // 保存已成功。从服务端重新读取（首次开启权限时服务端会自动创建条目并分配别名）。
+  // 刷新失败不能回滚，否则界面会和服务端已生效的权限不一致；保留乐观结果即可。
+  try {
+    await loadAddressBook()
+  }
+  catch (error) {
+    console.error('刷新通讯录失败:', error)
   }
   finally {
     savingMacs.value = savingMacs.value.filter(key => key !== row.key)
@@ -162,19 +172,29 @@ async function saveAlias(row: { key: string, device: Device }) {
     toast.warning(t('addressBook.aliasRequired'))
     return
   }
+  savingAlias.value = true
   try {
-    savingAlias.value = true
     await updateAddressBookAlias({
       macAddress: macAddress.value,
       targetMac: row.device.macAddress,
       alias,
     })
-    // 服务端会对重名自动追加数字后缀，必须重新拉取而不是直接使用本地输入值
-    await loadAddressBook()
-    cancelEditAlias()
   }
   catch (error) {
+    // 保存失败：保留编辑框和草稿，让用户可以重试
     console.error('保存别名失败:', error)
+    savingAlias.value = false
+    return
+  }
+
+  // 保存已成功，先关闭编辑框，避免用户重复提交导致追加多余的重名后缀。
+  cancelEditAlias()
+  try {
+    // 服务端会对重名自动追加数字后缀，必须重新拉取而不是直接使用本地输入值
+    await loadAddressBook()
+  }
+  catch (error) {
+    console.error('刷新通讯录失败:', error)
   }
   finally {
     savingAlias.value = false
