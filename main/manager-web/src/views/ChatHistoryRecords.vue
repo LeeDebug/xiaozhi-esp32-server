@@ -93,13 +93,6 @@
               @size-change="handlePageSizeChange"
               @page-change="goToPage"
             >
-              <template slot="createdAtText" slot-scope="scope">
-                <div class="time-cell">
-                  <div>{{ scope.row.createdAtText }}</div>
-                  <div class="time-sub">{{ $t('chatRecords.startAt') }} {{ scope.row.startedAtText }}</div>
-                </div>
-              </template>
-
               <template slot="sessionTitle" slot-scope="scope">
                 <span class="session-cell" :title="scope.row.sessionId" @click="openSession(scope.row)">
                   {{ sessionLabel(scope.row) }}
@@ -139,6 +132,13 @@
                 <span class="extra-cell">
                   <i v-if="scope.row.hasAudio" class="el-icon-headset" :title="$t('chatRecords.audio')"></i>
                 </span>
+              </template>
+
+              <template slot="createdAtText" slot-scope="scope">
+                <div class="time-cell">
+                  <div class="time-sub">{{ $t('chatRecords.startAt') }} {{ scope.row.startedAtText }}</div>
+                  <div>{{ scope.row.createdAtText }}</div>
+                </div>
               </template>
 
               <template slot="operations" slot-scope="scope">
@@ -246,13 +246,13 @@ export default {
     tableColumns() {
       return [
         // 列宽总量控制在略大于容器即可：过大会把操作列挤出视口，短内容列还会留出大片空白
-        { prop: 'createdAtText', label: this.$t('chatRecords.colTime'), width: 150, align: 'center' },
-        { prop: 'sessionTitle', label: this.$t('chatRecords.colSession'), minWidth: 120, align: 'center' },
-        { prop: 'macAddress', label: this.$t('chatRecords.colDevice'), minWidth: 155, align: 'center' },
+        { prop: 'macAddress', label: this.$t('chatRecords.colDevice'), minWidth: 130, align: 'center' },
         { prop: 'agentName', label: this.$t('chatRecords.colAgent'), minWidth: 100, align: 'center' },
+        { prop: 'sessionTitle', label: this.$t('chatRecords.colSession'), minWidth: 150, align: 'center' },
         { prop: 'chatCount', label: this.$t('chatRecords.colMessageCount'), width: 70, align: 'center' },
         { prop: 'summary', label: this.$t('chatRecords.colSummary'), minWidth: 160, align: 'left', showOverflowTooltip: false },
-        { prop: 'extra', label: this.$t('chatRecords.colExtra'), width: 60, align: 'center' }
+        { prop: 'extra', label: this.$t('chatRecords.colExtra'), width: 80, align: 'center' },
+        { prop: 'createdAtText', label: this.$t('chatRecords.colTime'), width: 150, align: 'center' }
       ];
     }
   },
