@@ -18,6 +18,7 @@ import { useMessage } from 'wot-design-uni/components/wd-message-box'
 import useZPaging from 'z-paging/components/z-paging/js/hooks/useZPaging.js'
 import { createAgent, deleteAgent, getAgentList } from '@/api/agent/agent'
 import { t } from '@/i18n'
+import { hasOwner, ownerDisplayName } from '@/utils/ownerDisplay'
 import { toast } from '@/utils/toast'
 
 defineOptions({
@@ -61,6 +62,9 @@ const deleteAgentLoading = ref(false)
 const isDeleteAgentNameMatched = computed(() => {
   return !!deleteTargetAgent.value?.agentName && deleteConfirmText.value === deleteTargetAgent.value.agentName
 })
+
+// 只有列表中出现其他用户的智能体时才展示归属标签，默认「只看自己」时保持界面简洁（与 web 端一致）
+const showOwnerBadges = computed(() => agentList.value.some(item => item.isOwn === false))
 
 // z-paging查询列表数据
 async function queryList(pageNo: number, pageSize: number) {
@@ -259,6 +263,13 @@ onMounted(() => {
                 <view class="agent-title">
                   <text class="agent-name">
                     {{ agent.agentName }}
+                  </text>
+                  <text
+                    v-if="showOwnerBadges && hasOwner(agent)"
+                    class="owner-badge"
+                    :class="agent.isOwn === false ? 'owner-badge-other' : 'owner-badge-mine'"
+                  >
+                    {{ agent.isOwn === false ? t('common.ownerOther') : t('common.ownerMine') }} · {{ ownerDisplayName(agent) }}
                   </text>
                 </view>
 
@@ -563,6 +574,23 @@ onMounted(() => {
       font-size: 32rpx;
       font-weight: 600;
       color: #1a1a1a;
+    }
+
+    .owner-badge {
+      margin-left: 12rpx;
+      padding: 2rpx 14rpx;
+      font-size: 20rpx;
+      border-radius: 8rpx;
+
+      &.owner-badge-mine {
+        color: #2f9e44;
+        background: #ebfbee;
+      }
+
+      &.owner-badge-other {
+        color: #e8590c;
+        background: #fff4e6;
+      }
     }
   }
 

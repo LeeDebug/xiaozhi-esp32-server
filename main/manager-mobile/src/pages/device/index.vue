@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useMessage } from 'wot-design-uni/components/wd-message-box'
 import { bindDevice, bindDeviceManual, getBindDevices, getFirmwareTypes, unbindDevice, updateDeviceAutoUpdate } from '@/api/device'
 import { t } from '@/i18n'
+import { useConfigStore } from '@/store'
 import { hasOwner, ownerDisplayName } from '@/utils/ownerDisplay'
 import { toast } from '@/utils/toast'
 import { parseDeviceLastConnectedAtTimestamp } from './deviceTimeUtils.mjs'
@@ -128,6 +129,16 @@ async function refresh() {
 
 // 只有列表中出现其他用户的设备时才展示归属标签，默认「只看自己」时保持界面简洁（与 web 端一致）
 const showOwnerBadges = computed(() => deviceList.value.some(item => item.isOwn === false))
+
+// 通讯录入口受服务端「功能管理」控制；未下发配置时默认显示
+const configStore = useConfigStore()
+const addressBookEnabled = computed(() => configStore.isFeatureEnabled('addressBook'))
+
+// 仅自己的设备才能管理通讯录（后端会校验归属，这里少展示一个必定失败的入口）
+function openAddressBook(device: Device) {
+  const query = `macAddress=${encodeURIComponent(device.macAddress)}&alias=${encodeURIComponent(device.alias || '')}`
+  uni.navigateTo({ url: `/pages/address-book/index?${query}` })
+}
 
 // 获取设备类型名称
 function getDeviceTypeName(boardKey: string): string {
@@ -436,6 +447,17 @@ defineExpose({
                       size="24"
                       @change="toggleAutoUpdate(device)"
                     />
+                  </view>
+
+                  <view
+                    v-if="addressBookEnabled && device.isOwn !== false"
+                    class="mt-[16rpx] flex items-center justify-between border-[1rpx] border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx]"
+                    @click="openAddressBook(device)"
+                  >
+                    <text class="text-[28rpx] text-[#232338] font-medium">
+                      {{ t('device.addressBook') }}
+                    </text>
+                    <wd-icon name="arrow-right" custom-class="text-[28rpx] text-[#9d9ea3]" />
                   </view>
                 </view>
               </view>
