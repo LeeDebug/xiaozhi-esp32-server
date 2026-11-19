@@ -624,7 +624,7 @@ export default {
   'chatRecords.noRecords': '当前筛选条件下没有会话',
   'chatRecords.totalSessions': '共 {count} 个会话',
   'chatRecords.colMessageCount': '消息数',
-  'chatRecords.colSummary': '用户首条内容',
+  'chatRecords.colSummary': '首条内容',
   'chatRecords.startAt': '始于',
 
   'cache.status': '缓存状态',

@@ -624,7 +624,7 @@ export default {
   'chatRecords.noRecords': '目前篩選條件下沒有會話',
   'chatRecords.totalSessions': '共 {count} 個會話',
   'chatRecords.colMessageCount': '訊息數',
-  'chatRecords.colSummary': '用戶首條內容',
+  'chatRecords.colSummary': '首條內容',
   'chatRecords.startAt': '始於',
 
   'cache.status': '緩存狀態',
