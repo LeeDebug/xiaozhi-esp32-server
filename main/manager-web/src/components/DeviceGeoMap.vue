@@ -305,6 +305,10 @@ export default {
               type: 'map',
               map: `geo-${this.current.code}`,
               roam: false,
+              // 默认情况下地图只占画布的约 75% 并按 0.75 压扁，占满模式下要让地图铺满画布
+              ...(this.fill
+                ? { layoutCenter: ['50%', '50%'], layoutSize: '100%', aspectScale: 0.85 }
+                : {}),
               selectedMode: 'single',
               label: { show: level !== 'province', fontSize: 10, color: '#2c3354' },
               itemStyle: { areaColor: '#f6f7fb', borderColor: '#ffffff', borderWidth: 0.8 },
@@ -418,13 +422,16 @@ export default {
 
 // 占满模式：组件撑满父容器，地图占据标题栏之外的全部高度，右侧排行也跟着加高
 .device-geo-map.is-fill {
+  // 用 flex 链路而不是百分比高度：父元素是 flex 子项且没有显式高度时，
+  // height: 100% 会退化为 auto，地图就停在 min-height 不会随屏幕变大
   display: flex;
+  flex: 1;
   flex-direction: column;
-  height: 100%;
+  width: 100%;
+  min-height: 0;
   margin-bottom: 0;
   padding: 0;
   border: none;
-  min-height: 0;
 
   .map-body {
     flex: 1;
@@ -432,12 +439,14 @@ export default {
   }
 
   .map-canvas {
-    height: 100%;
-    min-height: 360px;
+    // 画布绝对定位铺满 flex 子项，高度完全由父级分配
+    position: relative;
+    height: auto;
+    min-height: 420px;
   }
 
   .map-side {
-    width: 280px;
+    width: 300px;
     min-height: 0;
   }
 
