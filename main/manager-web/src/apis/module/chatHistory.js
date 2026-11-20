@@ -66,6 +66,26 @@ export default {
             }).send();
     },
 
+    // 会话内容分析（词云）：用户 / 智能体消息正文分词后的高频词
+    getWordCloud(params, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/chat-history/word-cloud`)
+            .method('GET')
+            .data(params)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                console.error('获取会话内容词云失败:', err);
+                if (failCallback) failCallback(err);
+            }).send();
+    },
+
     // 设备 / 智能体筛选下拉选项
     getFilterOptions(callback, failCallback) {
         RequestService.sendRequest()

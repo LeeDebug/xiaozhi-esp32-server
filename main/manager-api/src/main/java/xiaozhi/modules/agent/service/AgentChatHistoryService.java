@@ -15,6 +15,7 @@ import xiaozhi.modules.agent.vo.ChatAnalyticsVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
+import xiaozhi.modules.agent.vo.ChatWordCloudVO;
 
 /**
  * 智能体会话记录表处理service
@@ -139,4 +140,15 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
      * @return 聚合结果
      */
     ChatAnalyticsVO getChatAnalytics(ChatRecordQueryDTO query, Long userId);
+
+    /**
+     * 会话内容分析（词云）：对用户 / 智能体消息正文分词后统计高频词。
+     * 数据隔离与 {@link #getChatSessionPage} 一致；工具调用消息不计入。
+     *
+     * @param query  筛选条件（使用 macAddress / agentId / startTime / endTime，chatType 可指定只统计某一角色）
+     * @param userId 当前用户ID
+     * @param limit  返回的高频词个数上限
+     * @return 词频结果
+     */
+    ChatWordCloudVO getChatWordCloud(ChatRecordQueryDTO query, Long userId, int limit);
 }

@@ -68,4 +68,10 @@ public interface AiAgentChatHistoryDao extends BaseMapper<AgentChatHistoryEntity
      * 限制最多返回 q.limit 条，防止大表担爆内存。
      */
     List<Map<String, Object>> selectAnalyticsRows(@Param("q") ChatSessionQueryDTO q);
+
+    /**
+     * 会话内容词云用的消息正文明细（仅 chat_type + content，不含 audio），权限隔离、设备、
+     * 智能体、时间范围与会话列表同一口径。按时间倒序取前 q.limit 条，超限时保留最新的消息。
+     */
+    List<Map<String, Object>> selectContentRows(@Param("q") ChatSessionQueryDTO q);
 }

@@ -85,6 +85,14 @@ const routes = [
       return import('../views/ChatAnalytics.vue')
     }
   },
+  // 会话内容分析（词云）
+  {
+    path: '/chat-wordcloud',
+    name: 'ChatWordCloud',
+    component: function () {
+      return import('../views/ChatWordCloud.vue')
+    }
+  },
   // 添加用户管理路由
   {
     path: '/user-management',

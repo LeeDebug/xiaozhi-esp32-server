@@ -67,6 +67,10 @@
       <if test="q.chatType != null">
         AND m.chat_type = #{q.chatType}
       </if>
+      <if test="q.chatTypes != null and q.chatTypes.size() > 0">
+        AND m.chat_type IN
+        <foreach collection="q.chatTypes" item="ct" open="(" separator="," close=")">#{ct}</foreach>
+      </if>
       <if test="q.startTime != null">
         AND m.created_at &gt;= #{q.startTime}
       </if>
@@ -127,6 +131,16 @@
     FROM ai_agent_chat_history m
     <include refid="chatSessionMatch"/>
     ORDER BY m.created_at ASC, m.id ASC
+    LIMIT #{q.limit}
+  </select>
+
+  <!-- 会话内容词云明细：只取用户/智能体消息的正文（chat_type 3 工具调用的 JSON 不计入），最新的在前 -->
+  <select id="selectContentRows" resultType="java.util.Map">
+    SELECT m.chat_type AS chat_type,
+           m.content AS content
+    FROM ai_agent_chat_history m
+    <include refid="chatSessionMatch"/>
+    ORDER BY m.created_at DESC, m.id DESC
     LIMIT #{q.limit}
   </select>
 </mapper>

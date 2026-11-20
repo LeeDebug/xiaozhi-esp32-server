@@ -34,11 +34,13 @@
         </el-dropdown>
         <!-- 会话记录下拉菜单：会话记录列表 + 会话分析看板 -->
         <el-dropdown trigger="click" class="equipment-management more-dropdown" :class="{
-          'active-tab': $route.path === '/chat-history' || $route.path === '/chat-analytics'
+          'active-tab': $route.path === '/chat-history' || $route.path === '/chat-analytics' ||
+            $route.path === '/chat-wordcloud'
         }" @visible-change="handleChatDropdownVisibleChange">
           <span class="el-dropdown-link">
             <img loading="lazy" alt="" src="@/assets/header/address_book.png" :style="{
-              filter: $route.path === '/chat-history' || $route.path === '/chat-analytics'
+              filter: $route.path === '/chat-history' || $route.path === '/chat-analytics' ||
+                $route.path === '/chat-wordcloud'
                 ? 'brightness(0) invert(1)' : 'None',
             }" />
             <span class="nav-text">{{ $t("header.chatRecords") }}</span>
@@ -50,6 +52,9 @@
             </el-dropdown-item>
             <el-dropdown-item @click.native="handleRouter('chatAnalytics')">
               {{ $t("header.chatAnalytics") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('chatWordCloud')">
+              {{ $t("header.chatWordCloud") }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
@@ -282,6 +287,7 @@ export default {
         deviceAnalytics: "/device-analytics",
         chatHistory: "/chat-history",
         chatAnalytics: "/chat-analytics",
+        chatWordCloud: "/chat-wordcloud",
         modelConfig: "/model-config",
         knowledgeBaseManagement: "/knowledge-base-management",
         addressBookManagement: "/address-book-management",

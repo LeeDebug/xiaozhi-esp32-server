@@ -30,6 +30,9 @@ public class ChatSessionQueryDTO {
     /** 消息类型，用于找出「会话内存在该角色消息」的会话 */
     private Integer chatType;
 
+    /** 消息类型列表（IN 条件），用于词云等只统计部分角色消息的场景；为空表示不限制 */
+    private List<Integer> chatTypes;
+
     /** 起始时间，已转换成与 created_at 同口径的 UTC 字面值 */
     private LocalDateTime startTime;
 

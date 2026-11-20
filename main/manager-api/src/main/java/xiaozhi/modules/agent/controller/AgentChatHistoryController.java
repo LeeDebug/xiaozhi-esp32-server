@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -46,6 +47,7 @@ import xiaozhi.modules.agent.vo.ChatAnalyticsVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
+import xiaozhi.modules.agent.vo.ChatWordCloudVO;
 import xiaozhi.modules.security.user.SecurityUser;
 
 @Tag(name = "智能体聊天历史管理")
@@ -108,6 +110,19 @@ public class AgentChatHistoryController {
     public Result<ChatAnalyticsVO> getChatAnalytics(@ModelAttribute ChatRecordQueryDTO query) {
         return new Result<ChatAnalyticsVO>()
                 .ok(agentChatHistoryService.getChatAnalytics(query, SecurityUser.getUserId()));
+    }
+
+    /**
+     * 会话内容分析（词云）：用户 / 智能体消息正文分词后的高频词统计。
+     * 与会话列表同一套数据隔离规则，时间参数为 epoch 毫秒；chatType 可限定只统计用户(1)或智能体(2)。
+     */
+    @Operation(summary = "会话内容词云统计")
+    @RequiresPermissions("sys:role:normal")
+    @GetMapping("/word-cloud")
+    public Result<ChatWordCloudVO> getChatWordCloud(@ModelAttribute ChatRecordQueryDTO query,
+            @RequestParam(value = "topN", defaultValue = "100") int topN) {
+        return new Result<ChatWordCloudVO>()
+                .ok(agentChatHistoryService.getChatWordCloud(query, SecurityUser.getUserId(), topN));
     }
 
     /**

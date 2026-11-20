@@ -48,11 +48,13 @@ import xiaozhi.modules.agent.entity.AgentChatTitleEntity;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentChatTitleService;
+import xiaozhi.modules.agent.service.ChatTextTokenizer;
 import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
 import xiaozhi.modules.agent.vo.ChatAnalyticsVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
+import xiaozhi.modules.agent.vo.ChatWordCloudVO;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.sys.service.UserDataScopeService;
@@ -74,6 +76,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     private final AgentChatTitleDao agentChatTitleDao;
     private final DeviceDao deviceDao;
     private final UserDataScopeService userDataScopeService;
+    private final ChatTextTokenizer chatTextTokenizer;
 
     /** 页面展示统一使用中国标准时间，避免依赖浏览器或 JVM 默认时区。 */
     private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
@@ -988,6 +991,102 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
 
     private double round1(double value) {
         return Math.round(value * 10.0) / 10.0;
+    }
+
+    // ---------------- 会话内容分析（词云） ----------------
+
+    /** 词云最多读取的消息条数（最新优先），分词是 CPU 密集型，防止大表拖垮服务 */
+    private static final int WORD_CLOUD_MAX_ROWS = 20000;
+
+    /** 单条消息参与分词的最大字符数，避免异常超长正文占用过多时间 */
+    private static final int WORD_CLOUD_MAX_TEXT_LENGTH = 2000;
+
+    @Override
+    public ChatWordCloudVO getChatWordCloud(ChatRecordQueryDTO query, Long userId, int limit) {
+        ChatWordCloudVO result = new ChatWordCloudVO();
+        int topN = Math.min(200, Math.max(10, limit));
+
+        ChatRecordQueryDTO httpQuery = query == null ? new ChatRecordQueryDTO() : query;
+        List<String> visibleAgentIds = resolveVisibleAgentIds(userId);
+        if (visibleAgentIds != null && visibleAgentIds.isEmpty()) {
+            return result;
+        }
+        // 指定智能体时仍要校验归属，防止越权查看他人数据（与会话列表一致）
+        if (visibleAgentIds != null && StringUtils.isNotBlank(httpQuery.getAgentId())
+                && !visibleAgentIds.contains(httpQuery.getAgentId())) {
+            return result;
+        }
+
+        ChatSessionQueryDTO q = new ChatSessionQueryDTO();
+        q.setVisibleAgentIds(visibleAgentIds);
+        q.setMacAddress(trimToNull(httpQuery.getMacAddress()));
+        q.setAgentId(trimToNull(httpQuery.getAgentId()));
+        // 角色：只允许指定用户(1)/智能体(2)；其他取值（含工具 3）一律按「用户+智能体」处理，避免工具 JSON 混入词云
+        Integer chatType = httpQuery.getChatType();
+        if (chatType != null && (chatType == 1 || chatType == 2)) {
+            q.setChatTypes(Collections.singletonList(chatType));
+        } else {
+            q.setChatTypes(java.util.Arrays.asList(1, 2));
+        }
+        if (httpQuery.getStartTime() != null) {
+            q.setStartTime(toDbLiteral(httpQuery.getStartTime()));
+        }
+        if (httpQuery.getEndTime() != null) {
+            q.setEndTime(toDbLiteral(httpQuery.getEndTime()));
+        }
+        q.setLimit(WORD_CLOUD_MAX_ROWS);
+
+        List<Map<String, Object>> rows = baseMapper.selectContentRows(q);
+        ChatWordCloudVO.Summary summary = result.getSummary();
+        summary.setTruncated(rows.size() >= WORD_CLOUD_MAX_ROWS);
+        if (rows.isEmpty()) {
+            return result;
+        }
+
+        Map<String, long[]> all = new HashMap<>();
+        Map<String, long[]> user = new HashMap<>();
+        Map<String, long[]> agent = new HashMap<>();
+        long totalWords = 0;
+        for (Map<String, Object> row : rows) {
+            String text = extractContentFromString(asString(row.get("content")));
+            if (StringUtils.isBlank(text)) {
+                continue;
+            }
+            if (text.length() > WORD_CLOUD_MAX_TEXT_LENGTH) {
+                text = text.substring(0, WORD_CLOUD_MAX_TEXT_LENGTH);
+            }
+            boolean isUser = asInt(row.get("chat_type")) == AgentChatHistoryType.USER.getValue();
+            List<String> tokens = chatTextTokenizer.tokenize(text);
+            summary.setMessageCount(summary.getMessageCount() + 1);
+            if (isUser) {
+                summary.setUserMessageCount(summary.getUserMessageCount() + 1);
+            } else {
+                summary.setAgentMessageCount(summary.getAgentMessageCount() + 1);
+            }
+            for (String token : tokens) {
+                all.computeIfAbsent(token, k -> new long[1])[0]++;
+                (isUser ? user : agent).computeIfAbsent(token, k -> new long[1])[0]++;
+                totalWords++;
+            }
+        }
+        summary.setTotalWords(totalWords);
+        summary.setDistinctWords(all.size());
+        result.setWords(topWords(all, topN));
+        result.setUserWords(topWords(user, topN));
+        result.setAgentWords(topWords(agent, topN));
+        return result;
+    }
+
+    /** 按词频倒序取前 N；词频相同时按词本身排序，保证结果稳定、可测试 */
+    private List<ChatWordCloudVO.WordItem> topWords(Map<String, long[]> counter, int topN) {
+        return counter.entrySet().stream()
+                .sorted((a, b) -> {
+                    int byCount = Long.compare(b.getValue()[0], a.getValue()[0]);
+                    return byCount != 0 ? byCount : a.getKey().compareTo(b.getKey());
+                })
+                .limit(topN)
+                .map(e -> new ChatWordCloudVO.WordItem(e.getKey(), e.getValue()[0]))
+                .collect(Collectors.toList());
     }
 
     /** 单个会话的聚合中间态 */

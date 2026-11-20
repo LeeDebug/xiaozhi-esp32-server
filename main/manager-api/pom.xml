@@ -23,6 +23,7 @@
         <mybatisplus.version>3.5.17</mybatisplus.version>
         <hutool.version>5.8.46</hutool.version>
         <jsoup.version>1.22.2</jsoup.version>
+        <jcseg.version>2.6.3</jcseg.version>
         <knife4j.version>4.6.0</knife4j.version>
         <springdoc.version>2.8.8</springdoc.version>
         <commons-lang3.version>3.20.0</commons-lang3.version>
@@ -200,6 +201,12 @@
             <groupId>org.lionsoul</groupId>
             <artifactId>ip2region</artifactId>
             <version>3.3.8</version>
+        </dependency>
+        <!-- jcseg 中文分词（会话内容分析词云），内置词库随 jar 提供 -->
+        <dependency>
+            <groupId>org.lionsoul</groupId>
+            <artifactId>jcseg-core</artifactId>
+            <version>${jcseg.version}</version>
         </dependency>
         <!--knife4j -->
         <dependency>
