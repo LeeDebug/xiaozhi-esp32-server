@@ -103,6 +103,20 @@ export default {
     hasSel() {
       return hasSelection(this.value);
     },
+    // 当前展示的是全国地图（还没选中任何省）
+    isNational() {
+      return this.current.code === COUNTRY;
+    },
+    // 全国层级放大到 110%，省/市/区保持 100%。
+    // 实测 100% 时全国地图已占画布高度的 96%，120% 会把南北各切掉约 50-60px，所以取 110%
+    layoutSize() {
+      return this.isNational ? '130%' : '100%';
+    },
+    // 只有全国层级把地图往左下挪一点，省/市/区仍居中。
+    // 实测：左移不会裁切（左右宽裕），下移 2% 会让底部多裁约 13px（南海诸岛一带），可拖动查看
+    layoutCenter() {
+      return this.isNational ? ['40%', '65%'] : ['50%', '45%'];
+    },
     unlocatedCount() {
       return countUnlocated(this.devices);
     },
@@ -304,11 +318,15 @@ export default {
             {
               type: 'map',
               map: `geo-${this.current.code}`,
-              roam: false,
               // 默认情况下地图只占画布的约 75% 并按 0.75 压扁，占满模式下要让地图铺满画布
               ...(this.fill
-                ? { layoutCenter: ['50%', '50%'], layoutSize: '100%', aspectScale: 0.85 }
+                ? { layoutCenter: this.layoutCenter, layoutSize: this.layoutSize, aspectScale: 0.85 }
                 : {}),
+              // 全国层级放大后上下会超出画布，允许拖动查看；只开拖动不开滚轮缩放，避免影响页面滚动。
+              // center/zoom 每次显式复位，否则在全国拖过的位置会带到下一级地图
+              roam: this.isNational ? 'move' : false,
+              center: null,
+              zoom: 1,
               selectedMode: 'single',
               label: { show: level !== 'province', fontSize: 10, color: '#2c3354' },
               itemStyle: { areaColor: '#f6f7fb', borderColor: '#ffffff', borderWidth: 0.8 },
