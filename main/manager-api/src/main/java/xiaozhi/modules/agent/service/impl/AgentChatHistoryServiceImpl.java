@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,6 +49,7 @@ import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentChatTitleService;
 import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
+import xiaozhi.modules.agent.vo.ChatAnalyticsVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
@@ -724,6 +726,287 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
             map.putIfAbsent(sessionId, toSummary(asString(row.get("content"))));
         }
         return map;
+    }
+
+    // ---------------- 会话分析看板 ----------------
+
+    /** 分析明细的最大读取行数，防止超大表担爆内存 */
+    private static final int ANALYTICS_MAX_ROWS = 200000;
+
+    /** 有效/等待时长堆叠图展示的会话条数（按总跨度倒序取前 N） */
+    private static final int TOP_SESSION_LIMIT = 15;
+
+    private static final int SCATTER_LIMIT = 300;
+
+    private static final DateTimeFormatter CN_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+    @Override
+    public ChatAnalyticsVO getChatAnalytics(ChatRecordQueryDTO query, Long userId) {
+        ChatAnalyticsVO result = new ChatAnalyticsVO();
+        // 24 小时固定补齐，前端不用处理空洞
+        List<Integer> hourly = new ArrayList<>(Collections.nCopies(24, 0));
+        result.setHourly(hourly);
+
+        ChatRecordQueryDTO httpQuery = query == null ? new ChatRecordQueryDTO() : query;
+        List<String> visibleAgentIds = resolveVisibleAgentIds(userId);
+        if (visibleAgentIds != null && visibleAgentIds.isEmpty()) {
+            return result;
+        }
+        // 指定智能体时仍要校验归属，防止越权查看他人数据（与会话列表一致）
+        if (visibleAgentIds != null && StringUtils.isNotBlank(httpQuery.getAgentId())
+                && !visibleAgentIds.contains(httpQuery.getAgentId())) {
+            return result;
+        }
+
+        ChatSessionQueryDTO q = new ChatSessionQueryDTO();
+        q.setVisibleAgentIds(visibleAgentIds);
+        q.setMacAddress(trimToNull(httpQuery.getMacAddress()));
+        q.setAgentId(trimToNull(httpQuery.getAgentId()));
+        if (httpQuery.getStartTime() != null) {
+            q.setStartTime(toDbLiteral(httpQuery.getStartTime()));
+        }
+        if (httpQuery.getEndTime() != null) {
+            q.setEndTime(toDbLiteral(httpQuery.getEndTime()));
+        }
+        q.setLimit(ANALYTICS_MAX_ROWS);
+
+        List<Map<String, Object>> rows = baseMapper.selectAnalyticsRows(q);
+        if (rows.isEmpty()) {
+            return result;
+        }
+
+        // 一次遍历按会话归组（rows 已按 created_at 升序）
+        Map<String, SessionAgg> sessionMap = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String sessionId = asString(row.get("session_id"));
+            Long ms = toEpochMs(row.get("created_at"));
+            if (StringUtils.isBlank(sessionId) || ms == null) {
+                continue;
+            }
+            SessionAgg agg = sessionMap.computeIfAbsent(sessionId, SessionAgg::new);
+            agg.macAddress = StringUtils.defaultIfBlank(agg.macAddress, asString(row.get("mac_address")));
+            agg.agentId = StringUtils.defaultIfBlank(agg.agentId, asString(row.get("agent_id")));
+            agg.firstMs = agg.firstMs == null ? ms : Math.min(agg.firstMs, ms);
+            agg.lastMs = agg.lastMs == null ? ms : Math.max(agg.lastMs, ms);
+            agg.messages++;
+            if (asInt(row.get("chat_type")) == AgentChatHistoryType.USER.getValue()) {
+                agg.userMessages++;
+            }
+            // 耗时快照只在每轮末条回复上，累加各轮 e2eTotalMs 即「有效时长」
+            String metricsJson = asString(row.get("metrics_json"));
+            if (StringUtils.isNotBlank(metricsJson)) {
+                Map<String, Object> metrics = JsonUtils.parseMap(metricsJson);
+                if (metrics != null) {
+                    long e2e = asLong(metrics.get("e2eTotalMs"));
+                    if (e2e > 0) {
+                        agg.activeMs += e2e;
+                        agg.metricRounds++;
+                    }
+                    long firstAudio = asLong(metrics.get("e2eFirstAudioMs"));
+                    if (firstAudio > 0) {
+                        agg.firstAudioSumMs += firstAudio;
+                        agg.firstAudioCount++;
+                    }
+                }
+            }
+        }
+        if (sessionMap.isEmpty()) {
+            return result;
+        }
+
+        Set<String> macs = sessionMap.values().stream().map(a -> a.macAddress)
+                .filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+        Set<String> agentIds = sessionMap.values().stream().map(a -> a.agentId)
+                .filter(StringUtils::isNotBlank).collect(Collectors.toSet());
+        Map<String, String> aliasByMac = findDeviceAliases(macs);
+        Map<String, String> nameByAgent = findAgentNames(agentIds);
+        Map<String, String> titleBySession = findSessionTitles(new ArrayList<>(sessionMap.keySet()));
+
+        ChatAnalyticsVO.Summary summary = result.getSummary();
+        Map<String, long[]> dailyMap = new java.util.TreeMap<>();
+        Map<String, ChatAnalyticsVO.DeviceItem> deviceMap = new LinkedHashMap<>();
+        Map<String, ChatAnalyticsVO.AgentItem> agentMap = new LinkedHashMap<>();
+        int[][] weekHour = new int[7][24];
+        long[] durationBuckets = new long[DURATION_LABELS.length];
+        long[] roundBuckets = new long[ROUND_LABELS.length];
+        List<ChatAnalyticsVO.SessionDuration> allDurations = new ArrayList<>();
+        List<ChatAnalyticsVO.ScatterItem> scatter = new ArrayList<>();
+        long firstAudioSum = 0;
+        long firstAudioCount = 0;
+        long spanSecondsTotal = 0;
+        Long minMs = null;
+        Long maxMs = null;
+
+        for (SessionAgg agg : sessionMap.values()) {
+            long spanSeconds = Math.max(0L, (agg.lastMs - agg.firstMs) / 1000);
+            long activeSeconds = Math.min(agg.activeMs / 1000, spanSeconds);
+            long waitSeconds = Math.max(0L, spanSeconds - activeSeconds);
+            long rounds = agg.userMessages;
+            String deviceName = StringUtils.defaultIfBlank(aliasByMac.get(agg.macAddress),
+                    StringUtils.defaultString(agg.macAddress));
+
+            summary.setSessionCount(summary.getSessionCount() + 1);
+            summary.setMessageCount(summary.getMessageCount() + agg.messages);
+            summary.setUserMessageCount(summary.getUserMessageCount() + agg.userMessages);
+            spanSecondsTotal += spanSeconds;
+            summary.setActiveSeconds(summary.getActiveSeconds() + activeSeconds);
+            summary.setWaitSeconds(summary.getWaitSeconds() + waitSeconds);
+            if (agg.metricRounds > 0) {
+                summary.setMetricSessionCount(summary.getMetricSessionCount() + 1);
+            }
+            firstAudioSum += agg.firstAudioSumMs;
+            firstAudioCount += agg.firstAudioCount;
+            minMs = minMs == null ? agg.firstMs : Math.min(minMs, agg.firstMs);
+            maxMs = maxMs == null ? agg.lastMs : Math.max(maxMs, agg.lastMs);
+
+            // 会话开始时刻（中国时间）→ 按天 / 小时 / 星期 x 小时
+            ZonedDateTime start = Instant.ofEpochMilli(agg.firstMs).atZone(CHINA_ZONE);
+            long[] day = dailyMap.computeIfAbsent(start.format(CN_DATE_FORMAT), k -> new long[2]);
+            day[0]++;
+            day[1] += agg.messages;
+            hourly.set(start.getHour(), hourly.get(start.getHour()) + 1);
+            weekHour[start.getDayOfWeek().getValue() - 1][start.getHour()]++;
+
+            if (StringUtils.isNotBlank(agg.macAddress)) {
+                ChatAnalyticsVO.DeviceItem device = deviceMap.computeIfAbsent(agg.macAddress, k -> {
+                    ChatAnalyticsVO.DeviceItem item = new ChatAnalyticsVO.DeviceItem();
+                    item.setMacAddress(k);
+                    item.setName(deviceName);
+                    return item;
+                });
+                device.setSessions(device.getSessions() + 1);
+                device.setMessages(device.getMessages() + agg.messages);
+                device.setActiveSeconds(device.getActiveSeconds() + activeSeconds);
+                device.setWaitSeconds(device.getWaitSeconds() + waitSeconds);
+            }
+            if (StringUtils.isNotBlank(agg.agentId)) {
+                ChatAnalyticsVO.AgentItem agent = agentMap.computeIfAbsent(agg.agentId, k -> {
+                    ChatAnalyticsVO.AgentItem item = new ChatAnalyticsVO.AgentItem();
+                    item.setAgentId(k);
+                    item.setName(StringUtils.defaultIfBlank(nameByAgent.get(k), k));
+                    return item;
+                });
+                agent.setSessions(agent.getSessions() + 1);
+                agent.setMessages(agent.getMessages() + agg.messages);
+            }
+
+            durationBuckets[bucketIndex(spanSeconds, DURATION_UPPER)]++;
+            roundBuckets[bucketIndex(rounds, ROUND_UPPER)]++;
+
+            ChatAnalyticsVO.SessionDuration duration = new ChatAnalyticsVO.SessionDuration();
+            duration.setSessionId(agg.sessionId);
+            duration.setTitle(StringUtils.defaultIfBlank(titleBySession.get(agg.sessionId),
+                    agg.sessionId.length() > 8 ? agg.sessionId.substring(0, 8) : agg.sessionId));
+            duration.setDeviceName(deviceName);
+            duration.setActiveSeconds(activeSeconds);
+            duration.setWaitSeconds(waitSeconds);
+            duration.setRounds(rounds);
+            allDurations.add(duration);
+
+            if (scatter.size() < SCATTER_LIMIT) {
+                ChatAnalyticsVO.ScatterItem point = new ChatAnalyticsVO.ScatterItem();
+                point.setRounds(rounds);
+                point.setSpanSeconds(spanSeconds);
+                point.setTitle(duration.getTitle());
+                scatter.add(point);
+            }
+        }
+
+        long sessions = summary.getSessionCount();
+        summary.setDeviceCount(deviceMap.size());
+        summary.setAgentCount(agentMap.size());
+        summary.setAvgMessages(round1(summary.getMessageCount() * 1.0 / sessions));
+        summary.setAvgRounds(round1(summary.getUserMessageCount() * 1.0 / sessions));
+        summary.setAvgSpanSeconds(round1(spanSecondsTotal * 1.0 / sessions));
+        summary.setAvgFirstAudioMs(firstAudioCount == 0 ? 0 : round1(firstAudioSum * 1.0 / firstAudioCount));
+        summary.setFirstTime(formatChinaTime(minMs));
+        summary.setLastTime(formatChinaTime(maxMs));
+
+        dailyMap.forEach((date, v) -> {
+            ChatAnalyticsVO.DailyItem item = new ChatAnalyticsVO.DailyItem();
+            item.setDate(date);
+            item.setSessions(v[0]);
+            item.setMessages(v[1]);
+            result.getDaily().add(item);
+        });
+        deviceMap.values().stream()
+                .sorted((a, b) -> Long.compare(b.getSessions(), a.getSessions()))
+                .forEach(result.getDevices()::add);
+        agentMap.values().stream()
+                .sorted((a, b) -> Long.compare(b.getSessions(), a.getSessions()))
+                .forEach(result.getAgents()::add);
+
+        for (int d = 0; d < 7; d++) {
+            for (int h = 0; h < 24; h++) {
+                if (weekHour[d][h] > 0) {
+                    result.getWeekHour().add(java.util.Arrays.asList(h, d, weekHour[d][h]));
+                }
+            }
+        }
+        for (int i = 0; i < DURATION_LABELS.length; i++) {
+            ChatAnalyticsVO.BucketItem item = new ChatAnalyticsVO.BucketItem();
+            item.setLabel(DURATION_LABELS[i]);
+            item.setCount(durationBuckets[i]);
+            result.getDurationBuckets().add(item);
+        }
+        for (int i = 0; i < ROUND_LABELS.length; i++) {
+            ChatAnalyticsVO.BucketItem item = new ChatAnalyticsVO.BucketItem();
+            item.setLabel(ROUND_LABELS[i]);
+            item.setCount(roundBuckets[i]);
+            result.getRoundBuckets().add(item);
+        }
+        allDurations.stream()
+                .sorted((a, b) -> Long.compare(b.getActiveSeconds() + b.getWaitSeconds(),
+                        a.getActiveSeconds() + a.getWaitSeconds()))
+                .limit(TOP_SESSION_LIMIT)
+                .forEach(result.getTopSessions()::add);
+        result.setScatter(scatter);
+        return result;
+    }
+
+    /** 会话总跨度分桶（秒）上界，与 DURATION_LABELS 一一对应，最后一桶为开区间 */
+    private static final long[] DURATION_UPPER = { 10, 30, 60, 180, 600, 1800 };
+    private static final String[] DURATION_LABELS = { "<10s", "10-30s", "30s-1m", "1-3m", "3-10m", "10-30m", ">30m" };
+
+    /** 会话轮数分桶上界（轮） */
+    private static final long[] ROUND_UPPER = { 1, 2, 3, 5, 10, 20 };
+    private static final String[] ROUND_LABELS = { "1", "2", "3", "4-5", "6-10", "11-20", ">20" };
+
+    /** 返回 value 落入的桶下标：value <= upper[i] 即落入第 i 桶，超过全部上界落入最后一桶 */
+    private int bucketIndex(long value, long[] upper) {
+        for (int i = 0; i < upper.length; i++) {
+            if (value <= upper[i]) {
+                return i;
+            }
+        }
+        return upper.length;
+    }
+
+    private long asLong(Object value) {
+        return value instanceof Number ? ((Number) value).longValue() : 0L;
+    }
+
+    private double round1(double value) {
+        return Math.round(value * 10.0) / 10.0;
+    }
+
+    /** 单个会话的聚合中间态 */
+    private static class SessionAgg {
+        private final String sessionId;
+        private String macAddress;
+        private String agentId;
+        private Long firstMs;
+        private Long lastMs;
+        private long messages;
+        private long userMessages;
+        private long activeMs;
+        private long metricRounds;
+        private long firstAudioSumMs;
+        private long firstAudioCount;
+
+        SessionAgg(String sessionId) {
+            this.sessionId = sessionId;
+        }
     }
 
     /** 兼容 {"content": "..."} 与普通文本；压缩空白后截断，避免工具调用 JSON 撑爆列表 */

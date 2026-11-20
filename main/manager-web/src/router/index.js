@@ -69,6 +69,14 @@ const routes = [
       return import('../views/ChatHistoryRecords.vue')
     }
   },
+  // 会话分析看板（支持按设备 / 智能体筛选）
+  {
+    path: '/chat-analytics',
+    name: 'ChatAnalytics',
+    component: function () {
+      return import('../views/ChatAnalytics.vue')
+    }
+  },
   // 添加用户管理路由
   {
     path: '/user-management',

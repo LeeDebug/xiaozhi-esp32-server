@@ -11,6 +11,7 @@ import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
 import xiaozhi.modules.agent.dto.ChatRecordQueryDTO;
 import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
 import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
+import xiaozhi.modules.agent.vo.ChatAnalyticsVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
@@ -128,4 +129,14 @@ public interface AgentChatHistoryService extends IRepository<AgentChatHistoryEnt
      * @return 筛选项
      */
     ChatRecordFilterVO getChatRecordFilters(Long userId);
+
+    /**
+     * 会话分析看板：按设备 / 智能体 / 时间范围聚合会话数、时间分布、时长（有效/等待）、轮数等。
+     * 数据隔离与 {@link #getChatSessionPage} 一致，所有时间分布按中国时间统计。
+     *
+     * @param query  筛选条件（仅使用 macAddress / agentId / startTime / endTime）
+     * @param userId 当前用户ID
+     * @return 聚合结果
+     */
+    ChatAnalyticsVO getChatAnalytics(ChatRecordQueryDTO query, Long userId);
 }

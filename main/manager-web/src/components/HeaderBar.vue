@@ -25,15 +25,27 @@
           }" />
           <span class="nav-text">{{ $t("header.smartManagement") }}</span>
         </div>
-        <!-- 会话记录（独立页面，支持按设备/时间/内容查询） -->
-        <div class="equipment-management"
-          :class="{ 'active-tab': $route.path === '/chat-history' }"
-          @click="handleRouter('chatHistory')">
-          <img loading="lazy" alt="" src="@/assets/header/address_book.png" :style="{
-            filter: $route.path === '/chat-history' ? 'brightness(0) invert(1)' : 'None',
-          }" />
-          <span class="nav-text">{{ $t("header.chatRecords") }}</span>
-        </div>
+        <!-- 会话记录下拉菜单：会话记录列表 + 会话分析看板 -->
+        <el-dropdown trigger="click" class="equipment-management more-dropdown" :class="{
+          'active-tab': $route.path === '/chat-history' || $route.path === '/chat-analytics'
+        }" @visible-change="handleChatDropdownVisibleChange">
+          <span class="el-dropdown-link">
+            <img loading="lazy" alt="" src="@/assets/header/address_book.png" :style="{
+              filter: $route.path === '/chat-history' || $route.path === '/chat-analytics'
+                ? 'brightness(0) invert(1)' : 'None',
+            }" />
+            <span class="nav-text">{{ $t("header.chatRecords") }}</span>
+            <i class="el-icon-arrow-down" :class="{ 'rotate-down': chatDropdownVisible }"></i>
+          </span>
+          <el-dropdown-menu slot="dropdown">
+            <el-dropdown-item @click.native="handleRouter('chatHistory')">
+              {{ $t("header.chatRecordList") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('chatAnalytics')">
+              {{ $t("header.chatAnalytics") }}
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </el-dropdown>
         <!-- 普通用户显示音色克隆 -->
         <div v-if="!userInfo.superAdmin && featureStatus.voiceClone" class="equipment-management"
           :class="{ 'active-tab': $route.path === '/voice-clone-management' }"
@@ -244,6 +256,7 @@ export default {
       isChangePasswordDialogVisible: false, // 控制修改密码弹窗的显示
       paramDropdownVisible: false,
       voiceCloneDropdownVisible: false,
+      chatDropdownVisible: false,
       aiDataAnalysisDropdownVisible: false,
       userMenuVisible: false, // 添加用户菜单可见状态
       menuVisibleTimer: null, // 菜单显示定时器，防止够快触发
@@ -258,6 +271,7 @@ export default {
       routerPaths: {
         home: "/home",
         chatHistory: "/chat-history",
+        chatAnalytics: "/chat-analytics",
         modelConfig: "/model-config",
         knowledgeBaseManagement: "/knowledge-base-management",
         addressBookManagement: "/address-book-management",
@@ -426,6 +440,10 @@ export default {
     // 监听音色克隆下拉菜单的可见状态变化
     handleVoiceCloneDropdownVisibleChange(visible) {
       this.voiceCloneDropdownVisible = visible;
+    },
+
+    handleChatDropdownVisibleChange(visible) {
+      this.chatDropdownVisible = visible;
     },
 
     // 监听 AI数据分析 下拉菜单的可见状态变化

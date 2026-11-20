@@ -61,4 +61,11 @@ public interface AiAgentChatHistoryDao extends BaseMapper<AgentChatHistoryEntity
 
     /** 批量取每个会话首条消息的正文，用于列表摘要 */
     List<Map<String, Object>> selectFirstContents(@Param("q") ChatSessionQueryDTO q);
+
+    /**
+     * 会话分析看板用的轻量明细：只取聚合所需列（不含 content / audio），
+     * 权限隔离、设备、智能体、时间范围与会话列表同一口径。
+     * 限制最多返回 q.limit 条，防止大表担爆内存。
+     */
+    List<Map<String, Object>> selectAnalyticsRows(@Param("q") ChatSessionQueryDTO q);
 }

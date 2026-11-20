@@ -46,6 +46,26 @@ export default {
             }).send();
     },
 
+    // 会话分析看板聚合统计（支持按设备 / 智能体 / 时间范围筛选）
+    getAnalytics(params, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/chat-history/analytics`)
+            .method('GET')
+            .data(params)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                console.error('获取会话分析数据失败:', err);
+                if (failCallback) failCallback(err);
+            }).send();
+    },
+
     // 设备 / 智能体筛选下拉选项
     getFilterOptions(callback, failCallback) {
         RequestService.sendRequest()

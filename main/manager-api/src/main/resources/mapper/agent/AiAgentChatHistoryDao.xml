@@ -114,4 +114,19 @@
       GROUP BY session_id
     ) f ON f.min_id = h.id
   </select>
+
+  <!-- 会话分析看板明细：复用 chatSessionMatch 的权限/设备/智能体/时间过滤，只取聚合所需列，不读 content / audio -->
+  <select id="selectAnalyticsRows" resultType="java.util.Map">
+    SELECT m.session_id AS session_id,
+           m.mac_address AS mac_address,
+           m.agent_id AS agent_id,
+           m.chat_type AS chat_type,
+           m.created_at AS created_at,
+           m.round_id AS round_id,
+           m.metrics_json AS metrics_json
+    FROM ai_agent_chat_history m
+    <include refid="chatSessionMatch"/>
+    ORDER BY m.created_at ASC, m.id ASC
+    LIMIT #{q.limit}
+  </select>
 </mapper>

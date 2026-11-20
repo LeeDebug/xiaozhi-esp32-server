@@ -42,6 +42,7 @@ import xiaozhi.modules.agent.dto.ChatRecordQueryDTO;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.biz.AgentChatHistoryBizService;
+import xiaozhi.modules.agent.vo.ChatAnalyticsVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
 import xiaozhi.modules.agent.vo.ChatRecordVO;
 import xiaozhi.modules.agent.vo.ChatSessionVO;
@@ -95,6 +96,18 @@ public class AgentChatHistoryController {
         PageData<ChatSessionVO> page = agentChatHistoryService
                 .getChatSessionPage(query, SecurityUser.getUserId());
         return new Result<PageData<ChatSessionVO>>().ok(page);
+    }
+
+    /**
+     * 会话分析看板：按设备 / 智能体 / 时间范围聚合统计。
+     * 与会话列表同一套数据隔离规则，时间参数为 epoch 毫秒。
+     */
+    @Operation(summary = "会话分析看板聚合统计")
+    @RequiresPermissions("sys:role:normal")
+    @GetMapping("/analytics")
+    public Result<ChatAnalyticsVO> getChatAnalytics(@ModelAttribute ChatRecordQueryDTO query) {
+        return new Result<ChatAnalyticsVO>()
+                .ok(agentChatHistoryService.getChatAnalytics(query, SecurityUser.getUserId()));
     }
 
     /**
