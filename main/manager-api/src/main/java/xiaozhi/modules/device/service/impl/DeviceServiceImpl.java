@@ -39,7 +39,6 @@ import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
@@ -51,6 +50,7 @@ import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.DateUtils;
+import xiaozhi.common.utils.IpUtils;
 import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.dto.DeviceManualAddDTO;
@@ -61,6 +61,7 @@ import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.entity.OtaEntity;
 import xiaozhi.modules.device.service.DeviceAddressBookService;
 import xiaozhi.modules.device.service.DeviceService;
+import xiaozhi.modules.device.service.IpRegionService;
 import xiaozhi.modules.device.service.OtaService;
 import xiaozhi.modules.device.vo.UserShowDeviceListVO;
 import xiaozhi.modules.security.user.SecurityUser;
@@ -70,7 +71,6 @@ import xiaozhi.modules.sys.service.UserDataScopeService;
 
 @Slf4j
 @Service
-@AllArgsConstructor
 public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> implements DeviceService {
 
     private final DeviceDao deviceDao;
@@ -80,6 +80,29 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     private final OtaService otaService;
     private final DeviceAddressBookService deviceAddressBookService;
     private final UserDataScopeService userDataScopeService;
+
+    /**
+     * 定位服务采用 setter 注入，不进构造器：现有测试用 7 个参数手工 new 该类，
+     * 构造器签名一变就会大面积失效。没有它时（例如单元测试）地域自动填充直接跳过。
+     */
+    private IpRegionService ipRegionService;
+
+    public DeviceServiceImpl(DeviceDao deviceDao, SysUserUtilService sysUserUtilService,
+            SysParamsService sysParamsService, RedisUtils redisUtils, OtaService otaService,
+            DeviceAddressBookService deviceAddressBookService, UserDataScopeService userDataScopeService) {
+        this.deviceDao = deviceDao;
+        this.sysUserUtilService = sysUserUtilService;
+        this.sysParamsService = sysParamsService;
+        this.redisUtils = redisUtils;
+        this.otaService = otaService;
+        this.deviceAddressBookService = deviceAddressBookService;
+        this.userDataScopeService = userDataScopeService;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setIpRegionService(IpRegionService ipRegionService) {
+        this.ipRegionService = ipRegionService;
+    }
 
     @Async
     public void updateDeviceConnectionInfo(String agentId, String deviceId, String appVersion) {
@@ -96,6 +119,84 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             }
         } catch (Exception e) {
             log.error("异步更新设备连接信息失败", e);
+        }
+    }
+
+    @Override
+    public void updateManualRegion(String deviceId, String province, String city, String district) {
+        String p = StringUtils.trimToNull(province);
+        String c = StringUtils.trimToNull(city);
+        String d = StringUtils.trimToNull(district);
+        boolean clear = p == null && c == null && d == null;
+        // 用 UpdateWrapper 显式 set，才能把字段写成 NULL（updateById 会跳过 null）
+        UpdateWrapper<DeviceEntity> wrapper = new UpdateWrapper<>();
+        wrapper.eq("id", deviceId)
+                .set("province", p)
+                .set("city", c)
+                .set("district", d)
+                .set("region_source", clear ? null : "manual");
+        if (clear) {
+            // 清空 last_ip，否则“IP未变且已有地域”的判断会让下次 OTA 不重新解析
+            wrapper.set("last_ip", null);
+        }
+        baseDao.update(null, wrapper);
+    }
+
+    /**
+     * 在请求线程中取客户端 IP（经反向代理时优先 X-Forwarded-For），取不到返回 null。
+     */
+    private String resolveClientIp() {
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
+                    .getRequestAttributes();
+            if (attributes == null) {
+                return null;
+            }
+            return IpUtils.getIpAddr(attributes.getRequest());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 按公网 IP 刷新设备地域（异步，失败不影响 OTA）。
+     * <ul>
+     * <li>手动填写过地域（region_source=manual）的设备不再被 IP 覆盖</li>
+     * <li>IP 没变且已有地域时不重复写库</li>
+     * <li>IP 只精确到市，因此写入时清空 district，避免跨市残留旧区县</li>
+     * </ul>
+     */
+    @Async
+    public void refreshDeviceRegion(String deviceId, String ip) {
+        if (ipRegionService == null || StringUtils.isAnyBlank(deviceId, ip)) {
+            return;
+        }
+        try {
+            DeviceEntity current = deviceDao.selectById(deviceId);
+            if (current == null || "manual".equals(current.getRegionSource())) {
+                return;
+            }
+            IpRegionService.Region region = ipRegionService.resolve(ip);
+            if (region == null) {
+                return;
+            }
+            boolean sameIp = ip.equals(current.getLastIp());
+            boolean hasRegion = StringUtils.isNotBlank(current.getProvince());
+            if (sameIp && hasRegion) {
+                return;
+            }
+            UpdateWrapper<DeviceEntity> wrapper = new UpdateWrapper<>();
+            wrapper.eq("id", deviceId)
+                    // 并发下被用户抓紧改成 manual 时，不要覆盖
+                    .and(w -> w.isNull("region_source").or().ne("region_source", "manual"))
+                    .set("province", region.province())
+                    .set("city", region.city())
+                    .set("district", null)
+                    .set("region_source", "ip")
+                    .set("last_ip", ip);
+            deviceDao.update(null, wrapper);
+        } catch (Exception e) {
+            log.warn("刷新设备地域失败: deviceId={}", deviceId, e);
         }
     }
 
@@ -299,8 +400,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             String appVersion = deviceReport.getApplication() != null ? deviceReport.getApplication().getVersion()
                     : null;
             // 通过Spring代理调用异步方法
-            ((DeviceServiceImpl) AopContext.currentProxy()).updateDeviceConnectionInfo(deviceById.getAgentId(),
-                    deviceById.getId(), appVersion);
+            DeviceServiceImpl proxy = (DeviceServiceImpl) AopContext.currentProxy();
+            proxy.updateDeviceConnectionInfo(deviceById.getAgentId(), deviceById.getId(), appVersion);
+            // 客户端IP依赖请求线程，必须在这里同步取出再交给异步方法
+            proxy.refreshDeviceRegion(deviceById.getId(), resolveClientIp());
         } else {
             // 如果设备不存在，则生成激活码
             DeviceReportRespDTO.Activation code = buildActivation(macAddress, clientId, deviceReport);

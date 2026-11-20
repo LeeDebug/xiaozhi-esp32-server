@@ -49,6 +49,21 @@ public class DeviceEntity {
     @Schema(description = "固件版本号")
     private String appVersion;
 
+    @Schema(description = "所在省份(完整名称)")
+    private String province;
+
+    @Schema(description = "所在城市(完整名称)")
+    private String city;
+
+    @Schema(description = "所在区县(完整名称，仅手动填写)")
+    private String district;
+
+    @Schema(description = "地域来源: ip=IP自动解析, manual=手动填写")
+    private String regionSource;
+
+    @Schema(description = "最近一次 OTA 请求的公网IP")
+    private String lastIp;
+
     @Schema(description = "排序")
     private Integer sort;
 

@@ -48,6 +48,18 @@ public class UserShowDeviceListVO {
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "UTC")
     private Date createDate;
 
+    @Schema(description = "所在省份(完整名称)")
+    private String province;
+
+    @Schema(description = "所在城市(完整名称)")
+    private String city;
+
+    @Schema(description = "所在区县(完整名称)")
+    private String district;
+
+    @Schema(description = "地域来源: ip/manual")
+    private String regionSource;
+
     @Schema(description = "所属用户名，用于区分自己的与其他用户的设备")
     private String ownerUsername;
 

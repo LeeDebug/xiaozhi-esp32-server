@@ -124,11 +124,30 @@ public class DeviceController {
         if (!entity.getUserId().equals(user.getId())) {
             return new Result<Void>().error("设备不存在");
         }
-        BeanUtils.copyProperties(deviceUpdateDTO, entity);
+        // 只拷贝非 null 字段：前端改别名/自动更新时只带对应字段，直接全量拷贝会把其它字段置空。
+        // 省/市/区不走 updateById（MyBatis-Plus 默认不写 null，“清除地域”会静默失效），统一交给服务层。
+        BeanUtils.copyProperties(deviceUpdateDTO, entity, nullPropertyNames(deviceUpdateDTO));
         if (!deviceService.updateById(entity)) {
             return new Result<Void>().error(ErrorCode.UPDATE_DATA_FAILED);
         }
+        if (deviceUpdateDTO.getProvince() != null || deviceUpdateDTO.getCity() != null
+                || deviceUpdateDTO.getDistrict() != null) {
+            deviceService.updateManualRegion(id, deviceUpdateDTO.getProvince(), deviceUpdateDTO.getCity(),
+                    deviceUpdateDTO.getDistrict());
+        }
         return new Result<Void>();
+    }
+
+    private static String[] nullPropertyNames(Object source) {
+        org.springframework.beans.BeanWrapper wrapper = new org.springframework.beans.BeanWrapperImpl(source);
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (java.beans.PropertyDescriptor pd : wrapper.getPropertyDescriptors()) {
+            // class 是只读属性，copyProperties 本来就会忽略，这里忽略名单里带上也无害
+            if (wrapper.isReadableProperty(pd.getName()) && wrapper.getPropertyValue(pd.getName()) == null) {
+                names.add(pd.getName());
+            }
+        }
+        return names.toArray(new String[0]);
     }
 
     @PostMapping("/manual-add")

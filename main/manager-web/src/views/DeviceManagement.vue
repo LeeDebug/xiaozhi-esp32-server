@@ -6,6 +6,7 @@
       <div class="content-panel">
         <div class="content-area">
           <el-card class="device-card" shadow="never">
+            <DeviceGeoMap v-model="regionSelection" :devices="deviceList" @change="handleRegionChange" />
             <div class="operation-header">
               <h2 class="page-title">{{ $t('device.management') }}</h2>
               <div class="right-operations">
@@ -40,6 +41,14 @@
               <template slot="deviceStatus" slot-scope="scope">
                 <el-tag v-if="scope.row.deviceStatus === 'online'" type="success">{{ $t('device.online') }}</el-tag>
                 <el-tag v-else type="danger">{{ $t('device.offline') }}</el-tag>
+              </template>
+              <template slot="region" slot-scope="scope">
+                <span class="region-view" :class="{ 'is-manual': scope.row.regionSource === 'manual' }"
+                  @click="openRegionEdit(scope.row)">
+                  <i class="el-icon-location-outline"></i>
+                  <span v-if="regionText(scope.row)">{{ regionText(scope.row) }}</span>
+                  <span v-else class="region-empty">{{ $t('deviceGeo.notLocated') }}</span>
+                </span>
               </template>
               <template slot="alias" slot-scope="scope">
                 <el-input v-show="scope.row.isEdit" v-model="scope.row.alias" size="mini" maxlength="64" show-word-limit
@@ -95,6 +104,35 @@
       </div>
     </div>
 
+    <el-dialog :title="$t('deviceGeo.editTitle')" :visible.sync="regionDialogVisible" width="460px" append-to-body
+      :close-on-click-modal="false">
+      <el-form label-width="72px" size="small">
+        <el-form-item :label="$t('deviceGeo.province')">
+          <el-select v-model="regionForm.province" clearable filterable style="width: 100%"
+            :placeholder="$t('deviceGeo.pleaseSelect')" @change="onProvinceChange">
+            <el-option v-for="item in provinceOptions" :key="item.adcode" :label="item.name" :value="item.name" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('deviceGeo.city')">
+          <el-select v-model="regionForm.city" clearable filterable style="width: 100%" :disabled="!regionForm.province"
+            :loading="regionOptionLoading" :placeholder="$t('deviceGeo.pleaseSelect')" @change="onCityChange">
+            <el-option v-for="item in cityOptions" :key="item.adcode" :label="item.name" :value="item.name" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('deviceGeo.district')">
+          <el-select v-model="regionForm.district" clearable filterable style="width: 100%"
+            :disabled="!regionForm.city" :loading="regionOptionLoading" :placeholder="$t('deviceGeo.pleaseSelect')">
+            <el-option v-for="item in districtOptions" :key="item.adcode" :label="item.name" :value="item.name" />
+          </el-select>
+        </el-form-item>
+        <div class="region-tip">{{ $t('deviceGeo.editTip') }}</div>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button size="small" @click="regionDialogVisible = false">{{ $t('button.cancel') }}</el-button>
+        <el-button size="small" type="primary" :loading="regionSaving" @click="saveRegion">{{ $t('button.ok') }}</el-button>
+      </span>
+    </el-dialog>
+
     <AddDeviceDialog :visible.sync="addDeviceDialogVisible" :agent-id="currentAgentId"
       @refresh="fetchBindDevices(currentAgentId)" />
     <ManualAddDeviceDialog :visible.sync="manualAddDeviceDialogVisible" :agent-id="currentAgentId"
@@ -115,6 +153,9 @@ import VersionFooter from "@/components/VersionFooter.vue";
 import MacAddressMask from "@/components/MacAddressMask.vue";
 import CustomButton from "@/components/CustomButton.vue";
 import CustomTable from "@/components/CustomTable.vue";
+import DeviceGeoMap from "@/components/DeviceGeoMap.vue";
+import { hasSelection, isSameName, matchesSelection } from '@/utils/deviceRegion.mjs';
+import { COUNTRY_CODE, MUNICIPALITY_CODES, loadRegionOptions } from '@/utils/geoLoader';
 import {
   compareTimestamps,
   formatCreateDate,
@@ -133,9 +174,20 @@ export default {
     MacAddressMask,
     CustomButton,
     CustomTable,
+    DeviceGeoMap,
   },
   data() {
     return {
+      // 地图选中的地域 { province, city, district }，空对象表示不过滤
+      regionSelection: {},
+      regionDialogVisible: false,
+      regionSaving: false,
+      regionOptionLoading: false,
+      regionRow: null,
+      regionForm: { province: '', city: '', district: '' },
+      provinceOptions: [],
+      cityOptions: [],
+      districtOptions: [],
       addDeviceDialogVisible: false,
       manualAddDeviceDialogVisible: false,
       selectedDeviceId: '',
@@ -155,8 +207,12 @@ export default {
   computed: {
     filteredDeviceList() {
       const keyword = this.activeSearchKeyword.toLowerCase();
-      if (!keyword) return this.deviceList;
-      return this.deviceList.filter(device =>
+      // 先按地图选中的省市区筛选，再叠加关键字搜索
+      const inRegion = hasSelection(this.regionSelection)
+        ? this.deviceList.filter(device => matchesSelection(device, this.regionSelection))
+        : this.deviceList;
+      if (!keyword) return inRegion;
+      return inRegion.filter(device =>
         (device.model && device.model.toLowerCase().includes(keyword)) ||
         (device.macAddress && device.macAddress.toLowerCase().includes(keyword))
       );
@@ -186,6 +242,7 @@ export default {
       if (this.mqttServiceAvailable) {
         columns.push({ prop: 'deviceStatus', label: this.$t('device.deviceStatus'), align: 'center' });
       }
+      columns.push({ prop: 'region', label: this.$t('deviceGeo.regionColumn'), minWidth: 150, align: 'center' });
       columns.push({ prop: 'alias', label: this.$t('device.alias'), align: 'center' });
       columns.push({ prop: 'otaSwitch', label: this.$t('device.autoUpdate'), align: 'center' });
       if (this.hasOtherOwnerData) {
@@ -218,6 +275,117 @@ export default {
     handlePageSizeChange(val) {
       this.pageSize = val;
       this.currentPage = 1;
+    },
+    // 地图选中的地域变化：筛选结果变了，必须回到第 1 页，否则可能停留在一个空页
+    handleRegionChange() {
+      this.currentPage = 1;
+      this.deviceList.forEach(device => { device.selected = false; });
+    },
+    regionText(row) {
+      return [row.province, row.city, row.district].filter(Boolean).join(' / ');
+    },
+    // 按名称在选项里找到对应项（省市忽略后缀写法差异，区县严格相等）
+    findOption(options, level, name) {
+      return options.find(item => isSameName(level, item.name, name));
+    },
+    async openRegionEdit(row) {
+      this.regionRow = row;
+      this.regionForm = { province: '', city: '', district: '' };
+      this.cityOptions = [];
+      this.districtOptions = [];
+      this.regionDialogVisible = true;
+      this.regionOptionLoading = true;
+      try {
+        if (!this.provinceOptions.length) {
+          this.provinceOptions = await loadRegionOptions(COUNTRY_CODE);
+        }
+        // 用选项里的规范名称回填，保证下拉能选中
+        const province = this.findOption(this.provinceOptions, 'province', row.province);
+        if (province) {
+          this.regionForm.province = province.name;
+          await this.loadCityOptions(province);
+          const city = this.findOption(this.cityOptions, 'city', row.city);
+          if (city) {
+            this.regionForm.city = city.name;
+            await this.loadDistrictOptions(province, city);
+            const district = this.findOption(this.districtOptions, 'district', row.district);
+            if (district) this.regionForm.district = district.name;
+          }
+        }
+      } catch (e) {
+        this.$message.error(this.$t('deviceGeo.loadFailed', { code: COUNTRY_CODE }));
+      } finally {
+        this.regionOptionLoading = false;
+      }
+    },
+    // 直辖市：“市”就是该市自己，区县直接来自省级文件
+    async loadCityOptions(province) {
+      if (MUNICIPALITY_CODES.has(province.adcode)) {
+        this.cityOptions = [{ name: province.name, adcode: province.adcode }];
+        return;
+      }
+      this.cityOptions = await loadRegionOptions(province.adcode).catch(() => []);
+    },
+    async loadDistrictOptions(province, city) {
+      // 直辖市的区县在省级文件里，其他地区在市级文件里
+      const code = MUNICIPALITY_CODES.has(province.adcode) ? province.adcode : city.adcode;
+      // 省级行政区下直接挂区县的“省直辖县级”（如海南、河南省直辖县）没有市级文件，加载失败时视为没有下级
+      this.districtOptions = await loadRegionOptions(code).catch(() => []);
+    },
+    async onProvinceChange(name) {
+      this.regionForm.city = '';
+      this.regionForm.district = '';
+      this.cityOptions = [];
+      this.districtOptions = [];
+      const province = this.findOption(this.provinceOptions, 'province', name);
+      if (!province) return;
+      this.regionOptionLoading = true;
+      try {
+        await this.loadCityOptions(province);
+        // 直辖市只有一个“市”，直接选中并加载区县
+        if (this.cityOptions.length === 1 && MUNICIPALITY_CODES.has(province.adcode)) {
+          this.regionForm.city = this.cityOptions[0].name;
+          await this.loadDistrictOptions(province, this.cityOptions[0]);
+        }
+      } finally {
+        this.regionOptionLoading = false;
+      }
+    },
+    async onCityChange(name) {
+      this.regionForm.district = '';
+      this.districtOptions = [];
+      const province = this.findOption(this.provinceOptions, 'province', this.regionForm.province);
+      const city = this.findOption(this.cityOptions, 'city', name);
+      if (!province || !city) return;
+      this.regionOptionLoading = true;
+      try {
+        await this.loadDistrictOptions(province, city);
+      } finally {
+        this.regionOptionLoading = false;
+      }
+    },
+    saveRegion() {
+      const row = this.regionRow;
+      if (!row || this.regionSaving) return;
+      const { province, city, district } = this.regionForm;
+      // 三项都为空字符串表示清除手动地域，让后端重新按 IP 解析
+      const payload = { province: province || '', city: city || '', district: district || '' };
+      this.regionSaving = true;
+      this.updateDeviceInfo(row.device_id, payload, (ok, resp) => {
+        this.regionSaving = false;
+        if (ok) {
+          const cleared = !payload.province && !payload.city && !payload.district;
+          row.province = payload.province;
+          row.city = payload.city;
+          row.district = payload.district;
+          // 清除后由后端下一次 OTA 按 IP 重新填充，前端先把来源置空
+          row.regionSource = cleared ? '' : 'manual';
+          this.regionDialogVisible = false;
+          this.$message.success(this.$t('deviceGeo.saved'));
+        } else {
+          this.$message.error((resp && resp.msg) || this.$t('deviceGeo.saveFailed'));
+        }
+      });
     },
     handleSearch() {
       this.activeSearchKeyword = this.searchKeyword;
@@ -376,6 +544,10 @@ export default {
               isEdit: false,
               _submitting: false,
               otaSwitch: device.autoUpdate === 1,
+              province: device.province || '',
+              city: device.city || '',
+              district: device.district || '',
+              regionSource: device.regionSource || '',
               ownerUsername: device.ownerUsername || '',
               ownerNickname: device.ownerNickname || '',
               isOwn: device.isOwn !== false,
@@ -578,5 +750,33 @@ export default {
 
 :deep(.el-icon-edit:hover) {
   color: #5a64b5;
+}
+
+.region-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #2c3354;
+
+  &:hover {
+    color: var(--sys-primary);
+  }
+
+  // 手动填写的地域用主色标注，和 IP 自动解析的区分开
+  &.is-manual {
+    color: var(--sys-primary);
+  }
+}
+
+.region-empty {
+  color: #b4bad2;
+}
+
+.region-tip {
+  padding-left: 72px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8a93b8;
 }
 </style>

@@ -120,6 +120,15 @@ public interface DeviceService extends BaseService<DeviceEntity> {
     void updateDeviceConnectionInfo(String agentId, String deviceId, String appVersion);
 
     /**
+     * 保存手动填写的设备地域。
+     * <ul>
+     * <li>省/市/区至少一项有值：按填写保存，来源标记为 manual（之后不再被 IP 解析覆盖）</li>
+     * <li>三项都为空：清除地域并重置来源与 last_ip，让下一次 OTA 重新按 IP 解析</li>
+     * </ul>
+     */
+    void updateManualRegion(String deviceId, String province, String city, String district);
+
+    /**
      * 将固件 Client-Id(UUID) 绑定到 MAC 对应的设备，供数据上报按归属过滤。
      */
     void bindClientId(String macAddress, String clientId);

@@ -195,6 +195,8 @@ uploadfile
 !main/manager-mobile/**/.env*
 !main/manager-mobile/**/*.json
 !main/xiaozhi-server/**/*.json
+# 设备管理页地图使用的行政区划 GeoJSON（必须入库）
+!main/manager-web/public/geo/*.json
 !main/digital-human/**/*.json
 main/digital-human/wakeword_runtime/models
 main/digital-human/wakeword_runtime/sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01

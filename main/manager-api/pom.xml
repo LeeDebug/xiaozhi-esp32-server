@@ -195,6 +195,12 @@
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
         </dependency>
+        <!-- ip2region 离线 IP 定位（设备地域分布） -->
+        <dependency>
+            <groupId>org.lionsoul</groupId>
+            <artifactId>ip2region</artifactId>
+            <version>3.3.8</version>
+        </dependency>
         <!--knife4j -->
         <dependency>
             <groupId>com.github.xingfudeshi</groupId>
