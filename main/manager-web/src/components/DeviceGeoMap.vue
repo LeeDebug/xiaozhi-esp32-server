@@ -322,20 +322,30 @@ export default {
               ...(this.fill
                 ? { layoutCenter: this.layoutCenter, layoutSize: this.layoutSize, aspectScale: 0.85 }
                 : {}),
-              // 全国层级放大后上下会超出画布，允许拖动查看；只开拖动不开滚轮缩放，避免影响页面滚动。
-              // center/zoom 每次显式复位，否则在全国拖过的位置会带到下一级地图
-              roam: this.isNational ? 'move' : false,
+              // 各层级都允许拖动；只开拖动不开滚轮缩放，避免影响页面滚动。
+              // center/zoom 每次显式复位，否则上一级拖过的位置会带到下一级地图
+              roam: 'move',
               center: null,
               zoom: 1,
               selectedMode: 'single',
-              label: { show: level !== 'province', fontSize: 10, color: '#2c3354' },
+              // 全国、省、市、区县各层级都显示名称（实测全部显示时密集区域会有少量重叠，
+              // 开启自动隐藏重叠会在全国层级隐藏约 4 个省，因此不开，重叠处可拖动查看）。
+              // 白色描边保证压在深色填充和相邻文字上仍然可读
+              label: {
+                show: true,
+                fontSize: 10,
+                color: '#2c3354',
+                textBorderColor: '#ffffff',
+                textBorderWidth: 2,
+              },
               itemStyle: { areaColor: '#f6f7fb', borderColor: '#ffffff', borderWidth: 0.8 },
               emphasis: {
                 label: { color: '#2c3354' },
                 itemStyle: { areaColor: '#f3a161' },
               },
               select: {
-                label: { color: '#ffffff' },
+                // 选中区域的文字是白色，必须把描边改成选中底色，否则继承基础的白色描边会变成白字白边看不见
+                label: { color: '#ffffff', textBorderColor: primary },
                 itemStyle: { areaColor: primary },
               },
               data,
