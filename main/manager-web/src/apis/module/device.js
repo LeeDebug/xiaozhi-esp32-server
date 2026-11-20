@@ -24,6 +24,28 @@ export default {
                 });
             }).send();
     },
+    // 当前用户可见的全部设备（不限智能体，设备分析看板使用）
+    getAllVisibleDevices(callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/device/list-all`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) {
+                    failCallback(err);
+                }
+            })
+            .networkFail((err) => {
+                console.error('获取全部设备列表失败:', err);
+                RequestService.reAjaxFun(() => {
+                    this.getAllVisibleDevices(callback, failCallback);
+                });
+            }).send();
+    },
     // 解绑设备
     unbindDevice(device_id, callback, failCallback) {
         RequestService.sendRequest()

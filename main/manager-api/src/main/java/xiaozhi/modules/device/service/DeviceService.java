@@ -36,6 +36,12 @@ public interface DeviceService extends BaseService<DeviceEntity> {
     List<UserShowDeviceListVO> getUserDeviceList(Long userId, String agentId);
 
     /**
+     * 获取当前用户可见的全部设备（不限智能体），供设备分析看板使用。
+     * 可见范围与 getUserDeviceList 一致：默认只看自己的，仅超管且参数开启时可看全库。
+     */
+    List<UserShowDeviceListVO> getVisibleDeviceList(Long userId);
+
+    /**
      * 解绑设备
      */
     void unbindDevice(Long userId, String deviceId);

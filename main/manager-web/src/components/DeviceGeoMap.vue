@@ -1,5 +1,5 @@
 <template>
-  <div class="device-geo-map">
+  <div class="device-geo-map" :class="{ 'is-fill': fill }">
     <div class="map-head">
       <div class="map-title">
         <span class="title-text">{{ $t('deviceGeo.title') }}</span>
@@ -81,6 +81,8 @@ export default {
     devices: { type: Array, default: () => [] },
     // 当前选中 { province, city, district }，由父组件持有（唯一的选中来源）
     value: { type: Object, default: () => ({}) },
+    // 占满父容器高度（独立分析页使用）；默认为固定高度的紧凑模式
+    fill: { type: Boolean, default: false },
   },
   data() {
     return {
@@ -161,10 +163,19 @@ export default {
     });
     this.resizeHandler = () => this.chart && this.chart.resize();
     window.addEventListener('resize', this.resizeHandler);
+    // 占满模式下容器高度由 flex 布局决定，挂载时可能还没算完，监听容器尺寸变化才不会画错大小
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(this.resizeHandler);
+      this.resizeObserver.observe(this.$refs.chart);
+    }
     this.showMap();
   },
   beforeDestroy() {
     window.removeEventListener('resize', this.resizeHandler);
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
     if (this.chart) {
       this.chart.dispose();
       this.chart = null;
@@ -403,6 +414,37 @@ export default {
   flex: 1;
   min-width: 0;
   height: 280px;
+}
+
+// 占满模式：组件撑满父容器，地图占据标题栏之外的全部高度，右侧排行也跟着加高
+.device-geo-map.is-fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin-bottom: 0;
+  padding: 0;
+  border: none;
+  min-height: 0;
+
+  .map-body {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .map-canvas {
+    height: 100%;
+    min-height: 360px;
+  }
+
+  .map-side {
+    width: 280px;
+    min-height: 0;
+  }
+
+  .rank-list {
+    flex: 1;
+    max-height: none;
+  }
 }
 
 .map-side {

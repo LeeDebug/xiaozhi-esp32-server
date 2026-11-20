@@ -92,6 +92,14 @@ public class DeviceController {
         return new Result<List<UserShowDeviceListVO>>().ok(devices);
     }
 
+    @GetMapping("/list-all")
+    @Operation(summary = "获取当前用户可见的全部设备（设备分析看板）")
+    @RequiresPermissions("sys:role:normal")
+    public Result<List<UserShowDeviceListVO>> getAllVisibleDevices() {
+        UserDetail user = SecurityUser.getUser();
+        return new Result<List<UserShowDeviceListVO>>().ok(deviceService.getVisibleDeviceList(user.getId()));
+    }
+
     @PostMapping("/bind/{agentId}")
     @Operation(summary = "设备在线接口")
     @RequiresPermissions("sys:role:normal")

@@ -61,6 +61,14 @@ const routes = [
       return import('../views/DeviceManagement.vue')
     }
   },
+  // 设备分析看板（设备地域分布地图）
+  {
+    path: '/device-analytics',
+    name: 'DeviceAnalyticsDashboard',
+    component: function () {
+      return import('../views/DeviceAnalyticsDashboard.vue')
+    }
+  },
   // 会话记录页面路由（支持 ?macAddress=xxx 从设备管理页带入筛选）
   {
     path: '/chat-history',

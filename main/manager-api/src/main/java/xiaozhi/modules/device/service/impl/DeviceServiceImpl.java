@@ -439,6 +439,22 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public List<UserShowDeviceListVO> getVisibleDeviceList(Long userId) {
+        QueryWrapper<DeviceEntity> wrapper = new QueryWrapper<>();
+        // 与 getUserDeviceList 同一口径：普通用户只看自己的，仅超管且参数开启时查全库
+        if (!userDataScopeService.canViewAllUserData()) {
+            wrapper.eq("user_id", userId);
+        }
+        List<DeviceEntity> devices = baseDao.selectList(wrapper);
+        Set<Long> userIds = devices.stream().map(DeviceEntity::getUserId).collect(Collectors.toSet());
+        Map<Long, String> usernameMap = userDataScopeService.getUsernameMap(userIds);
+        Map<Long, String> nicknameMap = userDataScopeService.getNicknameMap(userIds);
+        return devices.stream()
+                .map(device -> toUserShowDeviceListVO(device, usernameMap, nicknameMap))
+                .collect(Collectors.toList());
+    }
+
     private UserShowDeviceListVO toUserShowDeviceListVO(DeviceEntity device, Map<Long, String> usernameMap,
             Map<Long, String> nicknameMap) {
         UserShowDeviceListVO vo = ConvertUtils.sourceToTarget(device, UserShowDeviceListVO.class);

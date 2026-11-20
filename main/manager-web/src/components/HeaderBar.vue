@@ -9,22 +9,29 @@
 
       <!-- 中间导航菜单 -->
       <div class="header-center">
-        <div class="equipment-management" :class="{
-          'active-tab':
-            $route.path === '/home' ||
-            $route.path === '/role-config' ||
-            $route.path === '/device-management',
-        }" @click="handleRouter('home')">
-          <img loading="lazy" alt="" src="@/assets/header/robot.png" :style="{
-            filter:
-              $route.path === '/home' ||
-                $route.path === '/role-config' ||
-                $route.path === '/device-management'
-                ? 'brightness(0) invert(1)'
-                : 'None',
-          }" />
-          <span class="nav-text">{{ $t("header.smartManagement") }}</span>
-        </div>
+        <!-- 智能体管理下拉菜单：智能体管理 + 设备管理 + 设备分析看板 -->
+        <el-dropdown trigger="click" class="equipment-management more-dropdown" :class="{
+          'active-tab': isSmartManagementActive
+        }" @visible-change="handleSmartDropdownVisibleChange">
+          <span class="el-dropdown-link">
+            <img loading="lazy" alt="" src="@/assets/header/robot.png" :style="{
+              filter: isSmartManagementActive ? 'brightness(0) invert(1)' : 'None',
+            }" />
+            <span class="nav-text">{{ $t("header.smartManagement") }}</span>
+            <i class="el-icon-arrow-down" :class="{ 'rotate-down': smartDropdownVisible }"></i>
+          </span>
+          <el-dropdown-menu slot="dropdown">
+            <el-dropdown-item @click.native="handleRouter('home')">
+              {{ $t("header.smartManagement") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('deviceManagement')">
+              {{ $t("header.deviceManagement") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('deviceAnalytics')">
+              {{ $t("header.deviceAnalytics") }}
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </el-dropdown>
         <!-- 会话记录下拉菜单：会话记录列表 + 会话分析看板 -->
         <el-dropdown trigger="click" class="equipment-management more-dropdown" :class="{
           'active-tab': $route.path === '/chat-history' || $route.path === '/chat-analytics'
@@ -257,6 +264,7 @@ export default {
       paramDropdownVisible: false,
       voiceCloneDropdownVisible: false,
       chatDropdownVisible: false,
+      smartDropdownVisible: false,
       aiDataAnalysisDropdownVisible: false,
       userMenuVisible: false, // 添加用户菜单可见状态
       menuVisibleTimer: null, // 菜单显示定时器，防止够快触发
@@ -270,6 +278,8 @@ export default {
       // 跳转页面配置
       routerPaths: {
         home: "/home",
+        deviceManagement: "/device-management",
+        deviceAnalytics: "/device-analytics",
         chatHistory: "/chat-history",
         chatAnalytics: "/chat-analytics",
         modelConfig: "/model-config",
@@ -304,6 +314,10 @@ export default {
       }),
       userInfo: (state) => state.userInfo,
     }),
+    // “智能体管理”下拉对应的页面，任一页面激活时该标签高亮
+    isSmartManagementActive() {
+      return ['/home', '/role-config', '/device-management', '/device-analytics'].includes(this.$route.path);
+    },
     // 获取当前语言
     currentLanguage() {
       return i18n.locale || "zh_CN";
@@ -444,6 +458,10 @@ export default {
 
     handleChatDropdownVisibleChange(visible) {
       this.chatDropdownVisible = visible;
+    },
+
+    handleSmartDropdownVisibleChange(visible) {
+      this.smartDropdownVisible = visible;
     },
 
     // 监听 AI数据分析 下拉菜单的可见状态变化

@@ -6,7 +6,6 @@
       <div class="content-panel">
         <div class="content-area">
           <el-card class="device-card" shadow="never">
-            <DeviceGeoMap v-model="regionSelection" :devices="deviceList" @change="handleRegionChange" />
             <div class="operation-header">
               <h2 class="page-title">{{ $t('device.management') }}</h2>
               <div class="right-operations">
@@ -87,10 +86,10 @@
                   <CustomButton :icon="isCurrentPageAllSelected ? 'el-icon-circle-close' : 'el-icon-circle-check'" size="small" @click="handleSelectAll">
                     {{ isCurrentPageAllSelected ? $t('common.deselectAll') : $t('common.selectAll') }}
                   </CustomButton>
-                  <CustomButton icon="el-icon-plus" type="add" size="small" @click="handleAddDevice">
+                  <CustomButton v-if="currentAgentId" icon="el-icon-plus" type="add" size="small" @click="handleAddDevice">
                     {{ $t('device.bindWithCode') }}
                   </CustomButton>
-                  <CustomButton icon="el-icon-plus" type="add" size="small" @click="handleManualAddDevice">
+                  <CustomButton v-if="currentAgentId" icon="el-icon-plus" type="add" size="small" @click="handleManualAddDevice">
                     {{ $t('device.manualAdd') }}
                   </CustomButton>
                   <CustomButton size="small" type="delete" icon="el-icon-delete" @click="deleteSelected">
@@ -133,10 +132,10 @@
       </span>
     </el-dialog>
 
-    <AddDeviceDialog :visible.sync="addDeviceDialogVisible" :agent-id="currentAgentId"
-      @refresh="fetchBindDevices(currentAgentId)" />
-    <ManualAddDeviceDialog :visible.sync="manualAddDeviceDialogVisible" :agent-id="currentAgentId"
-      @refresh="fetchBindDevices(currentAgentId)" />
+    <AddDeviceDialog v-if="currentAgentId" :visible.sync="addDeviceDialogVisible" :agent-id="currentAgentId"
+      @refresh="reload" />
+    <ManualAddDeviceDialog v-if="currentAgentId" :visible.sync="manualAddDeviceDialogVisible"
+      :agent-id="currentAgentId" @refresh="reload" />
     <el-footer>
       <version-footer />
     </el-footer>
@@ -153,8 +152,7 @@ import VersionFooter from "@/components/VersionFooter.vue";
 import MacAddressMask from "@/components/MacAddressMask.vue";
 import CustomButton from "@/components/CustomButton.vue";
 import CustomTable from "@/components/CustomTable.vue";
-import DeviceGeoMap from "@/components/DeviceGeoMap.vue";
-import { hasSelection, isSameName, matchesSelection } from '@/utils/deviceRegion.mjs';
+import { isSameName } from '@/utils/deviceRegion.mjs';
 import { COUNTRY_CODE, MUNICIPALITY_CODES, loadRegionOptions } from '@/utils/geoLoader';
 import {
   compareTimestamps,
@@ -174,12 +172,9 @@ export default {
     MacAddressMask,
     CustomButton,
     CustomTable,
-    DeviceGeoMap,
   },
   data() {
     return {
-      // 地图选中的地域 { province, city, district }，空对象表示不过滤
-      regionSelection: {},
       regionDialogVisible: false,
       regionSaving: false,
       regionOptionLoading: false,
@@ -207,12 +202,8 @@ export default {
   computed: {
     filteredDeviceList() {
       const keyword = this.activeSearchKeyword.toLowerCase();
-      // 先按地图选中的省市区筛选，再叠加关键字搜索
-      const inRegion = hasSelection(this.regionSelection)
-        ? this.deviceList.filter(device => matchesSelection(device, this.regionSelection))
-        : this.deviceList;
-      if (!keyword) return inRegion;
-      return inRegion.filter(device =>
+      if (!keyword) return this.deviceList;
+      return this.deviceList.filter(device =>
         (device.model && device.model.toLowerCase().includes(keyword)) ||
         (device.macAddress && device.macAddress.toLowerCase().includes(keyword))
       );
@@ -251,11 +242,19 @@ export default {
       return columns;
     },
   },
+  watch: {
+    // 同一路由组件会被复用：从带 agentId 的页面用顶部菜单进入不带 agentId 的页面时，
+    // mounted 不会再执行，必须监听查询参数才能切换模式
+    '$route.query.agentId'(agentId) {
+      this.currentAgentId = agentId || '';
+      this.currentPage = 1;
+      this.deviceList = [];
+      this.reload();
+    },
+  },
   mounted() {
-    const agentId = this.$route.query.agentId;
-    if (agentId) {
-      this.fetchBindDevices(agentId);
-    }
+    // 从智能体卡片进入时带 agentId；从顶部菜单进入时没有，展示全部可见设备
+    this.reload();
   },
   created() {
     this.getFirmwareTypes()
@@ -275,11 +274,6 @@ export default {
     handlePageSizeChange(val) {
       this.pageSize = val;
       this.currentPage = 1;
-    },
-    // 地图选中的地域变化：筛选结果变了，必须回到第 1 页，否则可能停留在一个空页
-    handleRegionChange() {
-      this.currentPage = 1;
-      this.deviceList.forEach(device => { device.selected = false; });
     },
     regionText(row) {
       return [row.province, row.city, row.district].filter(Boolean).join(' / ');
@@ -436,7 +430,7 @@ export default {
             message: this.$t('device.batchUnbindSuccess').replace('{count}', deviceIds.length),
             showClose: true
           });
-          this.fetchBindDevices(this.currentAgentId);
+          this.reload();
         })
         .catch(error => {
           this.$message.error({
@@ -497,7 +491,7 @@ export default {
               message: this.$t('device.unbindSuccess'),
               showClose: true
             });
-            this.fetchBindDevices(this.$route.query.agentId);
+            this.reload();
           } else {
             this.$message.error({
               message: data.msg || this.$t('device.unbindFailed'),
@@ -522,44 +516,58 @@ export default {
       this.currentPage = page;
     },
 
+    // 按当前模式刷新列表：带 agentId 是某个智能体的设备，否则是当前用户可见的全部设备
+    reload() {
+      if (this.currentAgentId) {
+        this.fetchBindDevices(this.currentAgentId);
+      } else {
+        this.fetchAllDevices();
+      }
+    },
+
+    // 服务端设备 -> 表格行，两种模式共用，避免两份映射逐渐不一致
+    mapDevices(list) {
+      return list.map(device => {
+        const hasCreateDateTimestamp = hasTimestampValue(device.createDateTimestamp);
+        const rawBindTime = hasCreateDateTimestamp
+          ? parseTimestamp(device.createDateTimestamp)
+          : parseLegacyDate(device.createDate);
+        return {
+          device_id: device.id,
+          model: device.board,
+          firmwareVersion: device.appVersion,
+          macAddress: device.macAddress,
+          bindTime: formatCreateDate(device.createDateTimestamp, device.createDate),
+          lastConversation: formatTimestamp(device.lastConnectedAtTimestamp),
+          alias: device.alias,
+          _originalAlias: device.alias,
+          isEdit: false,
+          _submitting: false,
+          otaSwitch: device.autoUpdate === 1,
+          province: device.province || '',
+          city: device.city || '',
+          district: device.district || '',
+          regionSource: device.regionSource || '',
+          ownerUsername: device.ownerUsername || '',
+          ownerNickname: device.ownerNickname || '',
+          isOwn: device.isOwn !== false,
+          rawBindTime,
+          selected: false,
+          deviceStatus: 'offline'
+        };
+      })
+        .sort((firstDevice, secondDevice) => compareTimestamps(
+          firstDevice.rawBindTime,
+          secondDevice.rawBindTime,
+        ));
+    },
+
     fetchBindDevices(agentId) {
       this.loading = true;
       Api.device.getAgentBindDevices(agentId, ({ data }) => {
         this.loading = false;
         if (data.code === 0) {
-          this.deviceList = data.data.map(device => {
-            const hasCreateDateTimestamp = hasTimestampValue(device.createDateTimestamp);
-            const rawBindTime = hasCreateDateTimestamp
-              ? parseTimestamp(device.createDateTimestamp)
-              : parseLegacyDate(device.createDate);
-            return {
-              device_id: device.id,
-              model: device.board,
-              firmwareVersion: device.appVersion,
-              macAddress: device.macAddress,
-              bindTime: formatCreateDate(device.createDateTimestamp, device.createDate),
-              lastConversation: formatTimestamp(device.lastConnectedAtTimestamp),
-              alias: device.alias,
-              _originalAlias: device.alias,
-              isEdit: false,
-              _submitting: false,
-              otaSwitch: device.autoUpdate === 1,
-              province: device.province || '',
-              city: device.city || '',
-              district: device.district || '',
-              regionSource: device.regionSource || '',
-              ownerUsername: device.ownerUsername || '',
-              ownerNickname: device.ownerNickname || '',
-              isOwn: device.isOwn !== false,
-              rawBindTime,
-              selected: false,
-              deviceStatus: 'offline'
-            };
-          })
-            .sort((firstDevice, secondDevice) => compareTimestamps(
-              firstDevice.rawBindTime,
-              secondDevice.rawBindTime,
-            ));
+          this.deviceList = this.mapDevices(data.data);
           this.activeSearchKeyword = "";
           this.searchKeyword = "";
 
@@ -568,6 +576,29 @@ export default {
           this.$message.error(data.msg || this.$t('device.getListFailed'));
         }
       });
+    },
+
+    // 没有指定智能体时展示当前用户可见的全部设备。
+    // 在线状态由按智能体查询的 MQTT 接口提供，这里没有智能体，因此不显示在线状态列。
+    fetchAllDevices() {
+      this.loading = true;
+      this.mqttServiceAvailable = false;
+      Api.device.getAllVisibleDevices(
+        ({ data }) => {
+          this.loading = false;
+          if (data.code === 0) {
+            this.deviceList = this.mapDevices(data.data || []);
+            this.activeSearchKeyword = "";
+            this.searchKeyword = "";
+          } else {
+            this.$message.error(data.msg || this.$t('device.getListFailed'));
+          }
+        },
+        () => {
+          this.loading = false;
+          this.$message.error(this.$t('device.getListFailed'));
+        },
+      );
     },
 
     fetchDeviceStatus(agentId) {
