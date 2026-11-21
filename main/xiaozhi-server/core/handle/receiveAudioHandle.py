@@ -40,7 +40,8 @@ async def resume_vad_detection(conn: "ConnectionHandler"):
     conn.just_woken_up = False
 
 
-async def startToChat(conn: "ConnectionHandler", text):
+async def startToChat(conn: "ConnectionHandler", text, speaker=None):
+    """speaker: 本轮声纹身份快照，随调用链传递。"""
     # 检查输入是否是JSON格式（包含说话人信息）
     speaker_name = None
     actual_text = text
@@ -69,11 +70,8 @@ async def startToChat(conn: "ConnectionHandler", text):
         # 如果解析失败，继续使用原始文本
         pass
 
-    # 保存说话人信息到连接对象
-    if speaker_name:
-        conn.current_speaker = speaker_name
-    else:
-        conn.current_speaker = None
+    # 说话人名供提示词注入；声纹身份走 speaker 快照，不挂连接
+    conn.current_speaker = speaker_name
 
     if conn.need_bind:
         await check_bind_device(conn)
@@ -94,7 +92,7 @@ async def startToChat(conn: "ConnectionHandler", text):
     # 首先进行意图分析，使用实际文本内容
     # 记录「退出词/唤醒词/意图识别」这段耗时；intent_llm 模式下它包含一次串行的 LLM 调用
     intent_start_at = time.perf_counter()
-    intent_handled = await handle_user_intent(conn, actual_text)
+    intent_handled = await handle_user_intent(conn, actual_text, speaker=speaker)
     intent_cost_ms = int((time.perf_counter() - intent_start_at) * 1000)
     conn.pending_intent_ms = intent_cost_ms
     conn.logger.bind(tag=TAG).info(
@@ -118,7 +116,7 @@ async def startToChat(conn: "ConnectionHandler", text):
     # 准备开始新会话
     conn.client_abort = False
 
-    conn.executor.submit(conn.chat, actual_text)
+    conn.executor.submit(conn.chat, actual_text, depth=0, speaker=speaker)
 
 
 async def no_voice_close_connect(conn: "ConnectionHandler", have_voice):
