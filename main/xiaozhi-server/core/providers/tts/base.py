@@ -116,7 +116,25 @@ class TTSProviderBase(ABC):
             f"tts-{datetime.now().date()}@{uuid.uuid4().hex}{extension}",
         )
 
+    def _mark_stream_first_audio(self):
+        """流式 TTS 的首包耗时兜底埋点。
+
+        流式子类重写了 tts_text_priority_thread，不走 to_tts_stream 里的计时；
+        但它们都会把音频帧交给 handle_opus，所以在这里以「本轮首个音频帧到达」为终点，
+        以「首句文本切出」为起点（没有切句记录时退化为首个文本块到达）。
+        """
+        metrics = getattr(getattr(self, "conn", None), "chat_round_metrics", None)
+        if not metrics or metrics.get("ttsFirstMs"):
+            return
+        arrived_at = getattr(self, "_first_text_arrived_at", None)
+        if arrived_at is None:
+            return
+        metrics["ttsFirstMs"] = int((time.perf_counter() - arrived_at) * 1000)
+        # 流式 TTS 无法区分单次合成与重试，此处只标记为流式口径
+        metrics.setdefault("ttsRetryCount", 0)
+
     def handle_opus(self, opus_data: bytes):
+        self._mark_stream_first_audio()
         logger.bind(tag=TAG).debug(f"推送数据到队列里面帧数～～ {len(opus_data)}")
         self.tts_audio_queue.put((SentenceType.MIDDLE, opus_data, None, getattr(self, 'current_sentence_id', None)))
 
@@ -134,9 +152,13 @@ class TTSProviderBase(ABC):
         if self.delete_audio_file:
             # 需要删除文件的直接转为音频数据
             tts_start_at = time.perf_counter()
+            # 单次合成耗时（不含失败重试），用于区分「单次很慢」和「重试累加」
+            tts_provider_ms = 0.0
             while max_repeat_time > 0:
                 try:
+                    attempt_start_at = time.perf_counter()
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
+                    tts_provider_ms = (time.perf_counter() - attempt_start_at) * 1000
                     if audio_bytes:
                         # 使用原始文本用于显示/上报
                         self.tts_audio_queue.put((SentenceType.FIRST, None, original_text, getattr(self, 'current_sentence_id', None)))
@@ -150,26 +172,40 @@ class TTSProviderBase(ABC):
                         )
                         break
                     else:
+                        logger.bind(tag=TAG).warning(
+                            f"语音生成返回空音频(第{5 - max_repeat_time + 1}次): {original_text}，"
+                            f"本次耗时{tts_provider_ms:.0f}ms"
+                        )
                         max_repeat_time -= 1
                 except Exception as e:
+                    attempt_ms = (time.perf_counter() - attempt_start_at) * 1000
                     logger.bind(tag=TAG).warning(
-                        f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                        f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}，"
+                        f"本次耗时{attempt_ms:.0f}ms"
                     )
                     max_repeat_time -= 1
+            retry_count = 5 - max_repeat_time if max_repeat_time > 0 else 5
+            tts_cost_ms = (time.perf_counter() - tts_start_at) * 1000
+            metrics = getattr(getattr(self, "conn", None), "chat_round_metrics", None)
             if max_repeat_time > 0:
-                tts_cost_ms = (time.perf_counter() - tts_start_at) * 1000
                 logger.bind(tag=TAG).info(
                     f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次，"
-                    f"合成耗时{tts_cost_ms:.0f}ms"
+                    f"合成耗时{tts_cost_ms:.0f}ms（其中最后一次单次合成{tts_provider_ms:.0f}ms）"
                 )
                 # 只记录本轮首段合成耗时，作为 TTS 首包指标
-                metrics = getattr(getattr(self, "conn", None), "chat_round_metrics", None)
                 if metrics and not metrics.get("ttsFirstMs"):
                     metrics["ttsFirstMs"] = int(tts_cost_ms)
+                    # 「单次合成」与「重试次数」用于判断首包慢是单次慢还是重试累加
+                    metrics["ttsProviderMs"] = int(tts_provider_ms)
+                    metrics["ttsRetryCount"] = int(5 - max_repeat_time)
             else:
                 logger.bind(tag=TAG).error(
-                    f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                    f"语音生成失败: {original_text}，已重试{retry_count}次仍失败，"
+                    f"累计耗时{tts_cost_ms:.0f}ms，请检查网络或服务是否正常"
                 )
+                if metrics and not metrics.get("ttsFirstMs"):
+                    metrics["ttsFirstMs"] = int(tts_cost_ms)
+                    metrics["ttsRetryCount"] = int(retry_count)
             return None
         else:
             tmp_file = self.generate_filename()
@@ -399,10 +435,16 @@ class TTSProviderBase(ABC):
                     self.tts_text_buff = []
                     self.is_first_sentence = True
                     self.tts_audio_first_sentence = True
+                    # _first_text_arrived_at 由 chat() 在新一轮开始时重置，这里不再重置，
+                    # 避免与 chat() 的写入竞争（TTS 线程异步消费 FIRST 消息）
                 elif ContentType.TEXT == message.content_type:
+                    # 记录本轮第一个文本块到达 TTS 线程的时刻，用于统计「首句切分等待」
+                    if getattr(self, "_first_text_arrived_at", None) is None:
+                        self._first_text_arrived_at = time.perf_counter()
                     self.tts_text_buff.append(message.content_detail)
                     segment_text = self._get_segment_text()
                     if segment_text:
+                        self._record_text_wait(segment_text)
                         self.to_tts_stream(segment_text, opus_handler=self.handle_opus)
                 elif ContentType.FILE == message.content_type:
                     self._process_remaining_text_stream(opus_handler=self.handle_opus)
@@ -424,6 +466,21 @@ class TTSProviderBase(ABC):
                     f"处理TTS文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
                 )
                 continue
+
+    def _record_text_wait(self, segment_text):
+        """记录「第一个 LLM 文本块到达 -> 首句被切出」的等待（仅本轮首句）。
+
+        这段等待完全取决于首句标点何时出现：首句越长、越晚遇到标点，首包越慢。
+        """
+        arrived_at = getattr(self, "_first_text_arrived_at", None)
+        metrics = getattr(getattr(self, "conn", None), "chat_round_metrics", None)
+        if arrived_at is None or not metrics or metrics.get("ttsTextWaitMs"):
+            return
+        wait_ms = int((time.perf_counter() - arrived_at) * 1000)
+        metrics["ttsTextWaitMs"] = wait_ms
+        logger.bind(tag=TAG).info(
+            f"TTS首句切分等待: {wait_ms}ms, 首句长度={len(segment_text)}字, 首句={segment_text[:30]}"
+        )
 
     def _audio_play_priority_thread(self):
         # 需要上报的文本和音频列表

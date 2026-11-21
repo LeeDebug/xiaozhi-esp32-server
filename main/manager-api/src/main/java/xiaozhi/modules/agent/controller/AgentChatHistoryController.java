@@ -304,8 +304,14 @@ public class AgentChatHistoryController {
                         if (message.getMetrics() != null) {
                             StringBuilder metricsLine = new StringBuilder("[metrics]");
                             for (Map.Entry<String, Object> entry : message.getMetrics().entrySet()) {
+                                Object value = entry.getValue();
+                                // 明细类字段（llmRoundsDetail / toolCalls）是嵌套结构，转为紧凑 JSON，
+                                // 否则会输出难以阅读的 Map.toString()
+                                if (value instanceof java.util.Collection || value instanceof Map) {
+                                    value = xiaozhi.common.utils.JsonUtils.toJsonString(value);
+                                }
                                 metricsLine.append(' ').append(entry.getKey())
-                                        .append('=').append(entry.getValue());
+                                        .append('=').append(value);
                             }
                             out.write((metricsLine.append('\n').toString())
                                     .getBytes(StandardCharsets.UTF_8));

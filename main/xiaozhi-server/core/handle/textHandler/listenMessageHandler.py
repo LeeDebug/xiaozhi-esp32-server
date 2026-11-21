@@ -41,6 +41,9 @@ class ListenTextMessageHandler(TextMessageHandler):
                 return
 
             conn.client_voice_stop = True
+            # 设备主动上报 stop（手动模式松键）无 VAD 静音等待，说完时刻即当前
+            conn.pending_vad_wait_ms = 0
+            conn.speech_end_at = time.perf_counter()
             if conn.asr.interface_type == InterfaceType.STREAM:
                 # 流式模式下，发送结束请求
                 asyncio.create_task(conn.asr._send_stop_request())

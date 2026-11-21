@@ -92,10 +92,24 @@ async def startToChat(conn: "ConnectionHandler", text):
         await handleAbortMessage(conn)
 
     # 首先进行意图分析，使用实际文本内容
+    # 记录「退出词/唤醒词/意图识别」这段耗时；intent_llm 模式下它包含一次串行的 LLM 调用
+    intent_start_at = time.perf_counter()
     intent_handled = await handle_user_intent(conn, actual_text)
+    intent_cost_ms = int((time.perf_counter() - intent_start_at) * 1000)
+    conn.pending_intent_ms = intent_cost_ms
+    conn.logger.bind(tag=TAG).info(
+        f"意图/唤醒词判断耗时: {intent_cost_ms}ms, 类型={conn.intent_type}, "
+        f"已处理={intent_handled}"
+    )
 
     if intent_handled:
         # 如果意图已被处理，不再进行聊天
+        # 这一轮不会进入 chat()，需清理前置阶段的暂存耗时，
+        # 否则会被错误地计入下一轮问答
+        conn.pending_vad_wait_ms = None
+        conn.pending_asr_ms = None
+        conn.pending_intent_ms = None
+        conn.speech_end_at = None
         return
 
     # 意图未被处理，继续常规聊天流程，使用实际文本内容

@@ -36,6 +36,12 @@ async def sendAudioMessage(conn: "ConnectionHandler", sentenceType, audios, text
             metrics = getattr(conn, "chat_round_metrics", None)
             if metrics and not metrics.get("e2eFirstAudioMs"):
                 metrics["e2eFirstAudioMs"] = int(first_audio_ms)
+                # 从「说完」起算的真实首响 = 说完到 chat 入口的前置阶段(ASR/意图等) + chat 入口到首段音频；
+                # VAD 静音等待是「说完」之前的等待，用户体感上也要计入，故单独累加 vadWaitMs。
+                pre_chat_ms = int(getattr(conn, "chat_round_started_ms_offset", 0) or 0)
+                vad_wait_ms = int(metrics.get("vadWaitMs", 0) or 0)
+                metrics["e2eFromSpeechEndMs"] = int(first_audio_ms) + pre_chat_ms
+                metrics["e2eFromUserStopMs"] = int(first_audio_ms) + pre_chat_ms + vad_wait_ms
         else:
             conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
         conn.tts.tts_audio_first_sentence = False
@@ -279,6 +285,13 @@ async def _do_send_audio(conn: "ConnectionHandler", opus_packet, flow_control):
     """
     packet_index = flow_control.get("packet_count", 0)
     sequence = flow_control.get("sequence", 0)
+
+    # 首帧真正 websocket.send 出去的时刻（从 chat() 入口起算），比 e2eFirstAudioMs 更接近发送端真实首包
+    if packet_index == 0:
+        started_at = getattr(conn, "chat_round_started_at", None)
+        metrics = getattr(conn, "chat_round_metrics", None)
+        if started_at is not None and metrics and not metrics.get("firstPacketSentMs"):
+            metrics["firstPacketSentMs"] = int((time.perf_counter() - started_at) * 1000)
 
     if conn.conn_from_mqtt_gateway:
         # 计算时间戳（基于播放位置）

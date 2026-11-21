@@ -94,14 +94,26 @@
                                 <span v-if="Number(message.metrics.e2eFirstAudioMs) > 0" class="metrics-sub">
                                     {{ $t('chatHistory.metricsFirstAudio') }} {{ formatDuration(message.metrics.e2eFirstAudioMs) }}
                                 </span>
+                                <span v-if="Number(message.metrics.e2eFromUserStopMs) > 0" class="metrics-sub">
+                                    {{ $t('chatHistory.metricsFromUserStop') }} {{ formatDuration(message.metrics.e2eFromUserStopMs) }}
+                                </span>
                             </div>
                             <div v-if="isMetricsExpanded(index)" class="metrics-detail">
-                                <div v-for="row in getMetricsRows(message.metrics)" :key="row.key" class="metrics-row">
-                                    <span class="metrics-label">{{ $t(row.labelKey) }}</span>
-                                    <span class="metrics-bar-wrap">
-                                        <span class="metrics-bar" :style="{ width: getMetricsBarWidth(row.value, message.metrics) + '%' }"></span>
-                                    </span>
-                                    <span class="metrics-value">{{ formatDuration(row.value) }}</span>
+                                <template v-for="group in getMetricsGroups(message.metrics)">
+                                    <div :key="group.key + '-title'" class="metrics-group-title">{{ $t(group.titleKey) }}</div>
+                                    <div v-for="row in group.rows" :key="group.key + '-' + row.key" class="metrics-row">
+                                        <span class="metrics-label">{{ $t(row.labelKey) }}</span>
+                                        <span class="metrics-bar-wrap">
+                                            <span class="metrics-bar" :style="{ width: getMetricsBarWidth(row.value, message.metrics) + '%' }"></span>
+                                        </span>
+                                        <span class="metrics-value">{{ formatDuration(row.value) }}</span>
+                                    </div>
+                                </template>
+                                <div v-if="getMetricsFacts(message.metrics).length" class="metrics-facts">
+                                    <div v-for="fact in getMetricsFacts(message.metrics)" :key="fact.key" class="metrics-fact">
+                                        <span class="metrics-fact-label">{{ $t(fact.labelKey) }}</span>
+                                        <span class="metrics-fact-value">{{ fact.text }}</span>
+                                    </div>
                                 </div>
                                 <div v-if="Number(message.metrics.llmRounds) > 1" class="metrics-note">
                                     {{ $t('chatHistory.metricsLlmRounds') }} {{ message.metrics.llmRounds }}
@@ -134,15 +146,51 @@ import Api from '@/apis/api';
 import CustomDialog from '@/components/CustomDialog.vue';
 import MacAddressMask from '@/components/MacAddressMask.vue';
 
-// 耗时面板的分段指标顺序与 i18n key，单位统一为毫秒
-const METRIC_DEFS = [
-    { key: 'asrMs', labelKey: 'chatHistory.metricAsr' },
-    { key: 'llmTtftMs', labelKey: 'chatHistory.metricLlmTtft' },
-    { key: 'llmTotalMs', labelKey: 'chatHistory.metricLlmTotal' },
-    { key: 'ttsFirstMs', labelKey: 'chatHistory.metricTtsFirst' },
-    { key: 'e2eFirstAudioMs', labelKey: 'chatHistory.metricE2eFirstAudio' },
-    { key: 'e2eTotalMs', labelKey: 'chatHistory.metricE2eTotal' }
+// 耗时面板按流程阶段分组：用户说话→识别→意图→记忆/大模型→工具→语音合成→发送→汇总。
+// 单位统一为毫秒；值为 0 或缺失的指标不展示（兼容旧版本上报的历史记录）。
+const METRIC_GROUPS = [
+    {
+        key: 'listen',
+        titleKey: 'chatHistory.groupListen',
+        defs: [
+            { key: 'vadWaitMs', labelKey: 'chatHistory.metricVadWait' },
+            { key: 'asrMs', labelKey: 'chatHistory.metricAsr' },
+            { key: 'intentMs', labelKey: 'chatHistory.metricIntent' }
+        ]
+    },
+    {
+        key: 'llm',
+        titleKey: 'chatHistory.groupLlm',
+        defs: [
+            { key: 'memoryQueryMs', labelKey: 'chatHistory.metricMemoryQuery' },
+            { key: 'llmTtftMs', labelKey: 'chatHistory.metricLlmTtft' },
+            { key: 'llmTotalMs', labelKey: 'chatHistory.metricLlmTotal' },
+            { key: 'toolTotalMs', labelKey: 'chatHistory.metricToolTotal' }
+        ]
+    },
+    {
+        key: 'tts',
+        titleKey: 'chatHistory.groupTts',
+        defs: [
+            { key: 'ttsTextWaitMs', labelKey: 'chatHistory.metricTtsTextWait' },
+            { key: 'ttsProviderMs', labelKey: 'chatHistory.metricTtsProvider' },
+            { key: 'ttsFirstMs', labelKey: 'chatHistory.metricTtsFirst' }
+        ]
+    },
+    {
+        key: 'send',
+        titleKey: 'chatHistory.groupSend',
+        defs: [
+            { key: 'firstPacketSentMs', labelKey: 'chatHistory.metricFirstPacketSent' },
+            { key: 'e2eFirstAudioMs', labelKey: 'chatHistory.metricE2eFirstAudio' },
+            { key: 'e2eFromSpeechEndMs', labelKey: 'chatHistory.metricE2eFromSpeechEnd' },
+            { key: 'e2eFromUserStopMs', labelKey: 'chatHistory.metricE2eFromUserStop' },
+            { key: 'e2eTotalMs', labelKey: 'chatHistory.metricE2eTotal' }
+        ]
+    }
 ];
+// 扁平化后的指标定义，供条形图计算共用比例尺
+const METRIC_DEFS = METRIC_GROUPS.reduce((all, group) => all.concat(group.defs), []);
 
 export default {
     name: 'ChatHistoryDialog',
@@ -490,6 +538,44 @@ export default {
                 .filter(def => Number(metrics[def.key]) > 0)
                 .map(def => ({ key: def.key, labelKey: def.labelKey, value: Number(metrics[def.key]) }));
         },
+        // 按流程阶段分组的数值行，空组不展示
+        getMetricsGroups(metrics) {
+            if (!metrics) return [];
+            return METRIC_GROUPS
+                .map(group => ({
+                    key: group.key,
+                    titleKey: group.titleKey,
+                    rows: group.defs
+                        .filter(def => Number(metrics[def.key]) > 0)
+                        .map(def => ({ key: def.key, labelKey: def.labelKey, value: Number(metrics[def.key]) }))
+                }))
+                .filter(group => group.rows.length > 0);
+        },
+        // 非数值类详情：TTS 提供商/是否流式/重试次数、每轮 LLM 明细、工具调用明细
+        getMetricsFacts(metrics) {
+            if (!metrics) return [];
+            const facts = [];
+            if (metrics.ttsProvider) {
+                const mode = metrics.ttsIsStream ? this.$t('chatHistory.ttsStream') : this.$t('chatHistory.ttsNonStream');
+                facts.push({ key: 'ttsProvider', labelKey: 'chatHistory.factTtsProvider', text: `${metrics.ttsProvider} (${mode})` });
+            }
+            if (Number(metrics.ttsRetryCount) > 0) {
+                facts.push({ key: 'ttsRetryCount', labelKey: 'chatHistory.factTtsRetry', text: String(metrics.ttsRetryCount) });
+            }
+            if (Array.isArray(metrics.llmRoundsDetail) && metrics.llmRoundsDetail.length > 0) {
+                const text = metrics.llmRoundsDetail
+                    .map((r, i) => `#${i + 1} depth=${r.depth} tools=${r.tools} ${this.$t('chatHistory.metricLlmTtft')} ${this.formatDuration(r.ttftMs)} / ${this.$t('chatHistory.metricLlmTotal')} ${this.formatDuration(r.totalMs)} / ${r.chars}${this.$t('chatHistory.charUnit')}`)
+                    .join('\n');
+                facts.push({ key: 'llmRoundsDetail', labelKey: 'chatHistory.factLlmRounds', text });
+            }
+            if (Array.isArray(metrics.toolCalls) && metrics.toolCalls.length > 0) {
+                const text = metrics.toolCalls
+                    .map(t => `${t.name} ${this.formatDuration(t.costMs)}${t.ok ? '' : ' (' + this.$t('chatHistory.toolFailed') + ')'}`)
+                    .join('\n');
+                facts.push({ key: 'toolCalls', labelKey: 'chatHistory.factToolCalls', text });
+            }
+            return facts;
+        },
         getMetricsBarWidth(value, metrics) {
             const rows = this.getMetricsRows(metrics);
             // 条形以本轮总耗时为基准，分段指标之间允许时间重叠
@@ -792,6 +878,42 @@ export default {
     margin-top: 6px;
     color: #98a4b3;
     line-height: 1.5;
+}
+
+.metrics-group-title {
+    margin: 8px 0 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sys-primary-text);
+}
+
+.metrics-group-title:first-child {
+    margin-top: 0;
+}
+
+.metrics-facts {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--sys-surface);
+}
+
+.metrics-fact {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+    line-height: 1.5;
+}
+
+.metrics-fact-label {
+    width: 120px;
+    flex-shrink: 0;
+}
+
+.metrics-fact-value {
+    flex: 1;
+    white-space: pre-line;
+    word-break: break-all;
+    font-variant-numeric: tabular-nums;
 }
 
 .user-message .message-content {

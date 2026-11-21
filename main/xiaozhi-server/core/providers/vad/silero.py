@@ -107,6 +107,14 @@ class VADProvider(VADProviderBase):
                     stop_duration = time.time() * 1000 - conn.vad_last_voice_time
                     if stop_duration >= self.silence_threshold_ms:
                         conn.client_voice_stop = True
+                        # 埋点：用户说完后等了多久才被判定为「说完」，
+                        # 这段静音等待不在 e2eFirstAudioMs 内，但用户确实要等。
+                        conn.pending_vad_wait_ms = int(stop_duration)
+                        conn.speech_end_at = time.perf_counter()
+                        logger.bind(tag=TAG).info(
+                            f"VAD判定说完: 静音等待={int(stop_duration)}ms"
+                            f"(阈值{self.silence_threshold_ms}ms)"
+                        )
                 if client_have_voice:
                     conn.client_have_voice = True
                     conn.vad_last_voice_time = time.time() * 1000

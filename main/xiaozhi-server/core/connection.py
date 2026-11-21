@@ -147,6 +147,11 @@ class ConnectionHandler:
         self.chat_round_metrics = {}
         # ASR 发生在 chat() 之前，耗时先暂存，由下一轮 chat() 取走
         self.pending_asr_ms = None
+        # chat() 之前阶段（VAD 静音等待 / 意图判断）的耗时暂存，由下一轮 chat() 取走
+        self.pending_vad_wait_ms = None
+        self.pending_intent_ms = None
+        # 说完话的起点（perf_counter），用于计算从「说完」起算的真实端到端首响
+        self.speech_end_at = None
 
         # 依赖的组件
         self.vad = None
@@ -1065,6 +1070,39 @@ class ConnectionHandler:
         if hasattr(self, "loop") and self.loop:
             asyncio.run_coroutine_threadsafe(self.func_handler._initialize(), self.loop)
 
+    def _get_tts_provider_name(self):
+        """当前使用的 TTS 提供商名称（智控台「服务端配置」中选中的 TTS 模块），用于横向对比不同引擎的耗时。"""
+        try:
+            return str((self.config.get("selected_module") or {}).get("TTS") or "")
+        except Exception:
+            return ""
+
+    def _tts_is_stream(self):
+        """当前 TTS 是否为流式接口（非流式会整句合成完再返回，首包更慢）。"""
+        try:
+            interface_type = getattr(self.tts, "interface_type", None)
+            return interface_type is not None and getattr(
+                interface_type, "value", str(interface_type)
+            ) != "NON_STREAM"
+        except Exception:
+            return False
+
+    def _record_tool_call_metric(self, tool_name, wait_start_at, ok):
+        """记录单个工具调用的耗时到本轮埋点（从提交到拿到结果或超时）。"""
+        cost_ms = int((time.perf_counter() - wait_start_at) * 1000)
+        self.logger.bind(tag=TAG).info(
+            f"工具调用耗时: {tool_name}, {cost_ms}ms, {'成功' if ok else '超时/异常'}"
+        )
+        metrics = getattr(self, "chat_round_metrics", None)
+        if not metrics:
+            return
+        calls = metrics.setdefault("toolCalls", [])
+        # 限制明细条数，避免上报 JSON 过大
+        if len(calls) < 10:
+            calls.append({"name": str(tool_name), "costMs": cost_ms, "ok": bool(ok)})
+        # 工具并行执行，总耗时取最慢的那个（而非累加）
+        metrics["toolTotalMs"] = max(int(metrics.get("toolTotalMs", 0)), cost_ms)
+
     def change_system_prompt(self, prompt):
         self.prompt = prompt
         # 更新系统prompt至上下文
@@ -1089,14 +1127,54 @@ class ConnectionHandler:
                 "roundId": current_sentence_id,
                 "startedAt": self.chat_round_started_at,
                 "asrMs": int(self.pending_asr_ms or 0),
+                # VAD 判定「说完」前的静音等待（用户真实体感的一部分，不在 e2eFirstAudioMs 内）
+                "vadWaitMs": int(self.pending_vad_wait_ms or 0),
+                # 退出词/唤醒词/意图识别耗时（intent_llm 模式会额外串行一次 LLM）
+                "intentMs": int(self.pending_intent_ms or 0),
+                "memoryQueryMs": 0,
                 "llmTtftMs": 0,
                 "llmTotalMs": 0,
                 "llmRounds": 0,
                 "llmOutputChars": 0,
+                # 每轮 LLM 明细 [{depth, tools, ttftMs, totalMs, chars}]，用于区分第几轮慢
+                "llmRoundsDetail": [],
+                # 工具调用明细 [{name, costMs, ok}] 与累计耗时
+                "toolCalls": [],
+                "toolTotalMs": 0,
                 "ttsFirstMs": 0,
+                # TTS 首包里「单次合成」的耗时（不含失败重试）与重试次数
+                "ttsProviderMs": 0,
+                "ttsRetryCount": 0,
+                # 第一个 LLM 文本块入队 -> 首句被切出开始合成的等待
+                "ttsTextWaitMs": 0,
+                "ttsProvider": self._get_tts_provider_name(),
+                "ttsIsStream": self._tts_is_stream(),
                 "e2eFirstAudioMs": 0,
+                # 首帧真正 websocket.send 出去的时刻（从 chat() 起算）
+                "firstPacketSentMs": 0,
+                # 从「说完」起算的真实首响（含 VAD 静音 + ASR + 意图）
+                "e2eFromSpeechEndMs": 0,
+                # 在「从说完」基础上再加上 VAD 静音等待，即用户真正停止说话到听到声音的总体感
+                "e2eFromUserStopMs": 0,
             }
+            self.chat_round_started_ms_offset = int(
+                (self.chat_round_started_at - self.speech_end_at) * 1000
+            ) if self.speech_end_at else 0
             self.pending_asr_ms = None
+            self.pending_vad_wait_ms = None
+            self.pending_intent_ms = None
+            self.speech_end_at = None
+            # 新一轮开始：清除 TTS 侧「首个文本到达」的时刻，由本轮首个 LLM 块重新写入
+            if self.tts is not None:
+                self.tts._first_text_arrived_at = None
+            self.logger.bind(tag=TAG).info(
+                f"本轮前置阶段耗时: VAD静音等待={self.chat_round_metrics['vadWaitMs']}ms, "
+                f"ASR={self.chat_round_metrics['asrMs']}ms, "
+                f"意图/唤醒判断={self.chat_round_metrics['intentMs']}ms, "
+                f"说完话到chat入口={self.chat_round_started_ms_offset}ms, "
+                f"TTS={self.chat_round_metrics['ttsProvider']}"
+                f"({'流式' if self.chat_round_metrics['ttsIsStream'] else '非流式'})"
+            )
             self.dialogue.put(Message(role="user", content=query))
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
@@ -1160,6 +1238,7 @@ class ConnectionHandler:
         llm_first_chunk_at = None
         llm_output_chars = 0
         tools_count = len(functions) if functions else 0
+        memory_query_ms_this_round = 0.0
         # ---- 耗时埋点 ----
 
         try:
@@ -1167,10 +1246,18 @@ class ConnectionHandler:
             memory_str = None
             # 仅当query非空（代表用户询问）时查询记忆
             if self.memory is not None and query:
+                # 记忆检索是阻塞等待的，单独计时，并从 LLM 首包里剖出来
+                memory_start_at = time.perf_counter()
                 future = asyncio.run_coroutine_threadsafe(
                     self.memory.query_memory(query), self.loop
                 )
                 memory_str = future.result()
+                memory_cost_ms = (time.perf_counter() - memory_start_at) * 1000
+                memory_query_ms_this_round = memory_cost_ms
+                self.logger.bind(tag=TAG).info(
+                    f"记忆检索耗时: depth={depth}, {memory_cost_ms:.0f}ms, "
+                    f"命中长度={len(memory_str) if memory_str else 0}"
+                )
 
             # 仅在该说话人首次出现时把身份注入 system，之后靠对话历史首轮保留，
             # 避免每轮在 system 重复出现名字诱导模型反复称呼
@@ -1215,6 +1302,11 @@ class ConnectionHandler:
                 # 首包到达时间（近似 TTFT：含 prefill + 网络往返）
                 if llm_first_chunk_at is None:
                     llm_first_chunk_at = time.perf_counter()
+                    # 流式 TTS 的子类重写了文本线程，不会自己记录「文本首次到达」，
+                    # 这里统一在本轮首个 LLM 块到达时记下（仅 depth==0 的首轮且尚未记录），
+                    # TTS 基类据此计算 ttsFirstMs（流式）/ ttsTextWaitMs。
+                    if depth == 0 and getattr(self.tts, "_first_text_arrived_at", None) is None:
+                        self.tts._first_text_arrived_at = llm_first_chunk_at
                 if self.intent_type == "function_call" and functions is not None:
                     content, tools_call = response
                     if "content" in response:
@@ -1300,14 +1392,20 @@ class ConnectionHandler:
                 )
             return
         llm_end_at = time.perf_counter()
+        # llm_start_at 在记忆检索之前起表，这里把记忆检索耗时扣掉，
+        # 首包/总耗时才是纯 LLM 的值，记忆检索单独在 memoryQueryMs 中展示。
         ttft_ms = (
-            (llm_first_chunk_at - llm_start_at) * 1000
+            max(0.0, (llm_first_chunk_at - llm_start_at) * 1000 - memory_query_ms_this_round)
             if llm_first_chunk_at is not None
             else 0.0
         )
+        llm_total_ms = max(
+            0.0, (llm_end_at - llm_start_at) * 1000 - memory_query_ms_this_round
+        )
         self.logger.bind(tag=TAG).info(
             f"LLM 耗时统计: depth={depth}, 下发工具数={tools_count}, "
-            f"首包={ttft_ms:.0f}ms, 流式总耗时={(llm_end_at - llm_start_at) * 1000:.0f}ms, "
+            f"首包={ttft_ms:.0f}ms, 流式总耗时={llm_total_ms:.0f}ms, "
+            f"记忆检索={memory_query_ms_this_round:.0f}ms, "
             f"输出字符数={llm_output_chars}"
         )
 
@@ -1318,12 +1416,24 @@ class ConnectionHandler:
         if metrics:
             metrics["llmRounds"] = int(metrics.get("llmRounds", 0)) + 1
             metrics["llmTtftMs"] = int(metrics.get("llmTtftMs", 0)) + int(ttft_ms)
-            metrics["llmTotalMs"] = int(metrics.get("llmTotalMs", 0)) + int(
-                (llm_end_at - llm_start_at) * 1000
-            )
+            metrics["llmTotalMs"] = int(metrics.get("llmTotalMs", 0)) + int(llm_total_ms)
             metrics["llmOutputChars"] = int(
                 metrics.get("llmOutputChars", 0)
             ) + llm_output_chars
+            metrics["memoryQueryMs"] = int(metrics.get("memoryQueryMs", 0)) + int(
+                memory_query_ms_this_round
+            )
+            # 每轮 LLM 明细，让「第几轮慢」可见
+            detail = metrics.setdefault("llmRoundsDetail", [])
+            detail.append(
+                {
+                    "depth": depth,
+                    "tools": tools_count,
+                    "ttftMs": int(ttft_ms),
+                    "totalMs": int(llm_total_ms),
+                    "chars": llm_output_chars,
+                }
+            )
 
         # 处理function call
         if tool_call_flag:
@@ -1435,15 +1545,23 @@ class ConnectionHandler:
                 tool_call_timeout = int(self.config.get("tool_call_timeout", 30))
                 # 等待协程结束（实际等待时长为最慢的那个）
                 tool_results = []
+                # 工具并行执行，起点统一从「全部提交」开始计；每个工具的耗时是“从提交到拿到结果”
+                tools_wait_start_at = time.perf_counter()
 
                 for future, tool_call_data, tool_input in futures_with_data:
                     try:
                         result = future.result(timeout=tool_call_timeout)
                         tool_results.append((result, tool_call_data))
+                        self._record_tool_call_metric(
+                            tool_call_data["name"], tools_wait_start_at, True
+                        )
                         # 使用公共方法上报工具调用结果
                         enqueue_tool_report(self, tool_call_data['name'], tool_input, str(result.result) if result.result else None, report_tool_call=False)
 
                     except Exception as e:
+                        self._record_tool_call_metric(
+                            tool_call_data["name"], tools_wait_start_at, False
+                        )
                         self.logger.bind(tag=TAG).error(
                             f"工具调用超时或异常: {tool_call_data['name']}, 错误: {e}"
                         )

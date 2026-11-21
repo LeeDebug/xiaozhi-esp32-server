@@ -58,6 +58,8 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
         log.info("小智设备聊天上报请求: macAddress={}, type={} reportTime={}, roundId={}, hasMetrics={}",
                 macAddress, chatType, reportTimeMillis, report.getRoundId(),
                 report.getMetrics() != null && !report.getMetrics().isEmpty());
+        // 本轮耗时快照的关键阶段摘要，便于在服务端日志中直接定位哪个环节慢
+        logMetricsSummary(macAddress, report);
 
         // 根据设备MAC地址查询对应的默认智能体，判断是否需要上报
         AgentEntity agentEntity = agentService.getDefaultAgentByMacAddress(macAddress);
@@ -90,6 +92,31 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
     }
 
     /**
+     * metrics_json 是 TEXT 列（最大 64KB），设一个远小于上限的保护值，
+     * 避免设备侧或中间层异常上报超大 JSON 导致写库失败、连带丢弃整条聊天记录。
+     */
+    private static final int MAX_METRICS_JSON_LENGTH = 8 * 1024;
+
+    /**
+     * 按阶段输出本轮耗时摘要日志（仅带 roundId 的末条回复上报会有 metrics）。
+     */
+    private void logMetricsSummary(String macAddress, AgentChatHistoryReportDTO report) {
+        java.util.Map<String, Object> m = report.getMetrics();
+        if (m == null || m.isEmpty()) {
+            return;
+        }
+        log.info("本轮耗时摘要: macAddress={}, roundId={}, vadWait={}ms, asr={}ms, intent={}ms, memory={}ms, "
+                + "llmTtft={}ms, llmTotal={}ms, llmRounds={}, tool={}ms, ttsFirst={}ms(provider={}, stream={}, retry={}), "
+                + "ttsTextWait={}ms, e2eFirstAudio={}ms, firstPacketSent={}ms, e2eFromSpeechEnd={}ms, e2eTotal={}ms",
+                macAddress, report.getRoundId(),
+                m.get("vadWaitMs"), m.get("asrMs"), m.get("intentMs"), m.get("memoryQueryMs"),
+                m.get("llmTtftMs"), m.get("llmTotalMs"), m.get("llmRounds"), m.get("toolTotalMs"),
+                m.get("ttsFirstMs"), m.get("ttsProvider"), m.get("ttsIsStream"), m.get("ttsRetryCount"),
+                m.get("ttsTextWaitMs"), m.get("e2eFirstAudioMs"), m.get("firstPacketSentMs"),
+                m.get("e2eFromSpeechEndMs"), m.get("e2eTotalMs"));
+    }
+
+    /**
      * base64解码report.getOpusDataBase64(),存入ai_agent_chat_audio表
      */
     private String saveChatAudio(AgentChatHistoryReportDTO report) {
@@ -118,6 +145,18 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
         String roundId = report.getRoundId();
         String metricsJson = (roundId == null || report.getMetrics() == null || report.getMetrics().isEmpty())
                 ? null : JsonUtils.toJsonString(report.getMetrics());
+        if (metricsJson != null && metricsJson.length() > MAX_METRICS_JSON_LENGTH) {
+            // 超大时丢弃明细类字段（数组/列表），保留所有数值型耗时指标，保证写库不失败
+            java.util.Map<String, Object> slim = new java.util.LinkedHashMap<>();
+            report.getMetrics().forEach((k, v) -> {
+                if (!(v instanceof java.util.Collection) && !(v instanceof java.util.Map)) {
+                    slim.put(k, v);
+                }
+            });
+            log.warn("metrics_json 超过 {} 字符({})，已精简明细字段: roundId={}",
+                    MAX_METRICS_JSON_LENGTH, metricsJson.length(), roundId);
+            metricsJson = JsonUtils.toJsonString(slim);
+        }
 
         // 构建会话记录实体
         AgentChatHistoryEntity entity = AgentChatHistoryEntity.builder()
