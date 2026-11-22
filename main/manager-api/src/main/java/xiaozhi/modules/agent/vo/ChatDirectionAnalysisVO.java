@@ -1,6 +1,6 @@
 package xiaozhi.modules.agent.vo;
 
-import java.util.Date;
+import java.util.Map;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -49,4 +49,19 @@ public class ChatDirectionAnalysisVO {
 
     @Schema(description = "分析人昵称")
     private String ownerNickname;
+
+    @Schema(description = "是否已生成可视化结果")
+    private Boolean hasVisual;
+
+    @Schema(description = "可视化结果（大模型输出的 JSON 对象），未生成时为 null")
+    private Map<String, Object> visual;
+
+    @Schema(description = "可视化结果生成时间，已格式化为中国时间")
+    private String visualGeneratedAt;
+
+    @Schema(description = "生成可视化结果使用的模型")
+    private String visualModelName;
+
+    @Schema(description = "生成可视化结果的大模型耗时（毫秒）")
+    private Long visualDurationMs;
 }

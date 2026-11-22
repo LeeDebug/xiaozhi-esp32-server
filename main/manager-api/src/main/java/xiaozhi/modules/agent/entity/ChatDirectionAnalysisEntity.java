@@ -82,6 +82,22 @@ public class ChatDirectionAnalysisEntity {
     @TableField("duration_ms")
     private Long durationMs;
 
+    /** 可视化结果：大模型按可视化提示词把文字结论转成的 JSON 对象；重新生成时覆盖 */
+    @TableField("visual_json")
+    private String visualJson;
+
+    @TableField("visual_prompt_template")
+    private String visualPromptTemplate;
+
+    @TableField("visual_model_name")
+    private String visualModelName;
+
+    @TableField("visual_duration_ms")
+    private Long visualDurationMs;
+
+    @TableField("visual_generated_at")
+    private Date visualGeneratedAt;
+
     @TableField("created_at")
     private Date createdAt;
 }

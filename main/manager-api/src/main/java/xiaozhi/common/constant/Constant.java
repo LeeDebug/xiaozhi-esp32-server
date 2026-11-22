@@ -127,6 +127,11 @@ public interface Constant {
     String SERVER_CHAT_DIRECTION_PROMPT = "server.chat_direction_question_prompt";
 
     /**
+     * 会话内容分析丨高频方向：把 AI 分析结论转为可视化 JSON 的提示词
+     */
+    String SERVER_CHAT_DIRECTION_VISUAL_PROMPT = "server.chat_direction_visual_prompt";
+
+    /**
      * 会话分析（高频词 / 高频方向）是否过滤唤醒词，默认 true
      */
     String SERVER_CHAT_ANALYSIS_FILTER_WAKEUP_WORDS = "server.chat_analysis_filter_wakeup_words";

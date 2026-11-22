@@ -149,6 +149,52 @@ class ChatDirectionServiceImplTest {
     }
 
     @Test
+    @DisplayName("可视化：从回复中提取 JSON 并覆盖保存；非 JSON 报错；他人记录不可生成")
+    void generateVisualSavesJson() {
+        assertNull(ChatDirectionServiceImpl.parseVisualJson("不是 JSON"));
+        Map<String, Object> parsed = ChatDirectionServiceImpl.parseVisualJson(
+                "```json\n{\"summary\":\"水温为主\",\"topDirection\":null}\n```");
+        assertEquals("水温为主", parsed.get("summary"));
+        assertTrue(parsed.containsKey("topDirection"));
+
+        ChatDirectionAnalysisDao analysisDao = mock(ChatDirectionAnalysisDao.class);
+        xiaozhi.modules.agent.entity.ChatDirectionAnalysisEntity record = new xiaozhi.modules.agent.entity.ChatDirectionAnalysisEntity();
+        record.setId("r1");
+        record.setUserId(1L);
+        record.setResult("主要方向：水温监测");
+        record.setInputContent("- 水温多少（3 次）");
+        when(analysisDao.selectById("r1")).thenReturn(record);
+        UserDataScopeService scope = mock(UserDataScopeService.class);
+        when(scope.canViewAllUserData()).thenReturn(false);
+        SysParamsService params = mock(SysParamsService.class);
+        when(params.getValue(anyString(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn("问题：{questions}\n结论：{conversation}");
+        LLMService llm = mock(LLMService.class);
+        when(llm.isAvailable()).thenReturn(true);
+        when(llm.generateSummary(anyString(), anyString())).thenReturn(
+                "好的：{\"summary\":\"水温为主\",\"directions\":[{\"rank\":1,\"name\":\"水温监测\",\"ratio\":80}]}");
+        ChatDirectionServiceImpl service = new ChatDirectionServiceImpl(mock(ChatDirectionQueryDao.class), analysisDao,
+                mock(AgentDao.class), mock(DeviceDao.class), mock(ChatTextTokenizer.class), scope, params, llm,
+                mock(ModelConfigService.class), mock(ChatWakeupWordFilter.class));
+
+        xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO vo = service.generateVisual("r1", 1L);
+
+        org.mockito.Mockito.verify(llm).generateSummary("主要方向：水温监测", "问题：- 水温多少（3 次）\n结论：{conversation}");
+        org.mockito.Mockito.verify(analysisDao).updateById(record);
+        assertTrue(vo.getHasVisual());
+        assertEquals("水温为主", vo.getVisual().get("summary"));
+        assertTrue(record.getVisualJson().contains("水温监测"));
+
+        when(llm.generateSummary(anyString(), anyString())).thenReturn("抱歉，无法处理");
+        org.junit.jupiter.api.Assertions.assertThrows(xiaozhi.common.exception.RenException.class,
+                () -> service.generateVisual("r1", 1L));
+
+        record.setUserId(2L);
+        org.junit.jupiter.api.Assertions.assertThrows(xiaozhi.common.exception.RenException.class,
+                () -> service.generateVisual("r1", 1L));
+    }
+
+    @Test
     @DisplayName("开启唤醒词过滤后，问题中的唤醒词被去掉，只有唤醒词的提问不计入")
     void wakeupWordsAreStripped() {
         List<Map<String, Object>> rows = new ArrayList<>();

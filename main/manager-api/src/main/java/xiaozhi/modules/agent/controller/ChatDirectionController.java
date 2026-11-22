@@ -78,6 +78,17 @@ public class ChatDirectionController {
     }
 
     /**
+     * 把一次分析记录转化为可视化页面（调用大模型输出 JSON），重新生成时覆盖之前的结果。
+     */
+    @Operation(summary = "分析记录转化为可视化页面")
+    @RequiresPermissions("sys:role:normal")
+    @PostMapping("/history/{id}/visual")
+    public Result<ChatDirectionAnalysisVO> visual(@PathVariable("id") String id) {
+        return new Result<ChatDirectionAnalysisVO>()
+                .ok(chatDirectionService.generateVisual(id, SecurityUser.getUserId()));
+    }
+
+    /**
      * 地区筛选下拉：当前可见设备所在的省份。
      */
     @Operation(summary = "地区筛选选项")

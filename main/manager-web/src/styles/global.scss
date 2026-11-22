@@ -71,3 +71,86 @@ select:-webkit-autofill:focus {
   justify-content: center;
   overflow: auto;
 }
+
+/* ========== 全局 loading 效果 ========== */
+
+/* 顶部路由进度条（src/utils/routeProgress.js） */
+.xz-route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  overflow: hidden;
+  transition: opacity 0.3s ease;
+
+  &.is-active {
+    opacity: 1;
+  }
+
+  &.is-done {
+    opacity: 0;
+    transition-delay: 0.15s;
+  }
+
+  .xz-route-progress__bar {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, var(--sys-primary), var(--sys-gradient-to, var(--sys-primary-light)));
+    transform: translate3d(-100%, 0, 0);
+    transition: transform 0.2s ease;
+  }
+
+  .xz-route-progress__peg {
+    position: absolute;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    box-shadow: 0 0 10px var(--sys-primary), 0 0 5px var(--sys-primary);
+    opacity: 1;
+    transform: rotate(3deg) translate(0, -4px);
+  }
+}
+
+/* Element v-loading 遮罩统一主题色（局部已有自定义样式的组件会继续覆盖） */
+.el-loading-mask {
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(1px);
+  transition: opacity 0.2s ease;
+}
+
+.el-loading-spinner {
+  .circular {
+    width: 36px;
+    height: 36px;
+  }
+
+  .path {
+    stroke: var(--sys-primary);
+  }
+
+  .el-loading-text {
+    color: var(--sys-primary);
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  i {
+    color: var(--sys-primary);
+  }
+}
+
+/* 按钮 loading 时禁止 hover 抬升，避免抖动 */
+.el-button.is-loading {
+  transform: none !important;
+  cursor: progress;
+}
+
+/* 页面级首屏 loading 容器：数据加载完之前给出最小高度，避免遮罩高度为 0 看不到 */
+.page-loading-min {
+  min-height: 240px;
+}

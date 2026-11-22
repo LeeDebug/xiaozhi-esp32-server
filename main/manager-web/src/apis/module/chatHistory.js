@@ -204,6 +204,26 @@ export default {
             }).send();
     },
 
+    // 把一次分析记录转化为可视化页面（调用大模型输出 JSON，重新生成时覆盖），超时放宽到 3 分钟
+    generateChatDirectionVisual(id, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/chat-direction/history/${encodeURIComponent(id)}/visual`)
+            .method('POST')
+            .timeout(180000)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                console.error('生成可视化页面失败:', err);
+                if (failCallback) failCallback(err);
+            }).send();
+    },
+
     // 大模型分析历史记录
     getChatDirectionHistory(params, callback, failCallback) {
         RequestService.sendRequest()

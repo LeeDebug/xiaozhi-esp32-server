@@ -161,14 +161,38 @@
                       <span class="ai-meta-item">{{ $t('chatDirection.aiTime') }}：{{ item.createdAt || '-' }}</span>
                       <span class="ai-meta-item">{{ $t('chatDirection.aiModel') }}：{{ item.modelName || '-' }}</span>
                       <span v-if="analysisOwner(item)" class="ai-meta-item">{{ analysisOwner(item) }}</span>
-                      <el-button type="text" size="mini" icon="el-icon-document" class="ai-raw-btn"
-                        :loading="detailLoadingId === item.id" @click.stop="openDetail(item)">
-                        {{ $t('chatDirection.rawView') }}
-                      </el-button>
+                      <span class="ai-actions">
+                        <!-- 已生成可视化结果时才能切换视图 -->
+                        <el-radio-group v-if="item.hasVisual" :value="viewMode(item)" size="mini"
+                          @input="(v) => setViewMode(item, v)">
+                          <el-radio-button label="visual">{{ $t('chatDirection.visualView') }}</el-radio-button>
+                          <el-radio-button label="text">{{ $t('chatDirection.textView') }}</el-radio-button>
+                        </el-radio-group>
+                        <el-button v-if="item.isOwn !== false" type="text" size="mini"
+                          :icon="item.hasVisual ? 'el-icon-refresh' : 'el-icon-data-analysis'"
+                          :loading="visualLoadingId === item.id" :disabled="!!visualLoadingId && visualLoadingId !== item.id"
+                          @click.stop="generateVisual(item)">
+                          {{ visualLoadingId === item.id ? $t('chatDirection.visualRunning')
+                            : (item.hasVisual ? $t('chatDirection.visualRegenerate') : $t('chatDirection.visualGenerate')) }}
+                        </el-button>
+                        <el-button type="text" size="mini" icon="el-icon-document"
+                          :loading="detailLoadingId === item.id" @click.stop="openDetail(item)">
+                          {{ $t('chatDirection.rawView') }}
+                        </el-button>
+                      </span>
                     </div>
                     <div class="ai-condition">{{ $t('chatDirection.aiCondition') }}：{{ conditionText(item) }}</div>
+                    <template v-if="viewMode(item) === 'visual'">
+                      <div class="ai-visual-meta">
+                        {{ $t('chatDirection.visualGeneratedAt') }}：{{ item.visualGeneratedAt || '-' }}
+                        · {{ $t('chatDirection.aiModel') }}：{{ item.visualModelName || '-' }}
+                        · {{ $t('chatDirection.rawDuration') }}：{{ formatDuration(item.visualDurationMs) }}
+                      </div>
+                      <!-- 只在展开时渲染，避免 echarts 在隐藏容器里初始化成 0 宽 -->
+                      <ChatDirectionVisual v-if="expandedIds.includes(item.id)" :visual="item.visual" />
+                    </template>
                     <!-- 大模型输出按纯文本展示，不使用 v-html，避免输出内容中的标签被执行 -->
-                    <div class="ai-text">{{ item.result }}</div>
+                    <div v-else class="ai-text">{{ item.result }}</div>
                   </el-collapse-item>
                 </el-collapse>
               </template>
@@ -211,7 +235,7 @@
     </el-dialog>
 
     <!-- 查看原始记录：展示当次分析实际使用的提示词、用户问题、模型、耗时与统计快照 -->
-    <el-dialog :title="$t('chatDirection.rawTitle')" :visible.sync="detailVisible" width="860px" append-to-body>
+    <el-dialog :title="$t('chatDirection.rawTitle')" :visible.sync="detailVisible" top="10vh" width="860px" append-to-body>
       <div v-if="detail" class="preview-body">
         <el-alert v-if="detail.legacy" class="preview-alert" type="info" show-icon :closable="false"
           :title="$t('chatDirection.rawLegacy')" />
@@ -265,6 +289,7 @@ import { ownerDisplayName, hasOwner } from '@/utils/ownerDisplay';
 import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
 import CustomButton from '@/components/CustomButton.vue';
+import ChatDirectionVisual from '@/components/ChatDirectionVisual.vue';
 
 const CN_OFFSET_MS = 8 * 60 * 60 * 1000;
 
@@ -302,7 +327,7 @@ function chinaStartOfToday() {
 
 export default {
   name: 'ChatDirection',
-  components: { HeaderBar, VersionFooter, CustomButton },
+  components: { HeaderBar, VersionFooter, CustomButton, ChatDirectionVisual },
   data() {
     return {
       filters: { province: '', agentId: '', macAddress: '' },
@@ -334,7 +359,11 @@ export default {
       detail: null,
       history: [],
       // 展开的分析记录 id（el-collapse 绑定）；默认只展开最近一次
-      expandedIds: []
+      expandedIds: [],
+      // 正在生成可视化页面的记录 id（同时只允许一条，避免重复消耗大模型次数）
+      visualLoadingId: '',
+      // 每条记录用户手动选择的视图：id -> 'visual' | 'text'；未选择时有可视化结果就默认可视化
+      viewModes: {}
     };
   },
   computed: {
@@ -540,6 +569,49 @@ export default {
         const msg = err && err.data && err.data.msg;
         this.$message.error(msg || this.$t('chatDirection.rawFailed'));
       });
+    },
+
+    /** 当前展示的视图：没有可视化结果时只能是文字视图，有则默认可视化 */
+    viewMode(item) {
+      if (!item || !item.hasVisual) return 'text';
+      return this.viewModes[item.id] || 'visual';
+    },
+
+    setViewMode(item, mode) {
+      this.$set(this.viewModes, item.id, mode);
+    },
+
+    /** 转化为可视化页面 / 重新生成（覆盖之前的结果），会消耗一次大模型调用 */
+    generateVisual(item) {
+      if (!item || !item.id || this.visualLoadingId) return;
+      const run = () => {
+        this.visualLoadingId = item.id;
+        Api.chatHistory.generateChatDirectionVisual(item.id, ({ data }) => {
+          this.visualLoadingId = '';
+          if (data && data.code === 0 && data.data) {
+            const idx = this.history.findIndex((h) => h.id === item.id);
+            if (idx >= 0) this.$set(this.history, idx, data.data);
+            this.setViewMode(data.data, 'visual');
+            if (!this.expandedIds.includes(item.id)) this.expandedIds = this.expandedIds.concat(item.id);
+            this.$message.success(this.$t('chatDirection.visualSuccess'));
+          } else {
+            this.$message.error((data && data.msg) || this.$t('chatDirection.visualFailed'));
+          }
+        }, (err) => {
+          this.visualLoadingId = '';
+          const msg = err && err.data && err.data.msg;
+          this.$message.error(msg || this.$t('chatDirection.visualFailed'));
+        });
+      };
+      if (!item.hasVisual) {
+        run();
+        return;
+      }
+      this.$confirm(this.$t('chatDirection.visualConfirm'), this.$t('chatDirection.visualRegenerate'), {
+        type: 'warning',
+        confirmButtonText: this.$t('chatDirection.visualRegenerate'),
+        cancelButtonText: this.$t('chatDirection.previewCancel')
+      }).then(run).catch(() => {});
     },
 
     formatDuration(ms) {
@@ -872,9 +944,21 @@ export default {
   white-space: nowrap;
 }
 
-.ai-raw-btn {
+.ai-actions {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-actions ::v-deep .el-button--text {
   padding: 0;
+}
+
+.ai-visual-meta {
+  font-size: 12px;
+  color: #8a93b8;
+  margin-bottom: 8px;
 }
 
 .raw-desc {

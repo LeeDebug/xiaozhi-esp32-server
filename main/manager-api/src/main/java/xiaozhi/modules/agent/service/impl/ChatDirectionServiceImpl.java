@@ -90,6 +90,15 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
     private static final String FALLBACK_PROMPT = "请分析下面按地区汇总的用户高频提问，先把意思相近的问题归为一类，"
             + "再归纳它们主要属于哪些方向，并按地区说明差异，最后给出建议。筛选条件：{filter}\n高频提问：\n{conversation}";
 
+    /** 参数管理中没有配置可视化提示词时的兜底（正常情况下由 202611221800.sql 写入） */
+    private static final String FALLBACK_VISUAL_PROMPT = "请把下面的方向分析结论转换为一个 JSON 对象，只输出 JSON，不要任何解释或代码块。"
+            + "字段：summary、totalQuestions、topDirection{name,ratio,count,description}、"
+            + "directions[{rank,name,ratio,count,keywords,representativeQuestions,description}]、"
+            + "regions[{name,questionCount,topDirection,directions[{name,ratio,count}],keywords,difference}]、"
+            + "suggestions[{rank,title,content,priority,targetDirection,targetRegion}]、comprehensiveAdvice、"
+            + "dataQuality{sufficient,notes}。ratio 为 0~100 的数字，没有值填 null。\n"
+            + "筛选条件：{filter}\n高频问题：\n{questions}\n分析结论：\n{conversation}";
+
     /** 问题首尾需要去掉的标点、语气符号（中英文） */
     private static final String EDGE_PUNCT = "[\\s\\p{Punct}，。！？、；：“”‘’（）【】《》…～·]+";
 
@@ -309,6 +318,75 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         // 添加该功能前生成的记录没有保存提示词快照
         vo.setLegacy(StringUtils.isBlank(e.getPromptTemplate()) && StringUtils.isBlank(e.getFullPrompt()));
         return vo;
+    }
+
+    @Override
+    public ChatDirectionAnalysisVO generateVisual(String id, Long userId) {
+        ChatDirectionAnalysisEntity e = StringUtils.isBlank(id) ? null : chatDirectionAnalysisDao.selectById(id);
+        if (e == null || (!userDataScopeService.canViewAllUserData() && !Objects.equals(e.getUserId(), userId))) {
+            throw new RenException("分析记录不存在");
+        }
+        // 可视化结果会覆盖保存，即使超管可以看到他人记录，也只允许改自己的
+        if (!Objects.equals(e.getUserId(), userId)) {
+            throw new RenException("只能为自己的分析记录生成可视化页面");
+        }
+        if (StringUtils.isBlank(e.getResult())) {
+            throw new RenException("该分析记录没有文字结论，无法生成可视化页面");
+        }
+        if (!llmService.isAvailable()) {
+            throw new RenException("未配置可用的默认大语言模型，请先在模型配置中设置");
+        }
+
+        String template = StringUtils.defaultIfBlank(
+                sysParamsService.getValue(Constant.SERVER_CHAT_DIRECTION_VISUAL_PROMPT, true), FALLBACK_VISUAL_PROMPT);
+        // LLMService 只替换 {conversation}（这里传入文字结论），其余占位符先填好
+        String prompt = template
+                .replace("{filter}", StringUtils.defaultIfBlank(e.getFilterText(), "未记录"))
+                .replace("{questions}", StringUtils.defaultIfBlank(e.getInputContent(), "未记录"));
+
+        long start = System.currentTimeMillis();
+        String answer = llmService.generateSummary(e.getResult(), prompt);
+        long durationMs = System.currentTimeMillis() - start;
+        if (isLlmFailure(answer)) {
+            throw new RenException(StringUtils.defaultIfBlank(answer, "生成可视化页面失败，请稍后重试"));
+        }
+        Map<String, Object> visual = parseVisualJson(answer);
+        if (visual == null) {
+            throw new RenException("大模型返回的内容不是有效的 JSON 对象，请重试或调整可视化提示词");
+        }
+
+        e.setVisualJson(JsonUtils.toJsonString(visual));
+        e.setVisualPromptTemplate(template);
+        e.setVisualModelName(resolveDefaultModelName());
+        e.setVisualDurationMs(durationMs);
+        e.setVisualGeneratedAt(new Date());
+        chatDirectionAnalysisDao.updateById(e);
+
+        Set<Long> owner = e.getUserId() == null ? Collections.emptySet() : Collections.singleton(e.getUserId());
+        return toAnalysisVO(e,
+                loadAgentNameMap(e.getAgentId() == null ? null : Collections.singleton(e.getAgentId())),
+                userDataScopeService.getUsernameMap(owner), userDataScopeService.getNicknameMap(owner));
+    }
+
+    /**
+     * 从大模型回复中提取 JSON 对象。模型可能仍会包一层 ```json 代码块或前后缀文字，
+     * 这里取第一个「{」到最后一个「}」之间的内容解析；不是对象或解析失败返回 null。
+     */
+    static Map<String, Object> parseVisualJson(String answer) {
+        if (StringUtils.isBlank(answer)) {
+            return null;
+        }
+        int begin = answer.indexOf('{');
+        int end = answer.lastIndexOf('}');
+        if (begin < 0 || end <= begin) {
+            return null;
+        }
+        try {
+            Map<String, Object> map = JsonUtils.parseMap(answer.substring(begin, end + 1));
+            return map == null || map.isEmpty() ? null : map;
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     @Override
@@ -534,6 +612,12 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         vo.setIsOwn(userDataScopeService.isOwn(e.getUserId()));
         vo.setOwnerUsername(usernames.get(e.getUserId()));
         vo.setOwnerNickname(nicknames.get(e.getUserId()));
+        Map<String, Object> visual = StringUtils.isBlank(e.getVisualJson()) ? null : parseVisualJson(e.getVisualJson());
+        vo.setHasVisual(visual != null);
+        vo.setVisual(visual);
+        vo.setVisualGeneratedAt(e.getVisualGeneratedAt() == null ? null : formatDbDate(e.getVisualGeneratedAt()));
+        vo.setVisualModelName(e.getVisualModelName());
+        vo.setVisualDurationMs(e.getVisualDurationMs());
         return vo;
     }
 

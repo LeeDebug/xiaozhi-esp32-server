@@ -1,5 +1,6 @@
 import Vue from 'vue'
 import VueRouter from 'vue-router'
+import routeProgress from '../utils/routeProgress'
 
 Vue.use(VueRouter)
 
@@ -285,6 +286,10 @@ const anonRouteNames = new Set(['login', 'Register', 'RetrievePassword', 'welcom
 
 // 路由守卫
 router.beforeEach((to, from, next) => {
+  // 路由切换时显示顶部进度条（同路由仅 query 变化时不显示）
+  if (to.path !== from.path) {
+    routeProgress.start()
+  }
   const token = localStorage.getItem('token');
   const isAnonRoute = anonRouteNames.has(to.name);
 
@@ -302,6 +307,15 @@ router.beforeEach((to, from, next) => {
   }
 
   next()
+})
+
+router.afterEach(() => {
+  routeProgress.done()
+})
+
+// 懒加载 chunk 失败等导航错误时也要收起进度条
+router.onError(() => {
+  routeProgress.done()
 })
 
 export default router

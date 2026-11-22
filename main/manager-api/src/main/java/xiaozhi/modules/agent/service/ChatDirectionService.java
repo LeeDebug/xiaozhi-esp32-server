@@ -44,6 +44,11 @@ public interface ChatDirectionService {
     ChatDirectionAnalysisDetailVO getAnalysisDetail(String id, Long userId);
 
     /**
+     * 把一次分析记录的文字结论转为可视化 JSON 并保存（已存在则覆盖）。只能操作自己的记录。
+     */
+    ChatDirectionAnalysisVO generateVisual(String id, Long userId);
+
+    /**
      * 最近一次大模型分析记录（仅当前可见范围内），没有时返回 null。
      */
     ChatDirectionAnalysisVO getLatestAnalysis(Long userId);

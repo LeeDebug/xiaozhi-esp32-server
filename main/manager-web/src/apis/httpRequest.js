@@ -4,6 +4,7 @@ import Constant from '../utils/constant';
 import { getServiceUrl } from '../apis/api';
 import { goToPage, isNotNull, showDanger, showWarning } from '../utils/index';
 import i18n from '../i18n/index';
+import routeProgress from '../utils/routeProgress';
 
 const fly = new Fly()
 // 设置超时
@@ -140,7 +141,20 @@ function sendRequest() {
                 if (this._timeout) {
                     options.timeout = this._timeout
                 }
+                // 顶部全局进度条：默认所有请求都显示，静默请求可链式调用 .showLoading(false) 关闭
+                const trackProgress = this._showLoading !== false
+                let progressDone = false
+                const finishProgress = () => {
+                    if (trackProgress && !progressDone) {
+                        progressDone = true
+                        routeProgress.requestDone()
+                    }
+                }
+                if (trackProgress) {
+                    routeProgress.requestStart()
+                }
                 fly.request(this._url, this._data, options).then((res) => {
+                    finishProgress()
                     const error = httpHandlerError(res, this._failCallback, this._networkFailCallback);
                     if (error) {
                         return
@@ -150,6 +164,7 @@ function sendRequest() {
                         this._sucCallback(res)
                     }
                 }).catch((res) => {
+                    finishProgress()
                     // 打印失败响应
                     console.log('catch', res)
                     httpHandlerError(res, this._failCallback, this._networkFailCallback)
