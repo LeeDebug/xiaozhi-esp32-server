@@ -48,6 +48,10 @@ public class ChatWordCloudVO {
     public static class WordItem {
         private String word;
         private long count;
+        /** 出现过该词的不同会话数（完整统计，不受 sessionIds 截断影响） */
+        private long sessionCount;
+        /** 关联会话ID，最多返回 50 个（按最近出现的会话优先），用于直接打开会话详情 */
+        private List<String> sessionIds = new ArrayList<>();
 
         public WordItem() {
         }

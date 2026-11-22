@@ -96,6 +96,28 @@ class AiAgentChatHistoryMapperSqlTest {
     }
 
     @Test
+    @DisplayName("matchSessionIds 渲染为 session_id IN，且同样会被会话列表查询应用；为空时不限制")
+    void matchSessionIdsAppliesToSharedFragment() throws Exception {
+        ChatSessionQueryDTO q = new ChatSessionQueryDTO();
+        q.setMatchSessionIds(Arrays.asList("s1", "s2", "s3"));
+        q.setVisibleAgentIds(Collections.singletonList("a1"));
+        q.setLimit(10);
+
+        // 共用片段：对会话列表的两条查询都应该生效
+        String content = sql("selectContentRows", q);
+        String count = sql("countChatSessions", q);
+        assertTrue(content.contains("m.session_id IN (?,?,?)"), content);
+        assertTrue(count.contains("m.session_id IN (?,?,?)"), count);
+        // 可见智能体限制不能被会话ID过滤「顶掉」，两个条件必须同时存在
+        assertTrue(count.contains("m.agent_id IN (?)"), count);
+
+        ChatSessionQueryDTO none = new ChatSessionQueryDTO();
+        none.setMatchSessionIds(Collections.emptyList());
+        none.setLimit(10);
+        assertFalse(sql("selectContentRows", none).contains("session_id IN"));
+    }
+
+    @Test
     @DisplayName("空的 chatTypes 列表不生成空 IN () 语法错误")
     void emptyChatTypesProducesNoInClause() throws Exception {
         ChatSessionQueryDTO q = new ChatSessionQueryDTO();

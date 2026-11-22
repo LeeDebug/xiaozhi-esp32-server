@@ -704,6 +704,8 @@ export default {
   'chatWordCloud.agentCloudTitle': 'Words the agent says most',
   'chatWordCloud.count': 'Occurrences',
   'chatWordCloud.times': 'x',
+  'chatWordCloud.sessionCount': 'Linked sessions',
+  'chatWordCloud.viewSessions': 'View linked sessions',
   'chatRecords.title': 'Lịch sử trò chuyện',
   'chatRecords.chinaTime': 'Tất cả thời gian theo giờ Trung Quốc (UTC+8)',
   'chatRecords.device': 'Thiết bị',

@@ -28,6 +28,9 @@ public class ChatRecordQueryDTO {
     @Schema(description = "会话ID，精确匹配")
     private String sessionId;
 
+    @Schema(description = "会话ID列表（逗号分隔，最多 50 个），用于直接打开一组指定会话。仍受数据隔离限制")
+    private String sessionIds;
+
     @Schema(description = "聊天内容关键词，模糊匹配")
     private String keyword;
 

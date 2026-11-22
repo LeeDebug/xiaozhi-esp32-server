@@ -135,6 +135,17 @@
       </div>
     </div>
 
+    <!-- 点击词云浮窗的「查看关联会话」后打开：只列出这个词出现过的会话，不锁定设备 -->
+    <chat-history-dialog
+      v-if="dialogVisible"
+      :visible="dialogVisible"
+      records-mode
+      :query="dialogQuery"
+      :agent-id="dialogAgentId"
+      :agent-name="dialogAgentName"
+      @update:visible="dialogVisible = $event"
+    />
+
     <el-footer><version-footer /></el-footer>
   </div>
 </template>
@@ -148,6 +159,7 @@ import { ownerDisplayName, hasOwner } from '@/utils/ownerDisplay';
 import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
 import CustomButton from '@/components/CustomButton.vue';
+import ChatHistoryDialog from '@/components/ChatHistoryDialog.vue';
 
 const CN_OFFSET_MS = 8 * 60 * 60 * 1000;
 const RANK_SIZE = 15;
@@ -187,7 +199,7 @@ function chinaStartOfToday() {
 
 export default {
   name: 'ChatWordCloud',
-  components: { HeaderBar, VersionFooter, CustomButton },
+  components: { HeaderBar, VersionFooter, CustomButton, ChatHistoryDialog },
   data() {
     return {
       // chatType: ''=用户+智能体，1=只看用户，2=只看智能体
@@ -206,7 +218,12 @@ export default {
       charts: [],
       resizeHandler: null,
       // 用于丢弃过期响应：筛选快速切换时只采用最后一次请求的结果
-      requestSeq: 0
+      requestSeq: 0,
+      // 「查看关联会话」弹窗入参
+      dialogVisible: false,
+      dialogQuery: {},
+      dialogAgentId: '',
+      dialogAgentName: ''
     };
   },
   computed: {
@@ -224,11 +241,14 @@ export default {
   mounted() {
     this.resizeHandler = () => this.charts.forEach((c) => c.resize());
     window.addEventListener('resize', this.resizeHandler);
+    // 浮窗挂在 body 上，点击在 document 上统一处理；离开页面时必须摘除（见 beforeDestroy）
+    document.addEventListener('click', this.handleTooltipClick);
   },
   beforeDestroy() {
     if (this.resizeHandler) {
       window.removeEventListener('resize', this.resizeHandler);
     }
+    document.removeEventListener('click', this.handleTooltipClick);
     this.disposeCharts();
   },
   methods: {
@@ -376,19 +396,31 @@ export default {
     },
 
     renderCharts() {
-      this.renderCloud('cloudChart', this.words, true);
+      this.renderCloud('cloudChart', this.words, true, 'all');
       this.renderRank();
       if (this.filters.chatType === '') {
-        this.renderCloud('userCloudChart', this.userWords, false);
-        this.renderCloud('agentCloudChart', this.agentWords, false);
+        this.renderCloud('userCloudChart', this.userWords, false, 'user');
+        this.renderCloud('agentCloudChart', this.agentWords, false, 'agent');
       }
       this.charts.forEach((c) => c.resize());
     },
 
     // 词云：字号和颜色深浅都随词频变化，词频越高越大、颜色越深
-    renderCloud(refName, list, large) {
+    renderCloud(refName, list, large, pool) {
       const chart = this.initChart(refName);
       if (!chart) return;
+      // 直接点击词云里的词也能打开关联会话弹窗，和浮窗里的「查看关联会话」走同一个方法。
+      // 图表实例每次刷新都会重建，监听随实例一起释放，不会重复绑定。
+      chart.on('click', (params) => {
+        const item = params && params.data && params.data.item;
+        if (!item) return;
+        // 弹窗弹出前先收起浮窗，避免它盖在弹窗上面
+        chart.dispatchAction({ type: 'hideTip' });
+        this.openLinkedSessions(item);
+      });
+      // 鼠标移到词上时变成手型，提示这个词可以点击
+      chart.on('mouseover', () => { chart.getZr().setCursorStyle('pointer'); });
+      chart.on('mouseout', () => { chart.getZr().setCursorStyle('default'); });
       const c = this.themeColors();
       const max = list.reduce((m, w) => Math.max(m, w.count), 1);
       const min = list.reduce((m, w) => Math.min(m, w.count), max);
@@ -400,7 +432,13 @@ export default {
           backgroundColor: '#fff',
           borderColor: '#f3f1f1',
           textStyle: { color: c.text, fontSize: 12 },
-          formatter: (p) => `${p.name}<br/>${this.$t('chatWordCloud.count')}：${p.value}`
+          // 让鼠标能移进浮窗点按钮；延迟隐藏，避免移动过程中浮窗先消失
+          enterable: true,
+          hideDelay: 300,
+          // 挂到 body 上，避免贴边的词浮窗被图表容器裁切掉、「查看关联会话」按钮点不到
+          appendToBody: true,
+          extraCssText: 'box-shadow:0 4px 16px rgba(44,51,84,.12);border-radius:8px;z-index:3000;',
+          formatter: (p) => this.buildTooltip(p, pool)
         },
         series: [{
           type: 'wordCloud',
@@ -424,9 +462,63 @@ export default {
             }
           },
           emphasis: { textStyle: { color: c.text } },
-          data: list.map((w) => ({ name: w.word, value: w.count }))
+          // 把完整词条（含关联会话）带在数据项上，浮窗和点击都从这里取
+          data: list.map((w) => ({ name: w.word, value: w.count, item: w }))
         }]
       });
+    },
+
+    /** HTML 转义：词来自用户聊天内容，拼进浮窗 HTML 前必须转义，防止注入标签 */
+    escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    },
+
+    /** 词云浮窗：出现次数 + 关联会话数 + 查看关联会话按钮 */
+    buildTooltip(p, pool) {
+      const item = p.data && p.data.item;
+      const word = this.escapeHtml(p.name);
+      const count = `${this.$t('chatWordCloud.count')}：${p.value}`;
+      if (!item) return `${word}<br/>${count}`;
+      const sessions = `${this.$t('chatWordCloud.sessionCount')}：${item.sessionCount || 0}`;
+      // 点击用事件委托处理，data-word 保存词本身，再去当前数据里查找关联会话
+      const button = item.sessionIds && item.sessionIds.length
+        ? `<div style="margin-top:8px"><a href="javascript:void(0)" data-action="view-sessions" data-pool="${pool}" data-word="${word}" `
+          + `style="color:${this.themeColors().primary};font-weight:600;cursor:pointer">${this.$t('chatWordCloud.viewSessions')} ›</a></div>`
+        : '';
+      return `<b>${word}</b><br/>${count}<br/>${sessions}${button}`;
+    },
+
+    /** 浮窗里的点击由图表容器统一委托，只响应「查看关联会话」链接 */
+    handleTooltipClick(event) {
+      const target = event.target && event.target.closest ? event.target.closest('[data-action="view-sessions"]') : null;
+      if (!target) return;
+      // data-word 是转义后的文本，浏览器读 dataset 会自动反转义，直接得到原词
+      // 数据池和词都写在链接自己身上（浮窗挂在 body，不再在图表容器内）
+      const item = this.findWordItem(target.dataset.word, target.dataset.pool);
+      if (item) this.openLinkedSessions(item);
+    },
+
+    /**
+     * 按点击所在的词云取对应数据池。合并 / 用户 / 智能体三个词云里同一个词的关联会话不一样，
+     * 不能混着找，否则在「用户常说的词」里点击会打开包含智能体消息的会话。
+     */
+    findWordItem(word, poolName) {
+      const pool = ({ all: this.words, user: this.userWords, agent: this.agentWords })[poolName] || [];
+      return pool.find((w) => w.word === word) || null;
+    },
+
+    /** 打开会话详情弹窗，只列出这个词关联的会话（不锁定设备，因为关联会话可能跨设备） */
+    openLinkedSessions(item) {
+      if (!item || !item.sessionIds || !item.sessionIds.length) return;
+      this.dialogQuery = { sessionIds: item.sessionIds.join(',') };
+      this.dialogAgentId = this.filters.agentId || '';
+      this.dialogAgentName = item.word;
+      this.dialogVisible = true;
     },
 
     // 高频词排行：横向条形图，给出词云看不准的确切次数

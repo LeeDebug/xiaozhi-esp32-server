@@ -381,6 +381,8 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         q.setAgentId(trimToNull(httpQuery.getAgentId()));
         q.setKeyword(trimToNull(httpQuery.getKeyword()));
         q.setChatType(httpQuery.getChatType());
+        // 指定一组会话ID（词云「查看关联会话」）：只缩小范围，上面的可见智能体校验仍然生效，不会越权
+        q.setMatchSessionIds(parseSessionIds(httpQuery.getSessionIds()));
         if (httpQuery.getStartTime() != null) {
             q.setStartTime(toDbLiteral(httpQuery.getStartTime()));
         }
@@ -636,6 +638,25 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
 
     private String trimToNull(String value) {
         return StringUtils.isBlank(value) ? null : value.trim();
+    }
+
+    /** 一次最多允许指定的会话ID数，GET 请求 URL 长度有限，也防止超大 IN 列表 */
+    static final int MAX_MATCH_SESSION_IDS = 50;
+
+    /**
+     * 把逗号分隔的会话ID解析成去重、去空、限量的列表；为空返回 null，表示不限制。
+     */
+    static List<String> parseSessionIds(String raw) {
+        if (StringUtils.isBlank(raw)) {
+            return null;
+        }
+        List<String> ids = java.util.Arrays.stream(raw.split(","))
+                .map(String::trim)
+                .filter(StringUtils::isNotBlank)
+                .distinct()
+                .limit(MAX_MATCH_SESSION_IDS)
+                .collect(Collectors.toList());
+        return ids.isEmpty() ? null : ids;
     }
 
     private String asString(Object value) {
@@ -1043,11 +1064,12 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
             return result;
         }
 
-        Map<String, long[]> all = new HashMap<>();
-        Map<String, long[]> user = new HashMap<>();
-        Map<String, long[]> agent = new HashMap<>();
+        Map<String, WordStat> all = new HashMap<>();
+        Map<String, WordStat> user = new HashMap<>();
+        Map<String, WordStat> agent = new HashMap<>();
         long totalWords = 0;
         for (Map<String, Object> row : rows) {
+            String rowSessionId = asString(row.get("session_id"));
             String text = extractContentFromString(asString(row.get("content")));
             if (StringUtils.isBlank(text)) {
                 continue;
@@ -1064,8 +1086,8 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
                 summary.setAgentMessageCount(summary.getAgentMessageCount() + 1);
             }
             for (String token : tokens) {
-                all.computeIfAbsent(token, k -> new long[1])[0]++;
-                (isUser ? user : agent).computeIfAbsent(token, k -> new long[1])[0]++;
+                all.computeIfAbsent(token, k -> new WordStat()).add(rowSessionId);
+                (isUser ? user : agent).computeIfAbsent(token, k -> new WordStat()).add(rowSessionId);
                 totalWords++;
             }
         }
@@ -1078,15 +1100,39 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     }
 
     /** 按词频倒序取前 N；词频相同时按词本身排序，保证结果稳定、可测试 */
-    private List<ChatWordCloudVO.WordItem> topWords(Map<String, long[]> counter, int topN) {
+    private List<ChatWordCloudVO.WordItem> topWords(Map<String, WordStat> counter, int topN) {
         return counter.entrySet().stream()
                 .sorted((a, b) -> {
-                    int byCount = Long.compare(b.getValue()[0], a.getValue()[0]);
+                    int byCount = Long.compare(b.getValue().count, a.getValue().count);
                     return byCount != 0 ? byCount : a.getKey().compareTo(b.getKey());
                 })
                 .limit(topN)
-                .map(e -> new ChatWordCloudVO.WordItem(e.getKey(), e.getValue()[0]))
+                .map(e -> {
+                    WordStat stat = e.getValue();
+                    ChatWordCloudVO.WordItem item = new ChatWordCloudVO.WordItem(e.getKey(), stat.count);
+                    item.setSessionCount(stat.sessions.size());
+                    // 只返回前 MAX_MATCH_SESSION_IDS 个（最近出现的），与 /sessions 接口可接受的上限一致
+                    item.setSessionIds(stat.sessions.stream()
+                            .limit(MAX_MATCH_SESSION_IDS).collect(Collectors.toList()));
+                    return item;
+                })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 单个词的统计：总出现次数 + 出现过的不同会话。
+     * 明细按时间倒序读取，LinkedHashSet 保留首次出现顺序，因此前面的就是最近的会话。
+     */
+    private static class WordStat {
+        private long count;
+        private final java.util.Set<String> sessions = new java.util.LinkedHashSet<>();
+
+        void add(String sessionId) {
+            count++;
+            if (StringUtils.isNotBlank(sessionId)) {
+                sessions.add(sessionId);
+            }
+        }
     }
 
     /** 单个会话的聚合中间态 */

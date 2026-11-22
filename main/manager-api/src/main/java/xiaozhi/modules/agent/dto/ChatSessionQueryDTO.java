@@ -47,4 +47,10 @@ public class ChatSessionQueryDTO {
 
     /** 需要补充首条内容的会话ID列表 */
     private List<String> sessionIds;
+
+    /**
+     * 限定只查这组会话（用于词云「查看关联会话」）。和 sessionIds 刻意分开：sessionIds 只给 selectFirstContents 的独立 SQL 用，
+     * 这里的条件会被共用的 chatSessionMatch 片段应用到所有查询，为空表示不限制。
+     */
+    private List<String> matchSessionIds;
 }

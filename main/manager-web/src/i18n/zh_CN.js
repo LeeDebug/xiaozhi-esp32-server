@@ -704,6 +704,8 @@ export default {
   'chatWordCloud.agentCloudTitle': '智能体常说的词',
   'chatWordCloud.count': '出现次数',
   'chatWordCloud.times': '次',
+  'chatWordCloud.sessionCount': '关联会话数',
+  'chatWordCloud.viewSessions': '查看关联会话',
   'chatRecords.title': '会话记录',
   'chatRecords.chinaTime': '时间均为北京时间 (UTC+8)',
   'chatRecords.device': '设备',

@@ -46,6 +46,12 @@ class AgentChatHistoryWordCloudTest {
         return map;
     }
 
+    private static Map<String, Object> row(String sessionId, int chatType, String content) {
+        Map<String, Object> map = row(chatType, content);
+        map.put("session_id", sessionId);
+        return map;
+    }
+
     private AgentChatHistoryServiceImpl service(AiAgentChatHistoryDao dao, UserDataScopeService scope,
             AgentDao agentDao, ChatTextTokenizer tokenizer) {
         AgentChatHistoryServiceImpl service = new AgentChatHistoryServiceImpl(
@@ -176,6 +182,71 @@ class AgentChatHistoryWordCloudTest {
         assertEquals(0, vo.getSummary().getMessageCount());
         assertTrue(vo.getWords().isEmpty());
         verify(dao, never()).selectContentRows(any());
+    }
+
+    @Test
+    @DisplayName("每个词返回关联会话数（去重），并把最近出现的会话排在前面")
+    void wordsCarryDistinctSessionsNewestFirst() {
+        AiAgentChatHistoryDao dao = mock(AiAgentChatHistoryDao.class);
+        // 明细按时间倒序返回：s3 最新、s1 最早
+        List<Map<String, Object>> rows = new ArrayList<>();
+        rows.add(row("s3", 1, "apple apple"));
+        rows.add(row("s2", 1, "banana"));
+        rows.add(row("s1", 2, "apple banana"));
+        rows.add(row("s1", 1, "apple"));
+        when(dao.selectContentRows(any(ChatSessionQueryDTO.class))).thenReturn(rows);
+
+        ChatWordCloudVO vo = service(dao, viewAllScope(), mock(AgentDao.class), spaceTokenizer())
+                .getChatWordCloud(new ChatRecordQueryDTO(), USER_ID, 50);
+
+        ChatWordCloudVO.WordItem apple = vo.getWords().stream()
+                .filter(w -> w.getWord().equals("apple")).findFirst().orElseThrow();
+        // apple 共出现 4 次，分布在 s3、s1 两个会话（s1 里出现 2 次只算一个会话）
+        assertEquals(4, apple.getCount());
+        assertEquals(2, apple.getSessionCount());
+        assertEquals(Arrays.asList("s3", "s1"), apple.getSessionIds());
+        ChatWordCloudVO.WordItem banana = vo.getWords().stream()
+                .filter(w -> w.getWord().equals("banana")).findFirst().orElseThrow();
+        assertEquals(2, banana.getSessionCount());
+        assertEquals(Arrays.asList("s2", "s1"), banana.getSessionIds());
+    }
+
+    @Test
+    @DisplayName("关联会话数超过上限时：sessionCount 仍是完整数量，sessionIds 只返回前 50 个")
+    void sessionIdsAreCappedButCountIsExact() {
+        AiAgentChatHistoryDao dao = mock(AiAgentChatHistoryDao.class);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (int i = 0; i < 70; i++) {
+            rows.add(row("s" + i, 1, "hello"));
+        }
+        when(dao.selectContentRows(any(ChatSessionQueryDTO.class))).thenReturn(rows);
+
+        ChatWordCloudVO vo = service(dao, viewAllScope(), mock(AgentDao.class), spaceTokenizer())
+                .getChatWordCloud(new ChatRecordQueryDTO(), USER_ID, 50);
+
+        ChatWordCloudVO.WordItem hello = vo.getWords().get(0);
+        assertEquals(70, hello.getSessionCount());
+        assertEquals(50, hello.getSessionIds().size());
+        assertEquals("s0", hello.getSessionIds().get(0));
+    }
+
+    @Test
+    @DisplayName("会话ID解析：去空格、去重、丢弃空项、限 50 个，空输入返回 null")
+    void parseSessionIdsTrimsDedupesAndCaps() {
+        assertEquals(null, AgentChatHistoryServiceImpl.parseSessionIds(null));
+        assertEquals(null, AgentChatHistoryServiceImpl.parseSessionIds("  "));
+        assertEquals(null, AgentChatHistoryServiceImpl.parseSessionIds(" , ,"));
+        assertEquals(Arrays.asList("a", "b", "c"),
+                AgentChatHistoryServiceImpl.parseSessionIds(" a, b ,a,,c "));
+
+        StringBuilder many = new StringBuilder();
+        for (int i = 0; i < 80; i++) {
+            many.append("id").append(i).append(',');
+        }
+        List<String> capped = AgentChatHistoryServiceImpl.parseSessionIds(many.toString());
+        assertEquals(50, capped.size());
+        assertEquals("id0", capped.get(0));
+        assertEquals("id49", capped.get(49));
     }
 
     @Test

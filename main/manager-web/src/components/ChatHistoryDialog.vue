@@ -26,7 +26,7 @@
         </template>
         <div class="chat-container">
             <div class="session-list" :class="{ 'session-list--records': recordsMode }" @scroll="handleScroll">
-                <div v-if="recordsMode" class="record-filter-hint">
+                <div v-if="recordsMode && macAddress" class="record-filter-hint">
                     {{ $t('chatRecords.dialogOnlyDevice') }}
                 </div>
                 <!-- 两种模式都按「会话」维度展示：头像 + 会话标题（无标题时显示时间） + 消息数角标 -->
