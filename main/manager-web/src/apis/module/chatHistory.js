@@ -185,6 +185,25 @@ export default {
             }).send();
     },
 
+    // 一次大模型分析的原始记录：当次提示词、用户问题、模型、耗时、统计快照
+    getChatDirectionAnalysisDetail(id, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/chat-direction/history/${encodeURIComponent(id)}`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                console.error('获取分析原始记录失败:', err);
+                if (failCallback) failCallback(err);
+            }).send();
+    },
+
     // 大模型分析历史记录
     getChatDirectionHistory(params, callback, failCallback) {
         RequestService.sendRequest()

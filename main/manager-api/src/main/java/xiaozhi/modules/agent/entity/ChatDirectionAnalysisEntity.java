@@ -40,13 +40,47 @@ public class ChatDirectionAnalysisEntity {
     @TableField("top_n")
     private Integer topN;
 
+    /** 当次读取的提示词参数编码 */
+    @TableField("prompt_param_code")
+    private String promptParamCode;
+
+    /** 是否使用了内置兜底提示词（参数管理中未配置） */
+    @TableField("prompt_fallback")
+    private Boolean promptFallback;
+
+    /** 当次使用的提示词模板（含占位符），提示词后续修改也不影响回看 */
+    @TableField("prompt_template")
+    private String promptTemplate;
+
+    /** 填入 {filter} 的筛选条件描述 */
+    @TableField("filter_text")
+    private String filterText;
+
+    /** 实际发送给大模型的完整提示词 */
+    @TableField("full_prompt")
+    private String fullPrompt;
+
+    /** 填入 {conversation} 的高频问题内容 */
     @TableField("input_content")
     private String inputContent;
+
+    @TableField("message_count")
+    private Integer messageCount;
+
+    private Boolean truncated;
+
+    /** 当次统计结果快照（ChatDirectionVO 的 JSON） */
+    @TableField("stat_snapshot")
+    private String statSnapshot;
 
     private String result;
 
     @TableField("model_name")
     private String modelName;
+
+    /** 大模型调用耗时（毫秒） */
+    @TableField("duration_ms")
+    private Long durationMs;
 
     @TableField("created_at")
     private Date createdAt;

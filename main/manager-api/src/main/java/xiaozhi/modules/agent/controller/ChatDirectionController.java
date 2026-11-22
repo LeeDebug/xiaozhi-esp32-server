@@ -5,6 +5,7 @@ import java.util.List;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import xiaozhi.common.utils.Result;
 import xiaozhi.modules.agent.dto.ChatDirectionRequestDTO;
 import xiaozhi.modules.agent.service.ChatDirectionService;
+import xiaozhi.modules.agent.vo.ChatDirectionAnalysisDetailVO;
 import xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO;
 import xiaozhi.modules.agent.vo.ChatDirectionPromptPreviewVO;
 import xiaozhi.modules.agent.vo.ChatDirectionVO;
@@ -62,6 +64,17 @@ public class ChatDirectionController {
     public Result<ChatDirectionPromptPreviewVO> preview(@RequestBody ChatDirectionRequestDTO request) {
         return new Result<ChatDirectionPromptPreviewVO>()
                 .ok(chatDirectionService.previewPrompt(request, SecurityUser.getUserId(), request.getTopN()));
+    }
+
+    /**
+     * 查看一次大模型分析的原始记录。
+     */
+    @Operation(summary = "查看大模型分析原始记录")
+    @RequiresPermissions("sys:role:normal")
+    @GetMapping("/history/{id}")
+    public Result<ChatDirectionAnalysisDetailVO> detail(@PathVariable("id") String id) {
+        return new Result<ChatDirectionAnalysisDetailVO>()
+                .ok(chatDirectionService.getAnalysisDetail(id, SecurityUser.getUserId()));
     }
 
     /**

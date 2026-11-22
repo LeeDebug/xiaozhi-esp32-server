@@ -92,6 +92,63 @@ class ChatDirectionServiceImplTest {
     }
 
     @Test
+    @DisplayName("AI 分析会快照当次提示词、模型、耗时与统计数据；原始记录不能查看他人数据")
+    void analyzeSavesRawRecord() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        rows.add(row("山东省", "水温多少"));
+        ChatDirectionQueryDao queryDao = mock(ChatDirectionQueryDao.class);
+        when(queryDao.selectUserQuestionRows(any(ChatDirectionQueryDTO.class))).thenReturn(rows);
+        UserDataScopeService scope = mock(UserDataScopeService.class);
+        when(scope.canViewAllUserData()).thenReturn(false);
+        when(scope.getUsernameMap(any())).thenReturn(new HashMap<>());
+        when(scope.getNicknameMap(any())).thenReturn(new HashMap<>());
+        AgentDao agentDao = mock(AgentDao.class);
+        xiaozhi.modules.agent.entity.AgentEntity agent = new xiaozhi.modules.agent.entity.AgentEntity();
+        agent.setId("a1");
+        when(agentDao.selectList(any())).thenReturn(new ArrayList<>(List.of(agent)));
+        ChatTextTokenizer tokenizer = mock(ChatTextTokenizer.class);
+        when(tokenizer.tokenize(anyString())).thenReturn(new ArrayList<>());
+        SysParamsService params = mock(SysParamsService.class);
+        when(params.getValue(anyString(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn("条件：{filter}\n问题：\n{conversation}");
+        LLMService llm = mock(LLMService.class);
+        when(llm.isAvailable()).thenReturn(true);
+        when(llm.generateSummary(anyString(), anyString())).thenReturn("主要方向：水温监测");
+        ChatDirectionAnalysisDao analysisDao = mock(ChatDirectionAnalysisDao.class);
+        ChatDirectionServiceImpl service = new ChatDirectionServiceImpl(queryDao, analysisDao, agentDao,
+                mock(DeviceDao.class), tokenizer, scope, params, llm,
+                mock(ModelConfigService.class), mock(ChatWakeupWordFilter.class));
+
+        service.analyzeByLlm(new ChatDirectionRequestDTO(), 1L, 20);
+
+        org.mockito.ArgumentCaptor<xiaozhi.modules.agent.entity.ChatDirectionAnalysisEntity> captor =
+                org.mockito.ArgumentCaptor.forClass(xiaozhi.modules.agent.entity.ChatDirectionAnalysisEntity.class);
+        org.mockito.Mockito.verify(analysisDao).insert(captor.capture());
+        xiaozhi.modules.agent.entity.ChatDirectionAnalysisEntity saved = captor.getValue();
+        assertEquals("条件：{filter}\n问题：\n{conversation}", saved.getPromptTemplate());
+        assertTrue(saved.getFullPrompt().contains("- 水温多少（1 次）"));
+        assertTrue(saved.getFullPrompt().contains("地区=全部"));
+        assertEquals(1, saved.getMessageCount());
+        assertTrue(saved.getDurationMs() != null && saved.getDurationMs() >= 0);
+        assertTrue(saved.getStatSnapshot().contains("水温多少"));
+        org.junit.jupiter.api.Assertions.assertFalse(saved.getPromptFallback());
+
+        // 他人的记录按不存在处理
+        saved.setId("r1");
+        saved.setUserId(2L);
+        when(analysisDao.selectById("r1")).thenReturn(saved);
+        org.junit.jupiter.api.Assertions.assertThrows(xiaozhi.common.exception.RenException.class,
+                () -> service.getAnalysisDetail("r1", 1L));
+
+        // 自己的记录可以查看，统计快照能解析回来
+        saved.setUserId(1L);
+        xiaozhi.modules.agent.vo.ChatDirectionAnalysisDetailVO detail = service.getAnalysisDetail("r1", 1L);
+        assertEquals("主要方向：水温监测", detail.getResult());
+        assertEquals("山东省", detail.getStatSnapshot().getRegions().get(0).getName());
+        org.junit.jupiter.api.Assertions.assertFalse(detail.isLegacy());
+    }
+
+    @Test
     @DisplayName("开启唤醒词过滤后，问题中的唤醒词被去掉，只有唤醒词的提问不计入")
     void wakeupWordsAreStripped() {
         List<Map<String, Object>> rows = new ArrayList<>();

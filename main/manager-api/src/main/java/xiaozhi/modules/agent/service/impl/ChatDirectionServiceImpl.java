@@ -37,6 +37,7 @@ import xiaozhi.modules.agent.entity.ChatDirectionAnalysisEntity;
 import xiaozhi.modules.agent.service.ChatDirectionService;
 import xiaozhi.modules.agent.service.ChatTextTokenizer;
 import xiaozhi.modules.agent.service.ChatWakeupWordFilter;
+import xiaozhi.modules.agent.vo.ChatDirectionAnalysisDetailVO;
 import xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO;
 import xiaozhi.modules.agent.vo.ChatDirectionPromptPreviewVO;
 import xiaozhi.modules.agent.vo.ChatDirectionVO;
@@ -180,10 +181,17 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         }
 
         String input = buildLlmInput(direction);
+        // 提示词可能随时在参数管理中修改，这里把当次实际使用的模板快照下来入库
+        String configured = sysParamsService.getValue(Constant.SERVER_CHAT_DIRECTION_PROMPT, true);
+        String template = StringUtils.defaultIfBlank(configured, FALLBACK_PROMPT);
+        String filterText = describeFilter(req);
         // LLMService 只替换 {conversation}，{filter} 在这里先填好
-        String prompt = resolvePromptTemplate().replace("{filter}", describeFilter(req));
+        String prompt = template.replace("{filter}", filterText);
+        String modelName = resolveDefaultModelName();
 
+        long start = System.currentTimeMillis();
         String answer = llmService.generateSummary(input, prompt);
+        long durationMs = System.currentTimeMillis() - start;
         if (isLlmFailure(answer)) {
             throw new RenException(StringUtils.defaultIfBlank(answer, "大模型分析失败，请稍后重试"));
         }
@@ -196,9 +204,18 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         entity.setStartTime(req.getStartTime() == null ? null : toDbDate(req.getStartTime()));
         entity.setEndTime(req.getEndTime() == null ? null : toDbDate(req.getEndTime()));
         entity.setTopN(Math.min(MAX_TOP_N, Math.max(MIN_TOP_N, topN)));
+        entity.setPromptParamCode(Constant.SERVER_CHAT_DIRECTION_PROMPT);
+        entity.setPromptFallback(StringUtils.isBlank(configured));
+        entity.setPromptTemplate(template);
+        entity.setFilterText(filterText);
+        entity.setFullPrompt(prompt.replace("{conversation}", input));
         entity.setInputContent(input);
+        entity.setMessageCount((int) direction.getMessageCount());
+        entity.setTruncated(direction.isTruncated());
+        entity.setStatSnapshot(JsonUtils.toJsonString(direction));
         entity.setResult(answer);
-        entity.setModelName(resolveDefaultModelName());
+        entity.setModelName(modelName);
+        entity.setDurationMs(durationMs);
         entity.setCreatedAt(new Date());
         chatDirectionAnalysisDao.insert(entity);
         return toAnalysisVO(entity, loadAgentNameMap(Collections.singleton(entity.getAgentId())),
@@ -253,6 +270,45 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
                 .distinct()
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public ChatDirectionAnalysisDetailVO getAnalysisDetail(String id, Long userId) {
+        if (StringUtils.isBlank(id)) {
+            throw new RenException("分析记录不存在");
+        }
+        ChatDirectionAnalysisEntity e = chatDirectionAnalysisDao.selectById(id);
+        // 与历史列表同一套隔离规则：不可见的记录按不存在处理，避免泄露他人记录是否存在
+        if (e == null || (!userDataScopeService.canViewAllUserData() && !Objects.equals(e.getUserId(), userId))) {
+            throw new RenException("分析记录不存在");
+        }
+        Set<Long> owner = e.getUserId() == null ? Collections.emptySet() : Collections.singleton(e.getUserId());
+        ChatDirectionAnalysisVO base = toAnalysisVO(e,
+                loadAgentNameMap(e.getAgentId() == null ? null : Collections.singleton(e.getAgentId())),
+                userDataScopeService.getUsernameMap(owner), userDataScopeService.getNicknameMap(owner));
+
+        ChatDirectionAnalysisDetailVO vo = new ChatDirectionAnalysisDetailVO();
+        org.springframework.beans.BeanUtils.copyProperties(base, vo);
+        vo.setPromptParamCode(e.getPromptParamCode());
+        vo.setPromptFallback(e.getPromptFallback());
+        vo.setPromptTemplate(e.getPromptTemplate());
+        vo.setFilterText(e.getFilterText());
+        vo.setInputContent(e.getInputContent());
+        vo.setFullPrompt(e.getFullPrompt());
+        vo.setTopN(e.getTopN());
+        vo.setMessageCount(e.getMessageCount());
+        vo.setTruncated(e.getTruncated());
+        vo.setDurationMs(e.getDurationMs());
+        if (StringUtils.isNotBlank(e.getStatSnapshot())) {
+            try {
+                vo.setStatSnapshot(JsonUtils.parseObject(e.getStatSnapshot(), ChatDirectionVO.class));
+            } catch (Exception ex) {
+                log.warn("解析分析记录 {} 的统计快照失败: {}", id, ex.getMessage());
+            }
+        }
+        // 添加该功能前生成的记录没有保存提示词快照
+        vo.setLegacy(StringUtils.isBlank(e.getPromptTemplate()) && StringUtils.isBlank(e.getFullPrompt()));
+        return vo;
     }
 
     @Override

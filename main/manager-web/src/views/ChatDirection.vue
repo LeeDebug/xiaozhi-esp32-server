@@ -161,6 +161,10 @@
                       <span class="ai-meta-item">{{ $t('chatDirection.aiTime') }}：{{ item.createdAt || '-' }}</span>
                       <span class="ai-meta-item">{{ $t('chatDirection.aiModel') }}：{{ item.modelName || '-' }}</span>
                       <span v-if="analysisOwner(item)" class="ai-meta-item">{{ analysisOwner(item) }}</span>
+                      <el-button type="text" size="mini" icon="el-icon-document" class="ai-raw-btn"
+                        :loading="detailLoadingId === item.id" @click.stop="openDetail(item)">
+                        {{ $t('chatDirection.rawView') }}
+                      </el-button>
                     </div>
                     <div class="ai-condition">{{ $t('chatDirection.aiCondition') }}：{{ conditionText(item) }}</div>
                     <!-- 大模型输出按纯文本展示，不使用 v-html，避免输出内容中的标签被执行 -->
@@ -203,6 +207,51 @@
           :disabled="!preview || !preview.llmAvailable" @click="analyzeByLlm">
           {{ analyzing ? $t('chatDirection.aiRunning') : $t('chatDirection.previewConfirm') }}
         </el-button>
+      </span>
+    </el-dialog>
+
+    <!-- 查看原始记录：展示当次分析实际使用的提示词、用户问题、模型、耗时与统计快照 -->
+    <el-dialog :title="$t('chatDirection.rawTitle')" :visible.sync="detailVisible" width="860px" append-to-body>
+      <div v-if="detail" class="preview-body">
+        <el-alert v-if="detail.legacy" class="preview-alert" type="info" show-icon :closable="false"
+          :title="$t('chatDirection.rawLegacy')" />
+        <el-descriptions :column="2" size="small" border class="raw-desc">
+          <el-descriptions-item :label="$t('chatDirection.aiTime')">{{ detail.createdAt || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('chatDirection.aiModel')">{{ detail.modelName || '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('chatDirection.rawDuration')">{{ formatDuration(detail.durationMs) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('chatDirection.rawMessages')">
+            {{ detail.messageCount == null ? '-' : detail.messageCount }}
+            <el-tag v-if="detail.truncated" size="mini" type="warning">{{ $t('chatDirection.rawTruncated') }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="$t('chatDirection.previewParam')">
+            <code>{{ detail.promptParamCode || '-' }}</code>
+            <el-tag v-if="detail.promptFallback" size="mini" type="warning">{{ $t('chatDirection.rawFallback') }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="$t('chatDirection.topN')">{{ detail.topN == null ? '-' : detail.topN }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('chatDirection.aiCondition')" :span="2">
+            {{ detail.filterText || conditionText(detail) }}
+          </el-descriptions-item>
+        </el-descriptions>
+        <el-tabs v-model="detailTab">
+          <el-tab-pane :label="$t('chatDirection.rawQuestions')" name="questions">
+            <pre class="preview-text">{{ detail.inputContent || '-' }}</pre>
+          </el-tab-pane>
+          <el-tab-pane :label="$t('chatDirection.previewTemplate')" name="template">
+            <pre class="preview-text">{{ detail.promptTemplate || $t('chatDirection.rawNotSaved') }}</pre>
+          </el-tab-pane>
+          <el-tab-pane :label="$t('chatDirection.previewFull')" name="full">
+            <pre class="preview-text">{{ detail.fullPrompt || $t('chatDirection.rawNotSaved') }}</pre>
+          </el-tab-pane>
+          <el-tab-pane :label="$t('chatDirection.rawResult')" name="result">
+            <pre class="preview-text">{{ detail.result || '-' }}</pre>
+          </el-tab-pane>
+          <el-tab-pane :label="$t('chatDirection.rawSnapshot')" name="snapshot">
+            <pre class="preview-text">{{ detail.statSnapshot ? JSON.stringify(detail.statSnapshot, null, 2) : $t('chatDirection.rawNotSaved') }}</pre>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+      <span slot="footer">
+        <el-button @click="detailVisible = false">{{ $t('chatDirection.rawClose') }}</el-button>
       </span>
     </el-dialog>
 
@@ -278,6 +327,11 @@ export default {
       preview: null,
       // 打开预览时的筛选参数，确认总结时原样提交，保证预览内容即分析内容
       previewParams: null,
+      // 查看原始记录弹窗
+      detailVisible: false,
+      detailLoadingId: '',
+      detailTab: 'questions',
+      detail: null,
       history: [],
       // 展开的分析记录 id（el-collapse 绑定）；默认只展开最近一次
       expandedIds: []
@@ -466,6 +520,31 @@ export default {
         const msg = err && err.data && err.data.msg;
         this.$message.error(msg || this.$t('chatDirection.aiFailed'));
       });
+    },
+
+    /** 按 id 拉取一次分析的原始记录（大字段只在这里查询，列表接口不返回） */
+    openDetail(item) {
+      if (!item || !item.id || this.detailLoadingId) return;
+      this.detailLoadingId = item.id;
+      Api.chatHistory.getChatDirectionAnalysisDetail(item.id, ({ data }) => {
+        this.detailLoadingId = '';
+        if (data && data.code === 0 && data.data) {
+          this.detail = data.data;
+          this.detailTab = 'questions';
+          this.detailVisible = true;
+        } else {
+          this.$message.error((data && data.msg) || this.$t('chatDirection.rawFailed'));
+        }
+      }, (err) => {
+        this.detailLoadingId = '';
+        const msg = err && err.data && err.data.msg;
+        this.$message.error(msg || this.$t('chatDirection.rawFailed'));
+      });
+    },
+
+    formatDuration(ms) {
+      if (ms === null || ms === undefined) return '-';
+      return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
     },
 
     isLatest(item) {
@@ -791,6 +870,15 @@ export default {
   margin-left: 8px;
   color: var(--sys-primary, #eb6800);
   white-space: nowrap;
+}
+
+.ai-raw-btn {
+  margin-left: auto;
+  padding: 0;
+}
+
+.raw-desc {
+  margin: 10px 0 6px;
 }
 
 .preview-alert {

@@ -3,6 +3,7 @@ package xiaozhi.modules.agent.service;
 import java.util.List;
 
 import xiaozhi.modules.agent.dto.ChatDirectionRequestDTO;
+import xiaozhi.modules.agent.vo.ChatDirectionAnalysisDetailVO;
 import xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO;
 import xiaozhi.modules.agent.vo.ChatDirectionPromptPreviewVO;
 import xiaozhi.modules.agent.vo.ChatDirectionVO;
@@ -35,6 +36,12 @@ public interface ChatDirectionService {
      * 当前可见设备所在的省份列表（去重、按名称排序），用于地区筛选下拉。
      */
     List<String> listProvinces(Long userId);
+
+    /**
+     * 查看一次大模型分析的原始记录（当次提示词、用户问题、模型、耗时、统计快照）。
+     * 不可见或不存在时抛出异常。
+     */
+    ChatDirectionAnalysisDetailVO getAnalysisDetail(String id, Long userId);
 
     /**
      * 最近一次大模型分析记录（仅当前可见范围内），没有时返回 null。
