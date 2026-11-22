@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="xiaozhi.modules.agent.dao.ChatDirectionQueryDao">
+
+  <!-- 高频方向明细：只取用户提问正文，关联设备表取所在省份。
+       同一 MAC 理论上只有一条设备记录，用 LEFT JOIN 保证未绑定设备的消息也能统计（归入未知地区）。 -->
+  <select id="selectUserQuestionRows" resultType="java.util.Map">
+    SELECT m.session_id AS session_id,
+           m.agent_id AS agent_id,
+           m.mac_address AS mac_address,
+           d.province AS province,
+           m.content AS content
+    FROM ai_agent_chat_history m
+    LEFT JOIN ai_device d ON d.mac_address = m.mac_address
+    <where>
+      m.chat_type = 1
+      <if test="q.visibleAgentIds != null and q.visibleAgentIds.size() > 0">
+        AND m.agent_id IN
+        <foreach collection="q.visibleAgentIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+      </if>
+      <if test="q.agentId != null and q.agentId != ''">
+        AND m.agent_id = #{q.agentId}
+      </if>
+      <if test="q.macAddress != null and q.macAddress != ''">
+        AND m.mac_address = #{q.macAddress}
+      </if>
+      <if test="q.province != null and q.province != ''">
+        AND d.province = #{q.province}
+      </if>
+      <if test="q.startTime != null">
+        AND m.created_at &gt;= #{q.startTime}
+      </if>
+      <if test="q.endTime != null">
+        AND m.created_at &lt;= #{q.endTime}
+      </if>
+    </where>
+    ORDER BY m.created_at DESC, m.id DESC
+    LIMIT #{q.limit}
+  </select>
+</mapper>

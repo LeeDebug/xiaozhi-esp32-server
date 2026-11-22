@@ -35,12 +35,12 @@
         <!-- 会话记录下拉菜单：会话记录列表 + 会话分析看板 -->
         <el-dropdown trigger="click" class="equipment-management more-dropdown" :class="{
           'active-tab': $route.path === '/chat-history' || $route.path === '/chat-analytics' ||
-            $route.path === '/chat-wordcloud'
+            $route.path === '/chat-wordcloud' || $route.path === '/chat-direction'
         }" @visible-change="handleChatDropdownVisibleChange">
           <span class="el-dropdown-link">
             <img loading="lazy" alt="" src="@/assets/header/address_book.png" :style="{
               filter: $route.path === '/chat-history' || $route.path === '/chat-analytics' ||
-                $route.path === '/chat-wordcloud'
+                $route.path === '/chat-wordcloud' || $route.path === '/chat-direction'
                 ? 'brightness(0) invert(1)' : 'None',
             }" />
             <span class="nav-text">{{ $t("header.chatRecords") }}</span>
@@ -55,6 +55,9 @@
             </el-dropdown-item>
             <el-dropdown-item @click.native="handleRouter('chatWordCloud')">
               {{ $t("header.chatWordCloud") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="handleRouter('chatDirection')">
+              {{ $t("header.chatDirection") }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
@@ -288,6 +291,7 @@ export default {
         chatHistory: "/chat-history",
         chatAnalytics: "/chat-analytics",
         chatWordCloud: "/chat-wordcloud",
+        chatDirection: "/chat-direction",
         modelConfig: "/model-config",
         knowledgeBaseManagement: "/knowledge-base-management",
         addressBookManagement: "/address-book-management",

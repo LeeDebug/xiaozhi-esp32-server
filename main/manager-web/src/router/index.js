@@ -93,6 +93,14 @@ const routes = [
       return import('../views/ChatWordCloud.vue')
     }
   },
+  // 会话内容分析丨高频方向（按地区 / 智能体 / 设备统计提问方向，支持大模型总结）
+  {
+    path: '/chat-direction',
+    name: 'ChatDirection',
+    component: function () {
+      return import('../views/ChatDirection.vue')
+    }
+  },
   // 添加用户管理路由
   {
     path: '/user-management',

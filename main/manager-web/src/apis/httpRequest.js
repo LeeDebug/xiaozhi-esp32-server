@@ -113,6 +113,7 @@ function sendRequest() {
         _header: { 'content-type': 'application/json; charset=utf-8' },
         _url: '',
         _responseType: undefined, // 新增响应类型字段
+        _timeout: undefined, // 可选：单个请求的超时时间(ms)，未设置时使用全局 30s
         'send'() {
             // 设置语言请求头
             const currentLang = i18n.locale;
@@ -130,11 +131,16 @@ function sendRequest() {
                 }
 
                 // 打印请求信息
-                fly.request(this._url, this._data, {
+                const options = {
                     method: this._method,
                     headers: this._header,
                     responseType: this._responseType
-                }).then((res) => {
+                }
+                // 大模型等长耗时接口可单独放宽超时，其他请求仍使用全局配置
+                if (this._timeout) {
+                    options.timeout = this._timeout
+                }
+                fly.request(this._url, this._data, options).then((res) => {
                     const error = httpHandlerError(res, this._failCallback, this._networkFailCallback);
                     if (error) {
                         return
@@ -185,6 +191,10 @@ function sendRequest() {
         },
         'method'(method) {
             this._method = method
+            return this
+        },
+        'timeout'(timeout) {
+            this._timeout = timeout
             return this
         },
         'header'(header) {

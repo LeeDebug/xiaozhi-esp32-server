@@ -122,6 +122,11 @@ public interface Constant {
     String SERVER_ALLOW_SUPER_ADMIN_VIEW_ALL = "server.allow_super_admin_view_all";
 
     /**
+     * 会话内容分析丨高频方向：大模型总结提示词
+     */
+    String SERVER_CHAT_DIRECTION_PROMPT = "server.chat_direction_prompt";
+
+    /**
      * 下发六位验证码时显示的控制面板地址
      */
     String SERVER_FRONTED_URL = "server.fronted_url";
