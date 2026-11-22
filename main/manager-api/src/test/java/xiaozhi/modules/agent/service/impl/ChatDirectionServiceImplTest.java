@@ -177,6 +177,15 @@ class ChatDirectionServiceImplTest {
                 mock(AgentDao.class), mock(DeviceDao.class), mock(ChatTextTokenizer.class), scope, params, llm,
                 mock(ModelConfigService.class), mock(ChatWakeupWordFilter.class));
 
+        // 预览只组装内容、不调用大模型、不写库，且与实际发送内容一致
+        xiaozhi.modules.agent.vo.ChatDirectionPromptPreviewVO preview = service.previewVisualPrompt("r1", 1L);
+        assertEquals("问题：- 水温多少（3 次）\n结论：主要方向：水温监测", preview.getFullPrompt());
+        assertEquals("server.chat_direction_visual_prompt", preview.getParamCode());
+        assertTrue(preview.isLlmAvailable());
+        org.mockito.Mockito.verify(llm, org.mockito.Mockito.never()).generateSummary(anyString(), anyString());
+        org.mockito.Mockito.verify(analysisDao, org.mockito.Mockito.never())
+                .updateById(any(xiaozhi.modules.agent.entity.ChatDirectionAnalysisEntity.class));
+
         xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO vo = service.generateVisual("r1", 1L);
 
         org.mockito.Mockito.verify(llm).generateSummary("主要方向：水温监测", "问题：- 水温多少（3 次）\n结论：{conversation}");

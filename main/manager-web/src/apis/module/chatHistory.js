@@ -204,6 +204,25 @@ export default {
             }).send();
     },
 
+    // 预览「转化为可视化页面」的提示词：只组装内容，不调用大模型
+    previewChatDirectionVisualPrompt(id, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/chat-direction/history/${encodeURIComponent(id)}/visual-preview`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                console.error('获取可视化提示词预览失败:', err);
+                if (failCallback) failCallback(err);
+            }).send();
+    },
+
     // 把一次分析记录转化为可视化页面（调用大模型输出 JSON，重新生成时覆盖），超时放宽到 3 分钟
     generateChatDirectionVisual(id, callback, failCallback) {
         RequestService.sendRequest()

@@ -320,29 +320,63 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         return vo;
     }
 
-    @Override
-    public ChatDirectionAnalysisVO generateVisual(String id, Long userId) {
+    /**
+     * 可视化生成 / 预览共用的校验：记录存在且可见、属于当前用户、有文字结论。
+     * 可视化结果会覆盖保存，即使超管可以看到他人记录，也只允许操作自己的。
+     */
+    private ChatDirectionAnalysisEntity loadOwnVisualRecord(String id, Long userId) {
         ChatDirectionAnalysisEntity e = StringUtils.isBlank(id) ? null : chatDirectionAnalysisDao.selectById(id);
         if (e == null || (!userDataScopeService.canViewAllUserData() && !Objects.equals(e.getUserId(), userId))) {
             throw new RenException("分析记录不存在");
         }
-        // 可视化结果会覆盖保存，即使超管可以看到他人记录，也只允许改自己的
         if (!Objects.equals(e.getUserId(), userId)) {
             throw new RenException("只能为自己的分析记录生成可视化页面");
         }
         if (StringUtils.isBlank(e.getResult())) {
             throw new RenException("该分析记录没有文字结论，无法生成可视化页面");
         }
+        return e;
+    }
+
+    /** 读取可视化提示词参数，未配置时返回 null（调用方自行兜底） */
+    private String configuredVisualTemplate() {
+        return sysParamsService.getValue(Constant.SERVER_CHAT_DIRECTION_VISUAL_PROMPT, true);
+    }
+
+    /** LLMService 只替换 {conversation}（传入文字结论），其余占位符在这里先填好 */
+    private String fillVisualPrompt(String template, ChatDirectionAnalysisEntity e) {
+        return template
+                .replace("{filter}", StringUtils.defaultIfBlank(e.getFilterText(), "未记录"))
+                .replace("{questions}", StringUtils.defaultIfBlank(e.getInputContent(), "未记录"));
+    }
+
+    @Override
+    public ChatDirectionPromptPreviewVO previewVisualPrompt(String id, Long userId) {
+        ChatDirectionAnalysisEntity e = loadOwnVisualRecord(id, userId);
+        String configured = configuredVisualTemplate();
+        String template = StringUtils.defaultIfBlank(configured, FALLBACK_VISUAL_PROMPT);
+        ChatDirectionPromptPreviewVO vo = new ChatDirectionPromptPreviewVO();
+        vo.setParamCode(Constant.SERVER_CHAT_DIRECTION_VISUAL_PROMPT);
+        vo.setTemplate(template);
+        vo.setFallback(StringUtils.isBlank(configured));
+        vo.setFilterText(e.getFilterText());
+        vo.setInput(e.getResult());
+        // 与 generateVisual 的替换顺序一致，保证预览即实际发送的内容
+        vo.setFullPrompt(fillVisualPrompt(template, e).replace("{conversation}", e.getResult()));
+        vo.setModelName(resolveDefaultModelName());
+        vo.setLlmAvailable(llmService.isAvailable());
+        return vo;
+    }
+
+    @Override
+    public ChatDirectionAnalysisVO generateVisual(String id, Long userId) {
+        ChatDirectionAnalysisEntity e = loadOwnVisualRecord(id, userId);
         if (!llmService.isAvailable()) {
             throw new RenException("未配置可用的默认大语言模型，请先在模型配置中设置");
         }
 
-        String template = StringUtils.defaultIfBlank(
-                sysParamsService.getValue(Constant.SERVER_CHAT_DIRECTION_VISUAL_PROMPT, true), FALLBACK_VISUAL_PROMPT);
-        // LLMService 只替换 {conversation}（这里传入文字结论），其余占位符先填好
-        String prompt = template
-                .replace("{filter}", StringUtils.defaultIfBlank(e.getFilterText(), "未记录"))
-                .replace("{questions}", StringUtils.defaultIfBlank(e.getInputContent(), "未记录"));
+        String template = StringUtils.defaultIfBlank(configuredVisualTemplate(), FALLBACK_VISUAL_PROMPT);
+        String prompt = fillVisualPrompt(template, e);
 
         long start = System.currentTimeMillis();
         String answer = llmService.generateSummary(e.getResult(), prompt);

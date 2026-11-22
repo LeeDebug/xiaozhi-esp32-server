@@ -49,6 +49,11 @@ public interface ChatDirectionService {
     ChatDirectionAnalysisVO generateVisual(String id, Long userId);
 
     /**
+     * 预览「转化为可视化页面」将要发送给大模型的提示词，不调用大模型、不修改记录。只能操作自己的记录。
+     */
+    ChatDirectionPromptPreviewVO previewVisualPrompt(String id, Long userId);
+
+    /**
      * 最近一次大模型分析记录（仅当前可见范围内），没有时返回 null。
      */
     ChatDirectionAnalysisVO getLatestAnalysis(Long userId);

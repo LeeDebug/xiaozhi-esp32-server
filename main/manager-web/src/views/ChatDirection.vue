@@ -170,8 +170,9 @@
                         </el-radio-group>
                         <el-button v-if="item.isOwn !== false" type="text" size="mini"
                           :icon="item.hasVisual ? 'el-icon-refresh' : 'el-icon-data-analysis'"
-                          :loading="visualLoadingId === item.id" :disabled="!!visualLoadingId && visualLoadingId !== item.id"
-                          @click.stop="generateVisual(item)">
+                          :loading="visualLoadingId === item.id || visualPreviewLoadingId === item.id"
+                          :disabled="(!!visualLoadingId && visualLoadingId !== item.id) || (!!visualPreviewLoadingId && visualPreviewLoadingId !== item.id)"
+                          @click.stop="openVisualPreview(item)">
                           {{ visualLoadingId === item.id ? $t('chatDirection.visualRunning')
                             : (item.hasVisual ? $t('chatDirection.visualRegenerate') : $t('chatDirection.visualGenerate')) }}
                         </el-button>
@@ -230,6 +231,42 @@
         <el-button type="primary" icon="el-icon-magic-stick" :loading="analyzing"
           :disabled="!preview || !preview.llmAvailable" @click="analyzeByLlm">
           {{ analyzing ? $t('chatDirection.aiRunning') : $t('chatDirection.previewConfirm') }}
+        </el-button>
+      </span>
+    </el-dialog>
+
+    <!-- 转化为可视化页面 / 重新生成前先预览提示词，确认后才真正调用大模型 -->
+    <el-dialog :title="visualPreviewItem && visualPreviewItem.hasVisual ? $t('chatDirection.visualPreviewRegenTitle') : $t('chatDirection.visualPreviewTitle')"
+      :visible.sync="visualPreviewVisible" width="760px"
+      :close-on-click-modal="!visualLoadingId" :close-on-press-escape="!visualLoadingId" :show-close="!visualLoadingId"
+      append-to-body>
+      <div v-if="visualPreview" class="preview-body">
+        <div class="ai-meta">
+          <span class="ai-meta-item">{{ $t('chatDirection.previewParam') }}：<code>{{ visualPreview.paramCode }}</code></span>
+          <span class="ai-meta-item">{{ $t('chatDirection.aiModel') }}：{{ visualPreview.modelName || '-' }}</span>
+        </div>
+        <el-alert v-if="visualPreviewItem && visualPreviewItem.hasVisual" class="preview-alert" type="warning" show-icon
+          :closable="false" :title="$t('chatDirection.visualConfirm')" />
+        <el-alert v-if="visualPreview.fallback" class="preview-alert" type="warning" show-icon :closable="false"
+          :title="$t('chatDirection.previewFallback')" />
+        <el-alert v-if="!visualPreview.llmAvailable" class="preview-alert" type="error" show-icon :closable="false"
+          :title="$t('chatDirection.previewNoLlm')" />
+        <el-tabs v-model="visualPreviewTab">
+          <el-tab-pane :label="$t('chatDirection.previewTemplate')" name="template">
+            <pre class="preview-text">{{ visualPreview.template }}</pre>
+          </el-tab-pane>
+          <el-tab-pane :label="$t('chatDirection.previewFull')" name="full">
+            <pre class="preview-text">{{ visualPreview.fullPrompt }}</pre>
+          </el-tab-pane>
+        </el-tabs>
+        <p class="chart-hint">{{ $t('chatDirection.visualPreviewHint') }}</p>
+      </div>
+      <span slot="footer">
+        <el-button :disabled="!!visualLoadingId" @click="visualPreviewVisible = false">{{ $t('chatDirection.previewCancel') }}</el-button>
+        <el-button type="primary" icon="el-icon-data-analysis" :loading="!!visualLoadingId"
+          :disabled="!visualPreview || !visualPreview.llmAvailable" @click="confirmGenerateVisual">
+          {{ visualLoadingId ? $t('chatDirection.visualRunning')
+            : (visualPreviewItem && visualPreviewItem.hasVisual ? $t('chatDirection.visualConfirmRegenerate') : $t('chatDirection.visualConfirmGenerate')) }}
         </el-button>
       </span>
     </el-dialog>
@@ -362,6 +399,12 @@ export default {
       expandedIds: [],
       // 正在生成可视化页面的记录 id（同时只允许一条，避免重复消耗大模型次数）
       visualLoadingId: '',
+      // 可视化提示词预览弹窗
+      visualPreviewVisible: false,
+      visualPreviewLoadingId: '',
+      visualPreviewTab: 'template',
+      visualPreview: null,
+      visualPreviewItem: null,
       // 每条记录用户手动选择的视图：id -> 'visual' | 'text'；未选择时有可视化结果就默认可视化
       viewModes: {}
     };
@@ -581,7 +624,35 @@ export default {
       this.$set(this.viewModes, item.id, mode);
     },
 
-    /** 转化为可视化页面 / 重新生成（覆盖之前的结果），会消耗一次大模型调用 */
+    /** 点击「转化为可视化页面 / 重新生成可视化」：先拉取提示词预览（不调用大模型），弹窗确认后才生成 */
+    openVisualPreview(item) {
+      if (!item || !item.id || this.visualLoadingId || this.visualPreviewLoadingId) return;
+      this.visualPreviewLoadingId = item.id;
+      Api.chatHistory.previewChatDirectionVisualPrompt(item.id, ({ data }) => {
+        this.visualPreviewLoadingId = '';
+        if (data && data.code === 0 && data.data) {
+          this.visualPreview = data.data;
+          this.visualPreviewItem = item;
+          this.visualPreviewTab = 'template';
+          this.visualPreviewVisible = true;
+        } else {
+          this.$message.error((data && data.msg) || this.$t('chatDirection.previewFailed'));
+        }
+      }, (err) => {
+        this.visualPreviewLoadingId = '';
+        const msg = err && err.data && err.data.msg;
+        this.$message.error(msg || this.$t('chatDirection.previewFailed'));
+      });
+    },
+
+    /** 弹窗中点击确认后才调用大模型生成（重新生成时覆盖之前的结果） */
+    confirmGenerateVisual() {
+      const item = this.visualPreviewItem;
+      if (!item || !item.id || this.visualLoadingId) return;
+      this.generateVisual(item);
+    },
+
+    /** 转化为可视化页面 / 重新生成（覆盖之前的结果），会消耗一次大模型调用；只由预览弹窗确认后触发 */
     generateVisual(item) {
       if (!item || !item.id || this.visualLoadingId) return;
       const run = () => {
@@ -592,6 +663,7 @@ export default {
             const idx = this.history.findIndex((h) => h.id === item.id);
             if (idx >= 0) this.$set(this.history, idx, data.data);
             this.setViewMode(data.data, 'visual');
+            this.visualPreviewVisible = false;
             if (!this.expandedIds.includes(item.id)) this.expandedIds = this.expandedIds.concat(item.id);
             this.$message.success(this.$t('chatDirection.visualSuccess'));
           } else {
@@ -603,15 +675,8 @@ export default {
           this.$message.error(msg || this.$t('chatDirection.visualFailed'));
         });
       };
-      if (!item.hasVisual) {
-        run();
-        return;
-      }
-      this.$confirm(this.$t('chatDirection.visualConfirm'), this.$t('chatDirection.visualRegenerate'), {
-        type: 'warning',
-        confirmButtonText: this.$t('chatDirection.visualRegenerate'),
-        cancelButtonText: this.$t('chatDirection.previewCancel')
-      }).then(run).catch(() => {});
+      // 预览弹窗本身就是二次确认（重新生成时弹窗内有覆盖提醒），这里不再叠加 $confirm
+      run();
     },
 
     formatDuration(ms) {

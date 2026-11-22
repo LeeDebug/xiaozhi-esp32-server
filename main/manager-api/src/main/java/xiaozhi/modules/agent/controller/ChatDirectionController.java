@@ -78,6 +78,17 @@ public class ChatDirectionController {
     }
 
     /**
+     * 预览「转化为可视化页面」的提示词：只组装内容，不调用大模型，确认后再生成。
+     */
+    @Operation(summary = "预览可视化提示词")
+    @RequiresPermissions("sys:role:normal")
+    @GetMapping("/history/{id}/visual-preview")
+    public Result<ChatDirectionPromptPreviewVO> visualPreview(@PathVariable("id") String id) {
+        return new Result<ChatDirectionPromptPreviewVO>()
+                .ok(chatDirectionService.previewVisualPrompt(id, SecurityUser.getUserId()));
+    }
+
+    /**
      * 把一次分析记录转化为可视化页面（调用大模型输出 JSON），重新生成时覆盖之前的结果。
      */
     @Operation(summary = "分析记录转化为可视化页面")
