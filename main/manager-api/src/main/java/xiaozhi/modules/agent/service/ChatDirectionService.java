@@ -12,11 +12,11 @@ import xiaozhi.modules.agent.vo.ChatDirectionVO;
 public interface ChatDirectionService {
 
     /**
-     * 按地区 / 智能体 / 设备分别汇总用户提问的高频词。
+     * 按地区 / 智能体 / 设备分别汇总用户的高频问题（整句），并附带高频词作为辅助。
      *
      * @param request 筛选条件
      * @param userId  当前登录用户，用于数据隔离
-     * @param topN    每个分组保留的高频词数
+     * @param topN    每个分组保留的高频问题数（高频词同数）
      */
     ChatDirectionVO getChatDirection(ChatDirectionRequestDTO request, Long userId, int topN);
 

@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * 会话内容高频方向统计结果：按地区 / 智能体 / 设备分别汇总用户提问的高频词。
+ * 会话内容高频方向统计结果：按地区 / 智能体 / 设备分别汇总用户的高频问题（整句），并附带高频词作为辅助。
  */
 @Data
 @Schema(description = "会话内容高频方向")
@@ -37,7 +37,27 @@ public class ChatDirectionVO {
         private String name;
         /** 该分组的提问条数 */
         private long messageCount;
+        /** 高频问题：整句提问归一化后按出现次数倒序 */
+        private List<Question> questions = new ArrayList<>();
+        /** 高频词：分词统计，作为辅助参考 */
         private List<Word> words = new ArrayList<>();
+    }
+
+    /** 一条高频问题 */
+    @Data
+    public static class Question {
+        /** 问题原文（取该问题最近一次出现时的写法，超长截断） */
+        private String text;
+        /** 出现次数 */
+        private long count;
+
+        public Question() {
+        }
+
+        public Question(String text, long count) {
+            this.text = text;
+            this.count = count;
+        }
     }
 
     @Data

@@ -140,7 +140,18 @@
                 <el-table :data="activeGroups" border stripe style="width: 100%">
                   <el-table-column :label="$t('chatDirection.colName')" prop="name" width="220" show-overflow-tooltip />
                   <el-table-column :label="$t('chatDirection.colMessages')" prop="messageCount" width="110" align="center" />
-                  <el-table-column :label="$t('chatDirection.colWords')">
+                  <el-table-column :label="$t('chatDirection.colQuestions')" min-width="360">
+                    <template slot-scope="scope">
+                      <span v-if="!scope.row.questions || !scope.row.questions.length" class="no-words">{{ $t('chatDirection.noQuestions') }}</span>
+                      <ol v-else class="question-list">
+                        <li v-for="(q, idx) in scope.row.questions" :key="idx" class="question-item">
+                          <span class="question-text" :title="q.text">{{ q.text }}</span>
+                          <span class="question-count">{{ q.count }} {{ $t('chatDirection.times') }}</span>
+                        </li>
+                      </ol>
+                    </template>
+                  </el-table-column>
+                  <el-table-column :label="$t('chatDirection.colWords')" min-width="220">
                     <template slot-scope="scope">
                       <span v-if="!scope.row.words.length" class="no-words">{{ $t('chatDirection.noWords') }}</span>
                       <el-tag v-for="w in scope.row.words" :key="w.word" size="mini" class="word-tag"
@@ -696,6 +707,29 @@ export default {
 
 .word-tag {
   margin: 2px 6px 2px 0;
+}
+
+.question-list {
+  margin: 0;
+  padding-left: 20px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.question-item {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #2c3354;
+}
+
+.question-text {
+  word-break: break-word;
+}
+
+.question-count {
+  margin-left: 8px;
+  color: var(--sys-primary, #eb6800);
+  white-space: nowrap;
 }
 
 .no-words {

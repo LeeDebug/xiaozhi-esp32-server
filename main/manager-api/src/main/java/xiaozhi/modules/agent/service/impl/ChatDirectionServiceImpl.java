@@ -67,12 +67,15 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
     /** 单条提问参与分词的最大字符数 */
     private static final int MAX_TEXT_LENGTH = 2000;
 
-    /** 每个分组保留的高频词数量范围 */
+    /** 每个分组保留的高频问题 / 高频词数量范围 */
     private static final int MIN_TOP_N = 5;
     private static final int MAX_TOP_N = 100;
 
+    /** 单条问题展示与参与统计的最大字符数，超长问题截断，避免提示词超长 */
+    static final int MAX_QUESTION_LENGTH = 100;
+
     /** 发给大模型的内容上限（字符），超过时按分组从少到多截断，避免超长提示词 */
-    private static final int MAX_LLM_INPUT_CHARS = 6000;
+    private static final int MAX_LLM_INPUT_CHARS = 8000;
 
     /** 参与大模型分析的地区上限（按提问条数从高到低） */
     private static final int MAX_LLM_REGIONS = 20;
@@ -81,8 +84,11 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
     static final String UNKNOWN_REGION = "未知地区";
 
     /** 参数管理中没有配置提示词时的兜底（正常情况下由 Liquibase 写入 sys_params） */
-    private static final String FALLBACK_PROMPT = "请分析下面按地区汇总的用户高频提问关键词，归纳它们主要属于哪些方向，"
-            + "并按地区说明差异，最后给出建议。筛选条件：{filter}\n关键词：\n{conversation}";
+    private static final String FALLBACK_PROMPT = "请分析下面按地区汇总的用户高频提问，先把意思相近的问题归为一类，"
+            + "再归纳它们主要属于哪些方向，并按地区说明差异，最后给出建议。筛选条件：{filter}\n高频提问：\n{conversation}";
+
+    /** 问题首尾需要去掉的标点、语气符号（中英文） */
+    private static final String EDGE_PUNCT = "[\\s\\p{Punct}，。！？、；：“”‘’（）【】《》…～·]+";
 
     private final ChatDirectionQueryDao chatDirectionQueryDao;
     private final ChatDirectionAnalysisDao chatDirectionAnalysisDao;
@@ -131,17 +137,21 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
             if (text.length() > MAX_TEXT_LENGTH) {
                 text = text.substring(0, MAX_TEXT_LENGTH);
             }
+            String question = normalizeQuestion(text);
+            if (question == null) {
+                continue;
+            }
             List<String> tokens = chatTextTokenizer.tokenize(text);
             messageCount++;
             String region = StringUtils.defaultIfBlank(asString(row.get("province")), UNKNOWN_REGION);
-            regionCounter.computeIfAbsent(region, k -> new Counter()).add(tokens);
+            regionCounter.computeIfAbsent(region, k -> new Counter()).add(question, tokens);
             String agentId = asString(row.get("agent_id"));
             if (StringUtils.isNotBlank(agentId)) {
-                agentCounter.computeIfAbsent(agentId, k -> new Counter()).add(tokens);
+                agentCounter.computeIfAbsent(agentId, k -> new Counter()).add(question, tokens);
             }
             String mac = asString(row.get("mac_address"));
             if (StringUtils.isNotBlank(mac)) {
-                deviceCounter.computeIfAbsent(mac, k -> new Counter()).add(tokens);
+                deviceCounter.computeIfAbsent(mac, k -> new Counter()).add(question, tokens);
             }
         }
         result.setMessageCount(messageCount);
@@ -295,6 +305,7 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
                     String name = nameResolver.apply(e.getKey());
                     group.setName(StringUtils.defaultIfBlank(name, e.getKey()));
                     group.setMessageCount(e.getValue().messages);
+                    group.setQuestions(e.getValue().topQuestions(topN));
                     group.setWords(e.getValue().top(topN));
                     return group;
                 })
@@ -302,27 +313,43 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
     }
 
     /**
-     * 把地区统计组装成大模型输入：“地区（N 条提问）：词1(次数)、词2(次数)…”。
+     * 把地区统计组装成大模型输入：每个地区一段，下面逐行列出「- 问题（N 次）」。
      * 地区按提问条数从高到低取前 MAX_LLM_REGIONS 个，总长度超限即停止追加，避免超长提示词。
      */
-    private String buildLlmInput(ChatDirectionVO direction) {
+    String buildLlmInput(ChatDirectionVO direction) {
         StringBuilder sb = new StringBuilder();
         int regions = 0;
         for (ChatDirectionVO.Group group : direction.getRegions()) {
             if (regions >= MAX_LLM_REGIONS) {
                 break;
             }
-            String line = group.getName() + "（" + group.getMessageCount() + " 条提问）："
-                    + group.getWords().stream().map(w -> w.getWord() + "(" + w.getCount() + ")")
-                            .collect(Collectors.joining("、"))
-                    + "\n";
-            if (sb.length() > 0 && sb.length() + line.length() > MAX_LLM_INPUT_CHARS) {
+            StringBuilder block = new StringBuilder();
+            block.append(group.getName()).append("（").append(group.getMessageCount()).append(" 条提问）：\n");
+            for (ChatDirectionVO.Question q : group.getQuestions()) {
+                block.append("- ").append(q.getText()).append("（").append(q.getCount()).append(" 次）\n");
+            }
+            if (sb.length() > 0 && sb.length() + block.length() > MAX_LLM_INPUT_CHARS) {
                 break;
             }
-            sb.append(line);
+            sb.append(block).append("\n");
             regions++;
         }
         return sb.toString();
+    }
+
+    /**
+     * 问题归一化：去掉首尾空白与标点、压缩中间空白，超长截断。
+     * 归一化后为空（例如只有「嗯」「。」）或只有一个字的提问没有统计意义，返回 null。
+     */
+    static String normalizeQuestion(String text) {
+        if (text == null) {
+            return null;
+        }
+        String q = text.replaceAll("\\s+", " ").replaceAll("^" + EDGE_PUNCT, "").replaceAll(EDGE_PUNCT + "$", "");
+        if (q.length() < 2) {
+            return null;
+        }
+        return q.length() > MAX_QUESTION_LENGTH ? q.substring(0, MAX_QUESTION_LENGTH) : q;
     }
 
     /** 把筛选条件描述成一句话，填入提示词的 {filter} */
@@ -466,13 +493,17 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         return value == null ? null : value.toString();
     }
 
-    /** 分组计数器：提问条数 + 词频 */
+    /** 分组计数器：提问条数 + 高频问题 + 词频 */
     private static class Counter {
         private long messages;
+        /** 归一化 key（小写）→ 问题统计；展示文本取最先遇到的写法，明细按时间倒序读取，即最近一次的写法 */
+        private final Map<String, QuestionStat> questions = new HashMap<>();
         private final Map<String, Long> words = new HashMap<>();
 
-        void add(List<String> tokens) {
+        void add(String question, List<String> tokens) {
             messages++;
+            questions.computeIfAbsent(question.toLowerCase(java.util.Locale.ROOT), k -> new QuestionStat(question))
+                    .count++;
             // 同一条提问里重复的词只计一次，避免一句话重复说法把某个词拉高
             Set<String> unique = new HashSet<>(tokens);
             for (String token : unique) {
@@ -489,6 +520,27 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
                     .limit(topN)
                     .map(e -> new ChatDirectionVO.Word(e.getKey(), e.getValue()))
                     .collect(Collectors.toList());
+        }
+
+        /** 按出现次数倒序取前 N 个问题；次数相同时按问题文本排序，保证结果稳定 */
+        List<ChatDirectionVO.Question> topQuestions(int topN) {
+            return questions.values().stream()
+                    .sorted((a, b) -> {
+                        int byCount = Long.compare(b.count, a.count);
+                        return byCount != 0 ? byCount : a.text.compareTo(b.text);
+                    })
+                    .limit(topN)
+                    .map(s -> new ChatDirectionVO.Question(s.text, s.count))
+                    .collect(Collectors.toList());
+        }
+    }
+
+    private static class QuestionStat {
+        private final String text;
+        private long count;
+
+        QuestionStat(String text) {
+            this.text = text;
         }
     }
 }
