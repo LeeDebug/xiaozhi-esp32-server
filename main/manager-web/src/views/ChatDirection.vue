@@ -94,43 +94,6 @@
                 </div>
               </div>
 
-              <!-- 通过 AI 大模型总结：对当前筛选结果归纳提问方向，记录每一次分析，默认展示最近一次 -->
-              <div class="chart-card ai-panel">
-                <div class="ai-header">
-                  <div>
-                    <h3 class="section-title">{{ $t('chatDirection.aiTitle') }}</h3>
-                    <p class="chart-hint">{{ $t('chatDirection.aiHint') }}</p>
-                  </div>
-                  <CustomButton icon="el-icon-magic-stick" type="primary" :loading="analyzing" :disabled="analyzing"
-                    @click="analyzeByLlm">
-                    {{ analyzing ? $t('chatDirection.aiRunning') : $t('chatDirection.aiButton') }}
-                  </CustomButton>
-                </div>
-
-                <div v-if="currentAnalysis" class="ai-result">
-                  <div class="ai-meta">
-                    <span class="ai-meta-item">{{ $t('chatDirection.aiViewing') }}</span>
-                    <el-tag v-if="isLatest(currentAnalysis)" size="mini" type="success">{{ $t('chatDirection.aiLatest') }}</el-tag>
-                    <span class="ai-meta-item">{{ $t('chatDirection.aiTime') }}：{{ currentAnalysis.createdAt || '-' }}</span>
-                    <span class="ai-meta-item">{{ $t('chatDirection.aiModel') }}：{{ currentAnalysis.modelName || '-' }}</span>
-                    <span v-if="analysisOwner(currentAnalysis)" class="ai-meta-item">{{ analysisOwner(currentAnalysis) }}</span>
-                  </div>
-                  <div class="ai-condition">{{ $t('chatDirection.aiCondition') }}：{{ conditionText(currentAnalysis) }}</div>
-                  <!-- 大模型输出按纯文本展示，不使用 v-html，避免输出内容中的标签被执行 -->
-                  <div class="ai-text">{{ currentAnalysis.result }}</div>
-                </div>
-                <div v-else class="ai-empty">{{ $t('chatDirection.aiEmpty') }}</div>
-
-                <div v-if="history.length > 1" class="ai-history">
-                  <div class="ai-history-title">{{ $t('chatDirection.aiHistory') }}</div>
-                  <div v-for="item in history" :key="item.id" class="ai-history-item"
-                    :class="{ active: currentAnalysis && currentAnalysis.id === item.id }" @click="currentAnalysis = item">
-                    <span class="ai-history-time">{{ item.createdAt }}</span>
-                    <span class="ai-history-cond">{{ conditionText(item) }}</span>
-                  </div>
-                </div>
-              </div>
-
               <div class="chart-card">
                 <el-tabs v-model="activeTab">
                   <el-tab-pane :label="$t('chatDirection.tabRegion')" name="regions" />
@@ -166,16 +129,45 @@
               <i class="el-icon-chat-line-square empty-icon"></i>
               <p class="empty-title">{{ $t('chatDirection.emptyTitle') }}</p>
               <p class="empty-desc">{{ $t('chatDirection.emptyDesc') }}</p>
-              <!-- 当前条件没有数据时仍展示历史分析记录，默认显示最近一次 -->
-              <div v-if="currentAnalysis" class="chart-card ai-panel ai-panel-standalone">
-                <div class="ai-meta">
-                  <span class="ai-meta-item">{{ $t('chatDirection.aiViewing') }}</span>
-                  <span class="ai-meta-item">{{ $t('chatDirection.aiTime') }}：{{ currentAnalysis.createdAt || '-' }}</span>
-                  <span class="ai-meta-item">{{ $t('chatDirection.aiModel') }}：{{ currentAnalysis.modelName || '-' }}</span>
+            </div>
+
+            <!-- AI 大模型方向分析：固定在页面最下方；每次分析一条记录，可折叠，默认只展开最近一次。
+                 当前筛选条件没有数据时也展示，方便查看历史分析记录 -->
+            <div class="chart-card ai-panel">
+              <div class="ai-header">
+                <div>
+                  <h3 class="section-title">{{ $t('chatDirection.aiTitle') }}</h3>
+                  <p class="chart-hint">{{ $t('chatDirection.aiHint') }}</p>
                 </div>
-                <div class="ai-condition">{{ $t('chatDirection.aiCondition') }}：{{ conditionText(currentAnalysis) }}</div>
-                <div class="ai-text">{{ currentAnalysis.result }}</div>
+                <CustomButton icon="el-icon-magic-stick" type="primary" :loading="analyzing"
+                  :disabled="analyzing || !hasData" @click="analyzeByLlm">
+                  {{ analyzing ? $t('chatDirection.aiRunning') : $t('chatDirection.aiButton') }}
+                </CustomButton>
               </div>
+
+              <div v-if="!history.length" class="ai-empty">{{ $t('chatDirection.aiEmpty') }}</div>
+              <template v-else>
+                <div class="ai-history-title">{{ $t('chatDirection.aiHistory') }}（{{ history.length }}）</div>
+                <el-collapse v-model="expandedIds" class="ai-collapse">
+                  <el-collapse-item v-for="item in history" :key="item.id" :name="item.id">
+                    <template slot="title">
+                      <div class="ai-record-title">
+                        <el-tag v-if="isLatest(item)" size="mini" type="success">{{ $t('chatDirection.aiLatest') }}</el-tag>
+                        <span class="ai-record-time">{{ item.createdAt || '-' }}</span>
+                        <span class="ai-record-cond" :title="conditionText(item)">{{ conditionText(item) }}</span>
+                      </div>
+                    </template>
+                    <div class="ai-meta">
+                      <span class="ai-meta-item">{{ $t('chatDirection.aiTime') }}：{{ item.createdAt || '-' }}</span>
+                      <span class="ai-meta-item">{{ $t('chatDirection.aiModel') }}：{{ item.modelName || '-' }}</span>
+                      <span v-if="analysisOwner(item)" class="ai-meta-item">{{ analysisOwner(item) }}</span>
+                    </div>
+                    <div class="ai-condition">{{ $t('chatDirection.aiCondition') }}：{{ conditionText(item) }}</div>
+                    <!-- 大模型输出按纯文本展示，不使用 v-html，避免输出内容中的标签被执行 -->
+                    <div class="ai-text">{{ item.result }}</div>
+                  </el-collapse-item>
+                </el-collapse>
+              </template>
             </div>
           </el-card>
         </div>
@@ -248,7 +240,8 @@ export default {
       // 大模型分析
       analyzing: false,
       history: [],
-      currentAnalysis: null
+      // 展开的分析记录 id（el-collapse 绑定）；默认只展开最近一次
+      expandedIds: []
     };
   },
   computed: {
@@ -375,9 +368,9 @@ export default {
       Api.chatHistory.getChatDirectionHistory({ limit: 20 }, ({ data }) => {
         if (data && data.code === 0) {
           this.history = data.data || [];
-          // 最新的在前；用户已经手动点选了某条时不覆盖
-          if (!this.currentAnalysis && this.history.length) {
-            this.currentAnalysis = this.history[0];
+          // 最新的在前；用户已经手动展开过某些记录时不覆盖
+          if (!this.expandedIds.length && this.history.length) {
+            this.expandedIds = [this.history[0].id];
           }
         }
       }, () => {
@@ -398,7 +391,8 @@ export default {
           this.$message.success(this.$t('chatDirection.aiSuccess'));
           // 新记录插到最前并选中，历史列表保留之前的记录
           this.history = [data.data].concat(this.history.filter((h) => h.id !== data.data.id));
-          this.currentAnalysis = data.data;
+          // 新记录默认展开，之前展开的记录保持原状
+          this.expandedIds = [data.data.id].concat(this.expandedIds.filter((id) => id !== data.data.id));
         } else {
           this.$message.error((data && data.msg) || this.$t('chatDirection.aiFailed'));
         }
@@ -622,10 +616,6 @@ export default {
   gap: 16px;
 }
 
-.ai-result {
-  margin-top: 4px;
-}
-
 .ai-meta {
   display: flex;
   flex-wrap: wrap;
@@ -660,49 +650,53 @@ export default {
   padding: 12px 0 4px;
 }
 
-.ai-history {
-  margin-top: 16px;
-  border-top: 1px dashed #ebe8e8;
-  padding-top: 12px;
-}
-
 .ai-history-title {
   font-size: 13px;
   font-weight: 600;
   color: #606266;
-  margin-bottom: 8px;
+  margin: 4px 0 8px;
 }
 
-.ai-history-item {
+/* 分析记录折叠列表：标题行显示最新标记 + 分析时间 + 筛选条件，展开后显示完整分析结果 */
+.ai-collapse {
+  border-top: 1px solid #f3f1f1;
+  border-bottom: none;
+}
+
+.ai-collapse ::v-deep .el-collapse-item__header {
+  height: auto;
+  min-height: 44px;
+  line-height: 1.5;
+  padding: 8px 0;
+}
+
+.ai-collapse ::v-deep .el-collapse-item__content {
+  padding-bottom: 16px;
+}
+
+.ai-record-title {
   display: flex;
-  gap: 14px;
-  padding: 6px 10px;
-  border-radius: 6px;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding-right: 12px;
   font-size: 13px;
-  cursor: pointer;
-  color: #606266;
-}
-
-.ai-history-item:hover {
-  background: #faf9f8;
-}
-
-.ai-history-item.active {
-  background: var(--sys-primary-bg-soft);
   color: #2c3354;
 }
 
-.ai-history-time {
+.ai-record-time {
   flex: none;
-  width: 160px;
+  font-weight: 600;
 }
 
-.ai-history-cond {
+.ai-record-cond {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #8a93b8;
 }
 
 .word-tag {
@@ -765,9 +759,4 @@ export default {
   text-align: center;
 }
 
-.ai-panel-standalone {
-  width: 100%;
-  margin: 24px 0 0;
-  text-align: left;
-}
 </style>
