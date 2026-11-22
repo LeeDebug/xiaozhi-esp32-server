@@ -23,6 +23,7 @@ import xiaozhi.modules.agent.dao.ChatDirectionQueryDao;
 import xiaozhi.modules.agent.dto.ChatDirectionQueryDTO;
 import xiaozhi.modules.agent.dto.ChatDirectionRequestDTO;
 import xiaozhi.modules.agent.service.ChatTextTokenizer;
+import xiaozhi.modules.agent.service.ChatWakeupWordFilter;
 import xiaozhi.modules.agent.vo.ChatDirectionVO;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.llm.service.LLMService;
@@ -41,6 +42,12 @@ class ChatDirectionServiceImplTest {
     }
 
     private ChatDirectionServiceImpl service(List<Map<String, Object>> rows) {
+        return service(rows, new ArrayList<>());
+    }
+
+    private ChatDirectionServiceImpl service(List<Map<String, Object>> rows, List<String> wakeupWords) {
+        ChatWakeupWordFilter filter = mock(ChatWakeupWordFilter.class);
+        when(filter.activeWords()).thenReturn(wakeupWords);
         ChatDirectionQueryDao queryDao = mock(ChatDirectionQueryDao.class);
         when(queryDao.selectUserQuestionRows(any(ChatDirectionQueryDTO.class))).thenReturn(rows);
         UserDataScopeService scope = mock(UserDataScopeService.class);
@@ -50,7 +57,25 @@ class ChatDirectionServiceImplTest {
                 Arrays.asList(((String) inv.getArgument(0)).split(" "))));
         return new ChatDirectionServiceImpl(queryDao, mock(ChatDirectionAnalysisDao.class), mock(AgentDao.class),
                 mock(DeviceDao.class), tokenizer, scope, mock(SysParamsService.class), mock(LLMService.class),
-                mock(ModelConfigService.class));
+                mock(ModelConfigService.class), filter);
+    }
+
+    @Test
+    @DisplayName("开启唤醒词过滤后，问题中的唤醒词被去掉，只有唤醒词的提问不计入")
+    void wakeupWordsAreStripped() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        rows.add(row("山东省", "你好小智，水温多少"));
+        rows.add(row("山东省", "水温多少"));
+        rows.add(row("山东省", "小牧博士"));
+
+        ChatDirectionVO vo = service(rows, Arrays.asList("小牧博士", "你好小智"))
+                .getChatDirection(new ChatDirectionRequestDTO(), 1L, 20);
+
+        assertEquals(2, vo.getMessageCount());
+        ChatDirectionVO.Group group = vo.getRegions().get(0);
+        assertEquals(1, group.getQuestions().size());
+        assertEquals("水温多少", group.getQuestions().get(0).getText());
+        assertEquals(2, group.getQuestions().get(0).getCount());
     }
 
     @Test

@@ -30,6 +30,7 @@ import xiaozhi.modules.agent.dto.ChatRecordQueryDTO;
 import xiaozhi.modules.agent.dto.ChatSessionQueryDTO;
 import xiaozhi.modules.agent.service.AgentChatTitleService;
 import xiaozhi.modules.agent.service.ChatTextTokenizer;
+import xiaozhi.modules.agent.service.ChatWakeupWordFilter;
 import xiaozhi.modules.agent.vo.ChatWordCloudVO;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.sys.service.UserDataScopeService;
@@ -56,7 +57,7 @@ class AgentChatHistoryWordCloudTest {
             AgentDao agentDao, ChatTextTokenizer tokenizer) {
         AgentChatHistoryServiceImpl service = new AgentChatHistoryServiceImpl(
                 mock(AgentChatTitleService.class), agentDao, mock(AgentChatTitleDao.class),
-                mock(DeviceDao.class), scope, tokenizer);
+                mock(DeviceDao.class), scope, tokenizer, mock(ChatWakeupWordFilter.class));
         ReflectionTestUtils.setField(service, "baseMapper", dao);
         return service;
     }

@@ -49,6 +49,7 @@ import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentChatTitleService;
 import xiaozhi.modules.agent.service.ChatTextTokenizer;
+import xiaozhi.modules.agent.service.ChatWakeupWordFilter;
 import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
 import xiaozhi.modules.agent.vo.ChatAnalyticsVO;
 import xiaozhi.modules.agent.vo.ChatRecordFilterVO;
@@ -77,6 +78,7 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
     private final DeviceDao deviceDao;
     private final UserDataScopeService userDataScopeService;
     private final ChatTextTokenizer chatTextTokenizer;
+    private final ChatWakeupWordFilter chatWakeupWordFilter;
 
     /** 页面展示统一使用中国标准时间，避免依赖浏览器或 JVM 默认时区。 */
     private static final ZoneId CHINA_ZONE = ZoneId.of("Asia/Shanghai");
@@ -1068,9 +1070,12 @@ public class AgentChatHistoryServiceImpl extends CrudRepository<AiAgentChatHisto
         Map<String, WordStat> user = new HashMap<>();
         Map<String, WordStat> agent = new HashMap<>();
         long totalWords = 0;
+        // 参数「会话分析是否过滤唤醒词」开启时，统计前去掉 wakeup_words 中的唤醒词
+        List<String> wakeupWords = chatWakeupWordFilter.activeWords();
         for (Map<String, Object> row : rows) {
             String rowSessionId = asString(row.get("session_id"));
-            String text = extractContentFromString(asString(row.get("content")));
+            String text = ChatWakeupWordFilter.strip(
+                    extractContentFromString(asString(row.get("content"))), wakeupWords);
             if (StringUtils.isBlank(text)) {
                 continue;
             }

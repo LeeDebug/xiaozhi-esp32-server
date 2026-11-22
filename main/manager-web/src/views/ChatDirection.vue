@@ -152,8 +152,8 @@
                   <el-collapse-item v-for="item in history" :key="item.id" :name="item.id">
                     <template slot="title">
                       <div class="ai-record-title">
-                        <el-tag v-if="isLatest(item)" size="mini" type="success">{{ $t('chatDirection.aiLatest') }}</el-tag>
                         <span class="ai-record-time">{{ item.createdAt || '-' }}</span>
+                        <el-tag v-if="isLatest(item)" size="mini" type="success">{{ $t('chatDirection.aiLatest') }}</el-tag>
                         <span class="ai-record-cond" :title="conditionText(item)">{{ conditionText(item) }}</span>
                       </div>
                     </template>
@@ -642,6 +642,7 @@ export default {
   background: #faf9f8;
   border-radius: 8px;
   padding: 14px 16px;
+  text-align: left;
 }
 
 .ai-empty {
@@ -697,6 +698,7 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #8a93b8;
+  text-align: right;
 }
 
 .word-tag {

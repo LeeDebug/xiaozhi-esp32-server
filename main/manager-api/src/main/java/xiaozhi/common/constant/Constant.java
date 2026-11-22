@@ -127,6 +127,16 @@ public interface Constant {
     String SERVER_CHAT_DIRECTION_PROMPT = "server.chat_direction_question_prompt";
 
     /**
+     * 会话分析（高频词 / 高频方向）是否过滤唤醒词，默认 true
+     */
+    String SERVER_CHAT_ANALYSIS_FILTER_WAKEUP_WORDS = "server.chat_analysis_filter_wakeup_words";
+
+    /**
+     * 唤醒词列表（分号分隔）
+     */
+    String WAKEUP_WORDS = "wakeup_words";
+
+    /**
      * 下发六位验证码时显示的控制面板地址
      */
     String SERVER_FRONTED_URL = "server.fronted_url";

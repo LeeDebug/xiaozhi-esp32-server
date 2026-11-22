@@ -36,6 +36,7 @@ import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.entity.ChatDirectionAnalysisEntity;
 import xiaozhi.modules.agent.service.ChatDirectionService;
 import xiaozhi.modules.agent.service.ChatTextTokenizer;
+import xiaozhi.modules.agent.service.ChatWakeupWordFilter;
 import xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO;
 import xiaozhi.modules.agent.vo.ChatDirectionVO;
 import xiaozhi.modules.device.dao.DeviceDao;
@@ -99,6 +100,7 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
     private final SysParamsService sysParamsService;
     private final LLMService llmService;
     private final ModelConfigService modelConfigService;
+    private final ChatWakeupWordFilter chatWakeupWordFilter;
 
     // ---------------- 统计 ----------------
 
@@ -129,8 +131,10 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         Map<String, Counter> agentCounter = new LinkedHashMap<>();
         Map<String, Counter> deviceCounter = new LinkedHashMap<>();
         long messageCount = 0;
+        // 参数「会话分析是否过滤唤醒词」开启时，统计前去掉 wakeup_words 中的唤醒词
+        List<String> wakeupWords = chatWakeupWordFilter.activeWords();
         for (Map<String, Object> row : rows) {
-            String text = extractContent(asString(row.get("content")));
+            String text = ChatWakeupWordFilter.strip(extractContent(asString(row.get("content"))), wakeupWords);
             if (StringUtils.isBlank(text)) {
                 continue;
             }
