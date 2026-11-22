@@ -18,6 +18,7 @@ import xiaozhi.common.utils.Result;
 import xiaozhi.modules.agent.dto.ChatDirectionRequestDTO;
 import xiaozhi.modules.agent.service.ChatDirectionService;
 import xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO;
+import xiaozhi.modules.agent.vo.ChatDirectionPromptPreviewVO;
 import xiaozhi.modules.agent.vo.ChatDirectionVO;
 import xiaozhi.modules.security.user.SecurityUser;
 
@@ -50,6 +51,17 @@ public class ChatDirectionController {
     public Result<ChatDirectionAnalysisVO> analyze(@RequestBody ChatDirectionRequestDTO request) {
         return new Result<ChatDirectionAnalysisVO>()
                 .ok(chatDirectionService.analyzeByLlm(request, SecurityUser.getUserId(), request.getTopN()));
+    }
+
+    /**
+     * 预览大模型提示词：只组装内容，不调用大模型，用于确认后再触发总结。
+     */
+    @Operation(summary = "预览大模型提示词")
+    @RequiresPermissions("sys:role:normal")
+    @PostMapping("/preview")
+    public Result<ChatDirectionPromptPreviewVO> preview(@RequestBody ChatDirectionRequestDTO request) {
+        return new Result<ChatDirectionPromptPreviewVO>()
+                .ok(chatDirectionService.previewPrompt(request, SecurityUser.getUserId(), request.getTopN()));
     }
 
     /**

@@ -38,6 +38,7 @@ import xiaozhi.modules.agent.service.ChatDirectionService;
 import xiaozhi.modules.agent.service.ChatTextTokenizer;
 import xiaozhi.modules.agent.service.ChatWakeupWordFilter;
 import xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO;
+import xiaozhi.modules.agent.vo.ChatDirectionPromptPreviewVO;
 import xiaozhi.modules.agent.vo.ChatDirectionVO;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.entity.DeviceEntity;
@@ -179,10 +180,8 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         }
 
         String input = buildLlmInput(direction);
-        String prompt = StringUtils.defaultIfBlank(
-                sysParamsService.getValue(Constant.SERVER_CHAT_DIRECTION_PROMPT, true), FALLBACK_PROMPT);
         // LLMService 只替换 {conversation}，{filter} 在这里先填好
-        prompt = prompt.replace("{filter}", describeFilter(req));
+        String prompt = resolvePromptTemplate().replace("{filter}", describeFilter(req));
 
         String answer = llmService.generateSummary(input, prompt);
         if (isLlmFailure(answer)) {
@@ -204,6 +203,37 @@ public class ChatDirectionServiceImpl implements ChatDirectionService {
         chatDirectionAnalysisDao.insert(entity);
         return toAnalysisVO(entity, loadAgentNameMap(Collections.singleton(entity.getAgentId())),
                 Collections.emptyMap(), Collections.emptyMap());
+    }
+
+    @Override
+    public ChatDirectionPromptPreviewVO previewPrompt(ChatDirectionRequestDTO request, Long userId, int topN) {
+        ChatDirectionRequestDTO req = request == null ? new ChatDirectionRequestDTO() : request;
+        ChatDirectionVO direction = getChatDirection(req, userId, topN);
+        if (direction.getRegions().isEmpty()) {
+            throw new RenException("当前筛选条件下没有可分析的用户提问数据");
+        }
+        String configured = sysParamsService.getValue(Constant.SERVER_CHAT_DIRECTION_PROMPT, true);
+        String template = StringUtils.defaultIfBlank(configured, FALLBACK_PROMPT);
+        String filterText = describeFilter(req);
+        String input = buildLlmInput(direction);
+
+        ChatDirectionPromptPreviewVO vo = new ChatDirectionPromptPreviewVO();
+        vo.setParamCode(Constant.SERVER_CHAT_DIRECTION_PROMPT);
+        vo.setTemplate(template);
+        vo.setFallback(StringUtils.isBlank(configured));
+        vo.setFilterText(filterText);
+        vo.setInput(input);
+        // 与 analyzeByLlm 的替换顺序一致，保证预览即实际发送的内容
+        vo.setFullPrompt(template.replace("{filter}", filterText).replace("{conversation}", input));
+        vo.setModelName(resolveDefaultModelName());
+        vo.setLlmAvailable(llmService.isAvailable());
+        return vo;
+    }
+
+    /** 参数管理中的提示词模板，未配置时使用内置兜底 */
+    private String resolvePromptTemplate() {
+        return StringUtils.defaultIfBlank(
+                sysParamsService.getValue(Constant.SERVER_CHAT_DIRECTION_PROMPT, true), FALLBACK_PROMPT);
     }
 
     @Override

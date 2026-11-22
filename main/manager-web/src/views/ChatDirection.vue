@@ -140,7 +140,7 @@
                   <p class="chart-hint">{{ $t('chatDirection.aiHint') }}</p>
                 </div>
                 <CustomButton icon="el-icon-magic-stick" type="primary" :loading="analyzing"
-                  :disabled="analyzing || !hasData" @click="analyzeByLlm">
+                  :disabled="analyzing || previewLoading || !hasData" @click="openPreview">
                   {{ analyzing ? $t('chatDirection.aiRunning') : $t('chatDirection.aiButton') }}
                 </CustomButton>
               </div>
@@ -173,6 +173,38 @@
         </div>
       </div>
     </div>
+
+    <!-- 总结前先预览提示词，确认后才真正调用大模型，避免误点浪费次数 -->
+    <el-dialog :title="$t('chatDirection.previewTitle')" :visible.sync="previewVisible" width="760px"
+      :close-on-click-modal="!analyzing" :close-on-press-escape="!analyzing" :show-close="!analyzing"
+      append-to-body>
+      <div v-if="preview" class="preview-body">
+        <div class="ai-meta">
+          <span class="ai-meta-item">{{ $t('chatDirection.previewParam') }}：<code>{{ preview.paramCode }}</code></span>
+          <span class="ai-meta-item">{{ $t('chatDirection.aiModel') }}：{{ preview.modelName || '-' }}</span>
+        </div>
+        <el-alert v-if="preview.fallback" class="preview-alert" type="warning" show-icon :closable="false"
+          :title="$t('chatDirection.previewFallback')" />
+        <el-alert v-if="!preview.llmAvailable" class="preview-alert" type="error" show-icon :closable="false"
+          :title="$t('chatDirection.previewNoLlm')" />
+        <el-tabs v-model="previewTab">
+          <el-tab-pane :label="$t('chatDirection.previewTemplate')" name="template">
+            <pre class="preview-text">{{ preview.template }}</pre>
+          </el-tab-pane>
+          <el-tab-pane :label="$t('chatDirection.previewFull')" name="full">
+            <pre class="preview-text">{{ preview.fullPrompt }}</pre>
+          </el-tab-pane>
+        </el-tabs>
+        <p class="chart-hint">{{ $t('chatDirection.previewHint') }}</p>
+      </div>
+      <span slot="footer">
+        <el-button :disabled="analyzing" @click="previewVisible = false">{{ $t('chatDirection.previewCancel') }}</el-button>
+        <el-button type="primary" icon="el-icon-magic-stick" :loading="analyzing"
+          :disabled="!preview || !preview.llmAvailable" @click="analyzeByLlm">
+          {{ analyzing ? $t('chatDirection.aiRunning') : $t('chatDirection.previewConfirm') }}
+        </el-button>
+      </span>
+    </el-dialog>
 
     <el-footer><version-footer /></el-footer>
   </div>
@@ -239,6 +271,13 @@ export default {
       requestSeq: 0,
       // 大模型分析
       analyzing: false,
+      // 提示词预览弹窗
+      previewVisible: false,
+      previewLoading: false,
+      previewTab: 'template',
+      preview: null,
+      // 打开预览时的筛选参数，确认总结时原样提交，保证预览内容即分析内容
+      previewParams: null,
       history: [],
       // 展开的分析记录 id（el-collapse 绑定）；默认只展开最近一次
       expandedIds: []
@@ -378,16 +417,42 @@ export default {
       });
     },
 
-    analyzeByLlm() {
+    /** 点击「通过AI大模型总结」：先拉取提示词预览（不调用大模型），弹窗确认后才真正总结 */
+    openPreview() {
       if (!this.hasData) {
         this.$message.warning(this.$t('chatDirection.aiNeedData'));
         return;
       }
-      this.analyzing = true;
       const body = Object.assign({ topN: this.topN }, this.buildParams());
+      this.previewLoading = true;
+      Api.chatHistory.previewChatDirectionPrompt(body, ({ data }) => {
+        this.previewLoading = false;
+        if (data && data.code === 0 && data.data) {
+          this.preview = data.data;
+          this.previewParams = body;
+          this.previewTab = 'template';
+          this.previewVisible = true;
+        } else {
+          this.$message.error((data && data.msg) || this.$t('chatDirection.previewFailed'));
+        }
+      }, (err) => {
+        this.previewLoading = false;
+        const msg = err && err.data && err.data.msg;
+        this.$message.error(msg || this.$t('chatDirection.previewFailed'));
+      });
+    },
+
+    /** 弹窗中点击「确认总结」才会调用大模型 */
+    analyzeByLlm() {
+      if (!this.previewParams || this.analyzing) {
+        return;
+      }
+      this.analyzing = true;
+      const body = Object.assign({}, this.previewParams);
       Api.chatHistory.analyzeChatDirection(body, ({ data }) => {
         this.analyzing = false;
         if (data && data.code === 0 && data.data) {
+          this.previewVisible = false;
           this.$message.success(this.$t('chatDirection.aiSuccess'));
           // 新记录插到最前并选中，历史列表保留之前的记录
           this.history = [data.data].concat(this.history.filter((h) => h.id !== data.data.id));
@@ -726,6 +791,29 @@ export default {
   margin-left: 8px;
   color: var(--sys-primary, #eb6800);
   white-space: nowrap;
+}
+
+.preview-alert {
+  margin: 10px 0 4px;
+}
+
+.preview-text {
+  margin: 0;
+  max-height: 380px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #2c3354;
+  background: #faf9f8;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.preview-body .chart-hint {
+  margin: 10px 0 0;
 }
 
 .no-words {

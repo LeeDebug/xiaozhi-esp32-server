@@ -61,6 +61,37 @@ class ChatDirectionServiceImplTest {
     }
 
     @Test
+    @DisplayName("提示词预览只组装内容，不调用大模型；未配置参数时标记为兜底")
+    void previewDoesNotCallLlm() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        rows.add(row("山东省", "水温多少"));
+        ChatDirectionQueryDao queryDao = mock(ChatDirectionQueryDao.class);
+        when(queryDao.selectUserQuestionRows(any(ChatDirectionQueryDTO.class))).thenReturn(rows);
+        UserDataScopeService scope = mock(UserDataScopeService.class);
+        when(scope.canViewAllUserData()).thenReturn(true);
+        ChatTextTokenizer tokenizer = mock(ChatTextTokenizer.class);
+        when(tokenizer.tokenize(anyString())).thenReturn(new ArrayList<>());
+        SysParamsService params = mock(SysParamsService.class);
+        when(params.getValue(anyString(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn("条件：{filter}\n问题：\n{conversation}");
+        LLMService llm = mock(LLMService.class);
+        when(llm.isAvailable()).thenReturn(true);
+        ChatDirectionServiceImpl service = new ChatDirectionServiceImpl(queryDao, mock(ChatDirectionAnalysisDao.class),
+                mock(AgentDao.class), mock(DeviceDao.class), tokenizer, scope, params, llm,
+                mock(ModelConfigService.class), mock(ChatWakeupWordFilter.class));
+
+        xiaozhi.modules.agent.vo.ChatDirectionPromptPreviewVO vo =
+                service.previewPrompt(new ChatDirectionRequestDTO(), 1L, 20);
+
+        assertTrue(vo.getTemplate().contains("{conversation}"));
+        assertTrue(vo.getFullPrompt().contains("- 水温多少（1 次）"));
+        assertTrue(vo.getFullPrompt().contains("地区=全部"));
+        assertTrue(vo.isLlmAvailable());
+        org.junit.jupiter.api.Assertions.assertFalse(vo.isFallback());
+        org.mockito.Mockito.verify(llm, org.mockito.Mockito.never()).generateSummary(anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("开启唤醒词过滤后，问题中的唤醒词被去掉，只有唤醒词的提问不计入")
     void wakeupWordsAreStripped() {
         List<Map<String, Object>> rows = new ArrayList<>();

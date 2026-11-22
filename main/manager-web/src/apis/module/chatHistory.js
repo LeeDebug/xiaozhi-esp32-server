@@ -125,6 +125,26 @@ export default {
             }).send();
     },
 
+    // 预览大模型提示词：只组装内容，不调用大模型，不消耗次数
+    previewChatDirectionPrompt(params, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/chat-direction/preview`)
+            .method('POST')
+            .data(params)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                console.error('预览大模型提示词失败:', err);
+                if (failCallback) failCallback(err);
+            }).send();
+    },
+
     // 通过 AI 大模型总结当前筛选结果的高频方向。大模型调用较慢，超时放宽到 3 分钟
     analyzeChatDirection(params, callback, failCallback) {
         RequestService.sendRequest()

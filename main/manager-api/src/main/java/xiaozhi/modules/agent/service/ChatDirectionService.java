@@ -4,6 +4,7 @@ import java.util.List;
 
 import xiaozhi.modules.agent.dto.ChatDirectionRequestDTO;
 import xiaozhi.modules.agent.vo.ChatDirectionAnalysisVO;
+import xiaozhi.modules.agent.vo.ChatDirectionPromptPreviewVO;
 import xiaozhi.modules.agent.vo.ChatDirectionVO;
 
 /**
@@ -24,6 +25,11 @@ public interface ChatDirectionService {
      * 调用当前默认大模型，分析当前筛选结果的高频提问偏向哪些方向，并保存分析记录。
      */
     ChatDirectionAnalysisVO analyzeByLlm(ChatDirectionRequestDTO request, Long userId, int topN);
+
+    /**
+     * 预览将要发送给大模型的提示词与高频问题内容，不调用大模型、不保存记录。
+     */
+    ChatDirectionPromptPreviewVO previewPrompt(ChatDirectionRequestDTO request, Long userId, int topN);
 
     /**
      * 当前可见设备所在的省份列表（去重、按名称排序），用于地区筛选下拉。
