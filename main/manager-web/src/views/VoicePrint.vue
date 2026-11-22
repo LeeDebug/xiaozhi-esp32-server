@@ -7,6 +7,14 @@
                     <el-card class="voice-print-card" shadow="never">
                         <div class="operation-header">
                             <h2 class="page-title">{{ $t('voicePrint.pageTitle') }}</h2>
+                            <!-- 从顶部菜单进入时没有 agentId，需要在页面内选择智能体 -->
+                            <el-select v-model="agentId" filterable size="small" class="agent-select"
+                                :loading="agentLoading"
+                                :placeholder="$t('addressBookManagement.selectAgent')"
+                                @change="handleAgentChange">
+                                <el-option v-for="agent in agentOptions" :key="agent.id" :label="agent.agentName"
+                                    :value="agent.id" />
+                            </el-select>
                         </div>
                         <CustomTable
                             ref="paramsTable"
@@ -75,7 +83,9 @@ export default {
                 sourceName: '',
                 introduce: ''
             },
-            agentId: "1",
+            agentId: "",
+            agentOptions: [],
+            agentLoading: false,
             tableColumns: []
         };
     },
@@ -88,8 +98,38 @@ export default {
             this.agentId = agentId;
             this.fetchVoicePrints();
         }
+        this.fetchAgentOptions();
+    },
+    watch: {
+        // 同一页面内通过链接切换 agentId 时组件会复用，需要手动刷新
+        '$route.query.agentId'(newId) {
+            if (newId && newId !== this.agentId) {
+                this.agentId = newId;
+                this.fetchVoicePrints();
+            }
+        }
     },
     methods: {
+        fetchAgentOptions() {
+            this.agentLoading = true;
+            Api.agent.getAgentList(({ data }) => {
+                this.agentLoading = false;
+                this.agentOptions = (data && data.data) || [];
+                // 未指定智能体时默认选中第一个
+                if (!this.agentId && this.agentOptions.length > 0) {
+                    this.handleAgentChange(this.agentOptions[0].id);
+                }
+            }, () => {
+                this.agentLoading = false;
+            });
+        },
+        handleAgentChange(agentId) {
+            this.agentId = agentId;
+            if (this.$route.query.agentId !== agentId) {
+                this.$router.replace({ path: this.$route.path, query: { ...this.$route.query, agentId } }).catch(() => {});
+            }
+            this.fetchVoicePrints();
+        },
         initTableColumns() {
             this.tableColumns = [
                 { prop: 'sourceName', label: this.$t('voicePrint.name'), align: 'center' },
@@ -98,6 +138,9 @@ export default {
             ];
         },
         fetchVoicePrints() {
+            if (!this.agentId) {
+                return;
+            }
             this.loading = true;
             Api.agent.getAgentVoicePrintList(this.agentId,
                 ({ data }) => {
@@ -132,6 +175,13 @@ export default {
             }
         },
         showAddDialog() {
+            if (!this.agentId) {
+                this.$message.warning({
+                    message: this.$t('addressBookManagement.selectAgent'),
+                    showClose: true
+                });
+                return;
+            }
             this.dialogTitle = this.$t('voicePrint.addSpeaker');
             this.paramForm = {
                 id: null,
@@ -297,6 +347,10 @@ export default {
 
 .ctrl_btn {
     display: flex;
+}
+
+.agent-select {
+    width: 240px;
 }
 
 :deep(.el-table .el-button--text) {

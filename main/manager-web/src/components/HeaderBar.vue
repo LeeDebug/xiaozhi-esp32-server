@@ -30,6 +30,9 @@
             <el-dropdown-item @click.native="handleRouter('deviceAnalytics')">
               {{ $t("header.deviceAnalytics") }}
             </el-dropdown-item>
+            <el-dropdown-item v-if="featureStatus.voiceprintRecognition" @click.native="handleRouter('voicePrint')">
+              {{ $t("voicePrint.pageTitle") }}
+            </el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
         <!-- 会话记录下拉菜单：会话记录列表 + 会话分析看板 -->
@@ -288,6 +291,7 @@ export default {
         home: "/home",
         deviceManagement: "/device-management",
         deviceAnalytics: "/device-analytics",
+        voicePrint: "/voice-print",
         chatHistory: "/chat-history",
         chatAnalytics: "/chat-analytics",
         chatWordCloud: "/chat-wordcloud",
@@ -318,6 +322,7 @@ export default {
   computed: {
     ...mapState({
       featureStatus: (state) => ({
+        voiceprintRecognition: state.pubConfig.systemWebMenu?.features?.voiceprintRecognition?.enabled, // 声纹识别功能状态
         voiceClone: state.pubConfig.systemWebMenu?.features?.voiceClone?.enabled, // 音色克隆功能状态
         knowledgeBase: state.pubConfig.systemWebMenu?.features?.knowledgeBase?.enabled, // 知识库功能状态
         addressBook: state.pubConfig.systemWebMenu?.features?.addressBook?.enabled, // 通讯录功能状态
@@ -326,7 +331,7 @@ export default {
     }),
     // “智能体管理”下拉对应的页面，任一页面激活时该标签高亮
     isSmartManagementActive() {
-      return ['/home', '/role-config', '/device-management', '/device-analytics'].includes(this.$route.path);
+      return ['/home', '/role-config', '/device-management', '/device-analytics', '/voice-print'].includes(this.$route.path);
     },
     // 获取当前语言
     currentLanguage() {
