@@ -2,6 +2,45 @@ import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
 export default {
+    // 获取设备上各声纹用户的权限
+    getVoiceprintPermission(deviceId, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/device/voiceprint-permission/${deviceId}`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                failCallback && failCallback(err);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.getVoiceprintPermission(deviceId, callback, failCallback);
+                });
+            }).send();
+    },
+    // 保存设备上各声纹用户的权限；permissions 为 null 表示恢复默认
+    saveVoiceprintPermission(deviceId, payload, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/device/voiceprint-permission/${deviceId}`)
+            .method('PUT')
+            .data(payload)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                failCallback && failCallback(err);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.saveVoiceprintPermission(deviceId, payload, callback, failCallback);
+                });
+            }).send();
+    },
     // 已绑设备
     getAgentBindDevices(agentId, callback, failCallback) {
         RequestService.sendRequest()

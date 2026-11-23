@@ -25,6 +25,7 @@ import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.AgentTemplateService;
 import xiaozhi.modules.correctword.service.CorrectWordFileService;
 import xiaozhi.modules.device.service.DeviceService;
+import xiaozhi.modules.device.service.DeviceVoicePrintPermissionService;
 import xiaozhi.modules.model.service.ModelConfigService;
 import xiaozhi.modules.sys.dto.SysParamsDTO;
 import xiaozhi.modules.sys.service.SysParamsService;
@@ -91,6 +92,7 @@ class ConfigServiceImplTest {
                 mock(AgentContextProviderService.class),
                 mock(VoiceCloneService.class),
                 mock(AgentVoicePrintDao.class),
-                mock(CorrectWordFileService.class));
+                mock(CorrectWordFileService.class),
+                mock(DeviceVoicePrintPermissionService.class));
     }
 }

@@ -94,6 +94,18 @@ class ToolManager:
                     response=f"工具类型 {tool_type.value} 的执行器未注册",
                 )
 
+            # 声纹权限：LLM 只拿到有权限的工具，这里再兜底拦截一次（意图识别模式也走这里）
+            policy = getattr(self.conn, "voiceprint_permission", None)
+            if policy is not None and not policy.is_allowed(tool_name, speaker):
+                speaker_id = getattr(speaker, "speaker_id", None)
+                self.logger.warning(
+                    f"声纹权限拦截工具: {tool_name}，说话人: {speaker_id or '未识别'}"
+                )
+                return ActionResponse(
+                    action=Action.RESPONSE,
+                    response=policy.deny_message(tool_name, speaker),
+                )
+
             # 执行工具
             self.logger.info(f"执行工具: {tool_name}，参数: {arguments}")
             result = await executor.execute(self.conn, tool_name, arguments, speaker=speaker)

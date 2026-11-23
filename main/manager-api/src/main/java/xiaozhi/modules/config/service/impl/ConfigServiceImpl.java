@@ -38,6 +38,7 @@ import xiaozhi.modules.correctword.vo.CorrectWordSimpleVO;
 import xiaozhi.modules.config.service.ConfigService;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceService;
+import xiaozhi.modules.device.service.DeviceVoicePrintPermissionService;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
 import xiaozhi.modules.sys.dto.SysParamsDTO;
@@ -63,6 +64,7 @@ public class ConfigServiceImpl implements ConfigService {
     private final VoiceCloneService cloneVoiceService;
     private final AgentVoicePrintDao agentVoicePrintDao;
     private final CorrectWordFileService correctWordFileService;
+    private final DeviceVoicePrintPermissionService deviceVoicePrintPermissionService;
 
     @Override
     public Map<String, Object> getConfig(Boolean isCache) {
@@ -224,6 +226,11 @@ public class ConfigServiceImpl implements ConfigService {
 
         // 获取声纹信息
         buildVoiceprintConfig(agent.getId(), result);
+        // 声纹权限（按设备 × 声纹），总开关关闭时不下发
+        Map<String, Object> voiceprintPermission = deviceVoicePrintPermissionService.buildDeliveryConfig(device);
+        if (voiceprintPermission != null) {
+            result.put("voiceprint_permission", voiceprintPermission);
+        }
 
         // 构建模块配置
         buildModuleConfig(

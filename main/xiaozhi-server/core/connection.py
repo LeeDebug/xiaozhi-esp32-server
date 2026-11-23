@@ -43,6 +43,7 @@ from config.logger import setup_logging, build_module_string, create_connection_
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException, generate_and_save_chat_title
 from core.utils.prompt_manager import PromptManager
 from core.utils.voiceprint_provider import VoiceprintProvider, UNKNOWN_SPEAKER_NAME
+from core.utils.voiceprint_permission import VoiceprintPermissionPolicy
 from core.utils.util import get_system_error_response
 from core.utils import textUtils
 
@@ -165,6 +166,8 @@ class ConnectionHandler:
 
         # 为每个连接单独管理声纹识别
         self.voiceprint_provider = None
+        # 声纹权限策略（按设备 × 声纹控制可用工具），未开启时为 None
+        self.voiceprint_permission = None
 
         # vad相关变量
         self.client_audio_buffer = bytearray()
@@ -796,6 +799,17 @@ class ConnectionHandler:
 
     def _initialize_voiceprint(self):
         """为当前连接初始化声纹识别"""
+        # 声纹权限与声纹服务是否可用无关：服务不可用时所有人都按「未识别」处理
+        try:
+            policy = VoiceprintPermissionPolicy(self.config.get("voiceprint_permission"))
+            self.voiceprint_permission = policy if policy.enabled else None
+            if policy.enabled:
+                self.logger.bind(tag=TAG).info(
+                    f"声纹权限已启用: 权限项={len(policy.items)}个, 已配置声纹={len(policy.speaker_permissions)}个"
+                )
+        except Exception as e:
+            self.voiceprint_permission = None
+            self.logger.bind(tag=TAG).warning(f"声纹权限初始化失败: {e}")
         try:
             voiceprint_config = self.config.get("voiceprint", {})
             if voiceprint_config:
@@ -931,6 +945,8 @@ class ConnectionHandler:
         # 获取声纹信息
         if private_config.get("voiceprint", None) is not None:
             self.config["voiceprint"] = private_config["voiceprint"]
+        if private_config.get("voiceprint_permission", None) is not None:
+            self.config["voiceprint_permission"] = private_config["voiceprint_permission"]
         if private_config.get("summaryMemory", None) is not None:
             self.config["summaryMemory"] = private_config["summaryMemory"]
         if private_config.get("device_max_output_size", None) is not None:
@@ -1230,6 +1246,9 @@ class ConnectionHandler:
                 and not force_final_answer
         ):
             functions = list(self.func_handler.get_functions())
+            # 声纹权限：只下发本轮说话人有权限的工具
+            if self.voiceprint_permission is not None:
+                functions = self.voiceprint_permission.filter_functions(functions, speaker)
             # 仅在第一层调用时注入 direct_answer 虚拟工具
             # 递归调用（depth>0）不注入，避免模型在生成文本回复时再次调 direct_answer 导致循环
             if functions is not None and depth == 0:

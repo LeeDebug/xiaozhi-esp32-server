@@ -23,7 +23,7 @@
               :show-selection="true"
               :show-operations="true"
               :operations-label="$t('device.operation')"
-              :operations-width="230"
+              :operations-width="300"
               :total="filteredDeviceList.length"
               :current-page="currentPage"
               :page-size="pageSize"
@@ -79,6 +79,10 @@
                 </el-button>
                 <el-button size="mini" type="text" @click="handleViewChatHistory(scope.row)">
                   {{ $t('chatRecords.deviceEntry') }}
+                </el-button>
+                <el-button v-if="voiceprintFeatureEnabled" size="mini" type="text"
+                  @click="handleVoiceprintPermission(scope.row)">
+                  {{ $t('device.voiceprintPermission') }}
                 </el-button>
               </template>
               <template slot="footer-btns">
@@ -136,6 +140,7 @@
       @refresh="reload" />
     <ManualAddDeviceDialog v-if="currentAgentId" :visible.sync="manualAddDeviceDialogVisible"
       :agent-id="currentAgentId" @refresh="reload" />
+    <VoicePrintPermissionDialog :visible.sync="permissionDialogVisible" :device-id="permissionDeviceId" />
     <el-footer>
       <version-footer />
     </el-footer>
@@ -152,6 +157,7 @@ import VersionFooter from "@/components/VersionFooter.vue";
 import MacAddressMask from "@/components/MacAddressMask.vue";
 import CustomButton from "@/components/CustomButton.vue";
 import CustomTable from "@/components/CustomTable.vue";
+import VoicePrintPermissionDialog from "@/components/VoicePrintPermissionDialog.vue";
 import { isSameName } from '@/utils/deviceRegion.mjs';
 import { COUNTRY_CODE, MUNICIPALITY_CODES, loadRegionOptions } from '@/utils/geoLoader';
 import {
@@ -172,6 +178,7 @@ export default {
     MacAddressMask,
     CustomButton,
     CustomTable,
+    VoicePrintPermissionDialog,
   },
   data() {
     return {
@@ -197,9 +204,15 @@ export default {
       userApi: null,
       firmwareTypes: [],
       mqttServiceAvailable: false,
+      permissionDialogVisible: false,
+      permissionDeviceId: '',
     };
   },
   computed: {
+    // 声纹权限入口跟随「功能管理 → 声纹识别」开关
+    voiceprintFeatureEnabled() {
+      return !!this.$store.state.pubConfig?.systemWebMenu?.features?.voiceprintRecognition?.enabled;
+    },
     filteredDeviceList() {
       const keyword = this.activeSearchKeyword.toLowerCase();
       if (!keyword) return this.deviceList;
@@ -509,6 +522,10 @@ export default {
       window.location.href = url;
     },
     // 跳转到会话记录页面，并自动按该设备筛选
+    handleVoiceprintPermission(row) {
+      this.permissionDeviceId = row.device_id;
+      this.permissionDialogVisible = true;
+    },
     handleViewChatHistory(row) {
       this.$router.push({ path: '/chat-history', query: { macAddress: row.macAddress } });
     },
